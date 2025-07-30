@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:dimaist/models/note.dart';
 import 'package:dimaist/models/project.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -275,7 +274,7 @@ class ApiService {
     }
   }
 
-  static Future<Note> sendAudio(List<int> audioBytes) async {
+  static Future<void> sendAudio(List<int> audioBytes) async {
     _logger.info('Sending audio...');
     try {
       var request = http.MultipartRequest(
@@ -293,88 +292,15 @@ class ApiService {
       if (response.statusCode == 200) {
         _logger.info('Audio sent successfully.');
         final responseBody = await response.stream.bytesToString();
-        return Note.fromJson(json.decode(responseBody));
+        print('Voice AI transcription result: $responseBody');
+        final decoded = json.decode(responseBody);
+        print('Transcription: ${decoded['content']}');
       } else {
         _logger.warning('Failed to send audio: ${response.statusCode}');
         throw Exception('Failed to send audio');
       }
     } catch (e) {
       _logger.severe('Error sending audio: $e');
-      rethrow;
-    }
-  }
-
-  static Future<List<Note>> getNotes() async {
-    _logger.info('Fetching notes...');
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/notes'));
-      if (response.statusCode == 200) {
-        final notes = (json.decode(response.body) as List)
-            .map((data) => Note.fromJson(data))
-            .toList();
-        _logger.info('Notes fetched successfully.');
-        return notes;
-      } else {
-        _logger.warning('Failed to fetch notes: ${response.statusCode}');
-        throw Exception('Failed to fetch notes');
-      }
-    } catch (e) {
-      _logger.severe('Error fetching notes: $e');
-      rethrow;
-    }
-  }
-
-  static Future<Note> createNote(Note note) async {
-    _logger.info('Creating note...');
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/notes'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(note.toJson()),
-      );
-      if (response.statusCode == 200) {
-        _logger.info('Note created successfully.');
-        return Note.fromJson(json.decode(response.body));
-      } else {
-        _logger.warning('Failed to create note: ${response.statusCode}');
-        throw Exception('Failed to create note');
-      }
-    } catch (e) {
-      _logger.severe('Error creating note: $e');
-      rethrow;
-    }
-  }
-
-  static Future<void> updateNote(int id, Note note) async {
-    _logger.info('Updating note $id...');
-    try {
-      final response = await http.put(
-        Uri.parse('$baseUrl/notes/$id'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(note.toJson()),
-      );
-      if (response.statusCode != 200) {
-        _logger.warning('Failed to update note $id: ${response.statusCode}');
-        throw Exception('Failed to update note');
-      }
-      _logger.info('Note $id updated successfully.');
-    } catch (e) {
-      _logger.severe('Error updating note $id: $e');
-      rethrow;
-    }
-  }
-
-  static Future<void> deleteNote(int id) async {
-    _logger.info('Deleting note $id...');
-    try {
-      final response = await http.delete(Uri.parse('$baseUrl/notes/$id'));
-      if (response.statusCode != 200) {
-        _logger.warning('Failed to delete note $id: ${response.statusCode}');
-        throw Exception('Failed to delete note');
-      }
-      _logger.info('Note $id deleted successfully.');
-    } catch (e) {
-      _logger.severe('Error deleting note $id: $e');
       rethrow;
     }
   }

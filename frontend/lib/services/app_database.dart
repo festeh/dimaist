@@ -6,7 +6,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:dimaist/models/project.dart' as project_model;
 import 'package:dimaist/models/task.dart' as task_model;
-import 'package:dimaist/models/note.dart' as note_model;
 
 part 'app_database.g.dart';
 
@@ -142,17 +141,7 @@ class Tasks extends Table {
   TextColumn get recurrence => text().nullable()();
 }
 
-@UseRowClass(note_model.Note)
-class Notes extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  TextColumn get title => text()();
-  TextColumn get content => text()();
-  IntColumn get audioId => integer().nullable()();
-  DateTimeColumn get createdAt => dateTime().nullable()();
-  DateTimeColumn get updatedAt => dateTime().nullable()();
-}
-
-@DriftDatabase(tables: [Projects, Tasks, Notes])
+@DriftDatabase(tables: [Projects, Tasks])
 class AppDatabase extends _$AppDatabase {
   static AppDatabase? _instance;
 
@@ -173,13 +162,13 @@ class AppDatabase extends _$AppDatabase {
         },
         onUpgrade: (m, from, to) async {
           if (from < 3) {
-            await m.createTable(notes);
-            await m.addColumn(notes, notes.audioId);
-            await m.addColumn(notes, notes.createdAt);
-            await m.addColumn(notes, notes.updatedAt);
+            // await m.createTable(notes);
+            // await m.addColumn(notes, notes.audioId);
+            // await m.addColumn(notes, notes.createdAt);
+            // await m.addColumn(notes, notes.updatedAt);
           }
           if (from == 3) {
-            // Migration from 3 to 4, id is now auto-increment
+            // Migration from 3 to .dart, id is now auto-increment
           }
           if (from == 4) {
             // Migration from 4 to 5, createdAt and updatedAt are now nullable
@@ -296,41 +285,11 @@ class AppDatabase extends _$AppDatabase {
     await into(tasks).insertOnConflictUpdate(_taskToCompanion(task));
   }
 
-  // Note methods
-  Future<List<note_model.Note>> get allNotes => select(notes).get();
-
-  NotesCompanion _noteToCompanion(note_model.Note note) {
-    return NotesCompanion(
-      id: note.id != null ? Value(note.id!) : const Value.absent(),
-      title: Value(note.title),
-      content: Value(note.content),
-      audioId: Value(note.audioId),
-      createdAt: Value(note.createdAt),
-      updatedAt: Value(note.updatedAt),
-    );
-  }
-
-  Future<void> insertNote(note_model.Note note) =>
-      into(notes).insert(_noteToCompanion(note));
-
-  Future<void> updateNote(note_model.Note note) =>
-      (update(notes)..where((n) => n.id.equals(note.id!))).write(
-        _noteToCompanion(note),
-      );
-
-  Future<void> deleteNote(int id) =>
-      (delete(notes)..where((n) => n.id.equals(id))).go();
-
-  Future<void> upsertNote(note_model.Note note) async {
-    await into(notes).insertOnConflictUpdate(_noteToCompanion(note));
-  }
-
   Future<void> clearDatabase() async {
     await transaction(() async {
       await customStatement('PRAGMA foreign_keys = OFF');
       await delete(tasks).go();
       await delete(projects).go();
-      await delete(notes).go();
       await customStatement('PRAGMA foreign_keys = ON');
     });
   }

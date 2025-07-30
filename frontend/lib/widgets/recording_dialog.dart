@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:dimaist/services/api_service.dart';
-import 'package:dimaist/services/app_database.dart';
-import 'package:dimaist/utils/events.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -18,7 +16,6 @@ class RecordingDialog extends StatefulWidget {
 class _RecordingDialogState extends State<RecordingDialog>
     with SingleTickerProviderStateMixin {
   final AudioRecorder _recorder = AudioRecorder();
-  final AppDatabase _db = AppDatabase();
   bool _isRecording = false;
   bool _isProcessing = false;
   String? _audioPath;
@@ -90,9 +87,7 @@ class _RecordingDialogState extends State<RecordingDialog>
       try {
         final file = File(_audioPath!);
         final bytes = await file.readAsBytes();
-        final note = await ApiService.sendAudio(bytes);
-        await _db.upsertNote(note);
-        newNoteNotifier.value = note;
+        await ApiService.sendAudio(bytes);
       } catch (e) {
         if (kDebugMode) {
           print('Error sending audio: $e');
