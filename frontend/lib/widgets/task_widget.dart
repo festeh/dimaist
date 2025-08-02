@@ -50,34 +50,43 @@ class TaskWidget extends StatelessWidget {
                       if (task.recurrence != null &&
                           task.recurrence!.isNotEmpty)
                         const Icon(Icons.repeat, size: 16),
-                      const SizedBox(width: 8),
-                      DueWidget(task: task),
-                      const SizedBox(width: 8),
+                      if (task.recurrence != null &&
+                          task.recurrence!.isNotEmpty)
+                        const SizedBox(width: 8),
+                      if (task.dueDate != null || task.dueDatetime != null)
+                        DueWidget(task: task),
+                      if ((task.dueDate != null || task.dueDatetime != null) &&
+                          task.labels
+                              .where((label) => label.trim().isNotEmpty)
+                              .isNotEmpty)
+                        const SizedBox(width: 8),
                       if (task.labels
                           .where((label) => label.trim().isNotEmpty)
                           .isNotEmpty)
-                        Wrap(
-                          spacing: 8.0,
-                          runSpacing: 4.0,
-                          children: task.labels
-                              .where((label) => label.trim().isNotEmpty)
-                              .map(
-                                (label) => Chip(
-                                  label: Text(label),
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.secondary.withAlpha(51),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    side: BorderSide(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.secondary,
+                        Expanded(
+                          child: Wrap(
+                            spacing: 8.0,
+                            runSpacing: 4.0,
+                            children: task.labels
+                                .where((label) => label.trim().isNotEmpty)
+                                .map(
+                                  (label) => Chip(
+                                    label: Text(label),
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.secondary.withAlpha(51),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      side: BorderSide(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.secondary,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              )
-                              .toList(),
+                                )
+                                .toList(),
+                          ),
                         ),
                     ],
                   ),
