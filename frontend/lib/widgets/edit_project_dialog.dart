@@ -7,8 +7,11 @@ class EditProjectDialog extends StatefulWidget {
   final Project project;
   final VoidCallback onProjectUpdated;
 
-  const EditProjectDialog(
-      {super.key, required this.project, required this.onProjectUpdated});
+  const EditProjectDialog({
+    super.key,
+    required this.project,
+    required this.onProjectUpdated,
+  });
 
   @override
   State<EditProjectDialog> createState() => _EditProjectDialogState();
@@ -58,7 +61,7 @@ class _EditProjectDialogState extends State<EditProjectDialog> {
                         radius: 10,
                       ),
                       const SizedBox(width: 10),
-                      Text(colorName),
+                      Text(colorName, style: TextStyle(color: Colors.white)),
                     ],
                   ),
                 );
@@ -94,7 +97,9 @@ class _EditProjectDialogState extends State<EditProjectDialog> {
                   order: widget.project.order,
                 );
                 await ApiService.updateProject(
-                    widget.project.id!, updatedProject);
+                  widget.project.id!,
+                  updatedProject,
+                );
                 Navigator.of(context).pop();
                 widget.onProjectUpdated();
               } catch (e) {
@@ -110,3 +115,4 @@ class _EditProjectDialogState extends State<EditProjectDialog> {
     );
   }
 }
+
