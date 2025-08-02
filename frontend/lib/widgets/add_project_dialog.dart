@@ -57,7 +57,10 @@ class AddProjectDialogState extends State<AddProjectDialog> {
                         radius: 10,
                       ),
                       SizedBox(width: 10),
-                      Text(colorName),
+                      Text(
+                        colorName,
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ],
                   ),
                 );

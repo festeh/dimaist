@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-const Map<String, Color> colorMap = {
+const Map<String, Color> _colorMap = {
   'gray': Colors.grey,
   'Grey': Colors.grey,
   'Red': Colors.red,
@@ -16,6 +16,12 @@ const Map<String, Color> colorMap = {
   'Brown': Colors.brown,
 };
 
+Map<String, Color> get colorMap {
+  final Map<String, Color> result = Map.from(_colorMap);
+  result.remove('gray');
+  return result;
+}
+
 Color getColor(String colorStr) {
-  return colorMap[colorStr] ?? Colors.transparent;
+  return _colorMap[colorStr] ?? Colors.transparent;
 }
