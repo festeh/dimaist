@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tray_manager/tray_manager.dart';
 import 'dart:io' show Platform;
 import 'widgets/add_project_dialog.dart';
 import 'widgets/custom_view_widget.dart';
@@ -14,6 +13,7 @@ import 'services/app_database.dart';
 import 'screens/task_screen.dart';
 import 'services/api_service.dart';
 import 'services/logging_service.dart';
+import 'services/tray_service.dart';
 
 import 'models/project.dart';
 import 'widgets/edit_project_dialog.dart';
@@ -22,13 +22,8 @@ import 'widgets/error_dialog.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-
   LoggingService.setup();
-  await trayManager.setIcon('assets/infinite.png');
-  Menu menu = Menu(
-    items: [MenuItem(key: 'exit_app', label: 'Exit App')],
-  );
-  await trayManager.setContextMenu(menu);
+  await TrayService.initialize();
   runApp(const MyApp());
 }
 

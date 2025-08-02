@@ -132,8 +132,8 @@ Instructions:
 func (a *Agent) callModel(messages []Message) (string, error) {
 	request := openrouter.ChatCompletionRequest{
 		Model:       a.model,
-		MaxTokens:   1000,
-		Temperature: 0.7,
+		MaxTokens:   10000,
+		Temperature: 0.1,
 	}
 
 	for _, msg := range messages {
