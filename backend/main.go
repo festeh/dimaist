@@ -107,6 +107,9 @@ func main() {
 	// Sync route
 	r.Get("/sync", syncData)
 
+	// Search route
+	r.Get("/find", findItems)
+
 	logger.Info("Starting server").Str("port", *port).Send()
 	err = http.ListenAndServe(":"+*port, r)
 	if err != nil {
