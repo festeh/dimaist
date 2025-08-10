@@ -8,7 +8,7 @@ on:
 
 env:
   APP_NAME: dimaist
-  DEPLOY_PATH: /opt/dimaist
+  DEPLOY_PATH: /root/dimaist
 
 jobs:
   build-and-deploy:
@@ -34,16 +34,24 @@ jobs:
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
     
+    - name: Create deployment directory
+      run: |
+        ssh root@${{ secrets.HOST }} "mkdir -p ${{ env.DEPLOY_PATH }}"
+    
     - name: Deploy binary to remote host
       run: |
-        scp backend/${{ env.APP_NAME }} root@${{ secrets.HOST }}:${{ env.DEPLOY_PATH }}
+        scp backend/${{ env.APP_NAME }} root@${{ secrets.HOST }}:${{ env.DEPLOY_PATH }}/
     
-    # - name: Deploy environment variables
-    #   run: |
-    #     echo "${{ secrets.ENV_FILE }}" > .env
-    #     scp .env root@${{ secrets.HOST }}:/opt/.env
-    #     rm .env
+    - name: Deploy systemd service file
+      run: |
+        scp backend/systemd/${{ env.APP_NAME }}.service root@${{ secrets.HOST }}:/etc/systemd/system/
     
-    # - name: Restart service
-    #   run: |
-    #     ssh root@${{ env.HOST }} "cd ${{ env.DEPLOY_PATH }} && systemctl restart ${{ env.APP_NAME }}"
+    - name: Deploy environment variables
+      run: |
+        echo "${{ secrets.ENV_FILE }}" > .env
+        scp .env root@${{ secrets.HOST }}:${{ env.DEPLOY_PATH }}/.env
+        rm .env
+    
+    - name: Enable and restart systemd service
+      run: |
+        ssh root@${{ secrets.HOST }} "systemctl daemon-reload && systemctl enable ${{ env.APP_NAME }} && systemctl restart ${{ env.APP_NAME }}"

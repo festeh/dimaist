@@ -1,0 +1,25 @@
+[Unit]
+Description=Dimaist Task Management API Server
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/dimaist
+ExecStart=/root/dimaist/dimaist
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Environment variables (if needed)
+# Environment="PORT=3000"
+# Environment="DATABASE_URL=postgres://..."
+# EnvironmentFile=/root/dimaist/.env
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
