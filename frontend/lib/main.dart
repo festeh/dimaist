@@ -21,6 +21,7 @@ import 'widgets/edit_project_dialog.dart';
 import 'widgets/error_dialog.dart';
 import 'providers/project_provider.dart';
 import 'providers/task_provider.dart';
+import 'providers/view_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,6 +40,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => ProjectProvider()),
         ChangeNotifierProvider(create: (_) => TaskProvider()),
+        ChangeNotifierProvider(create: (_) => ViewProvider()),
       ],
       child: MaterialApp(
         title: 'Dimaist',
@@ -88,8 +90,6 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   final AppDatabase _db = AppDatabase();
   GlobalKey<TaskScreenState>? _currentTaskScreenKey;
-  String? _selectedCustomView = 'Today';
-  int? _selectedProjectId;
   bool _isLoading = true;
 
   @override
@@ -174,33 +174,21 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _deleteProject(int id) async {
     try {
       final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
+      final viewProvider = Provider.of<ViewProvider>(context, listen: false);
       await projectProvider.deleteProject(id);
-      setState(() {
-        if (_selectedProjectId == id) {
-          _selectedCustomView = 'Today';
-          _selectedProjectId = null;
-        }
-      });
+      viewProvider.handleProjectDeleted(id);
     } catch (e) {
       _showErrorDialog('Error deleting project: $e');
     }
   }
 
-  void _setSelectedCustomView(String viewName) {
-    setState(() {
-      _selectedCustomView = viewName;
-      _selectedProjectId = null;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ProjectProvider>(
-      builder: (context, projectProvider, child) {
+    return Consumer2<ProjectProvider, ViewProvider>(
+      builder: (context, projectProvider, viewProvider, child) {
         final projects = projectProvider.projects;
-        final selectedProjectIndex = _selectedProjectId != null
-            ? projects.indexWhere((p) => p.id == _selectedProjectId)
-            : -1;
+        final selectedProjectIndex = viewProvider.getSelectedProjectIndex(projects);
 
         return Focus(
           autofocus: true,
@@ -221,15 +209,15 @@ class _MainScreenState extends State<MainScreen> {
                   return KeyEventResult.handled;
                 }
                 if (event.logicalKey == LogicalKeyboardKey.keyT) {
-                  _setSelectedCustomView('Today');
+                  viewProvider.selectCustomView('Today');
                   return KeyEventResult.handled;
                 }
                 if (event.logicalKey == LogicalKeyboardKey.keyU) {
-                  _setSelectedCustomView('Upcoming');
+                  viewProvider.selectCustomView('Upcoming');
                   return KeyEventResult.handled;
                 }
                 if (event.logicalKey == LogicalKeyboardKey.keyE) {
-                  _setSelectedCustomView('Next');
+                  viewProvider.selectCustomView('Next');
                   return KeyEventResult.handled;
                 }
               }
@@ -240,17 +228,14 @@ class _MainScreenState extends State<MainScreen> {
             body: Row(
               children: [
                 LeftBar(
-                  selectedView: _selectedCustomView,
-                  onCustomViewSelected: _setSelectedCustomView,
+                  selectedView: viewProvider.selectedCustomView,
+                  onCustomViewSelected: viewProvider.selectCustomView,
                   onAddProject: _showAddProjectDialog,
                   projectList: ProjectList(
                     projects: projects,
                     selectedIndex: selectedProjectIndex,
                     onProjectSelected: (index) {
-                      setState(() {
-                        _selectedCustomView = null;
-                        _selectedProjectId = projects[index].id;
-                      });
+                      viewProvider.selectProject(projects[index].id!);
                     },
                     onReorder: (oldIndex, newIndex) async {
                       try {
@@ -266,7 +251,7 @@ class _MainScreenState extends State<MainScreen> {
                 Expanded(
                   child: _isLoading
                       ? const Center(child: CircularProgressIndicator())
-                      : _buildMainContent(projects),
+                      : _buildMainContent(projects, viewProvider),
                 ),
               ],
             ),
@@ -276,22 +261,17 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildMainContent(List<Project> projects) {
-    if (_selectedCustomView != null) {
-      final view = CustomViewWidget.customViews
-          .firstWhere((v) => v.name == _selectedCustomView);
+  Widget _buildMainContent(List<Project> projects, ViewProvider viewProvider) {
+    final viewSelection = viewProvider.getViewSelection(projects);
+    
+    if (viewSelection.isCustomView) {
       _currentTaskScreenKey = GlobalKey<TaskScreenState>();
-      return TaskScreen(key: _currentTaskScreenKey, customView: view);
+      return TaskScreen(key: _currentTaskScreenKey, customView: viewSelection.customView);
     }
 
-    if (_selectedProjectId != null) {
-      final project =
-          projects.firstWhere((p) => p.id == _selectedProjectId, orElse: () {
-        // Handle case where project is not found
-        return projects.first;
-      });
+    if (viewSelection.isProject) {
       _currentTaskScreenKey = GlobalKey<TaskScreenState>();
-      return TaskScreen(key: _currentTaskScreenKey, project: project);
+      return TaskScreen(key: _currentTaskScreenKey, project: viewSelection.project);
     }
 
     _currentTaskScreenKey = null;
