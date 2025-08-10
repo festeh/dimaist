@@ -7,6 +7,7 @@ class ScheduleView extends StatelessWidget {
   final Function(int) onDelete;
   final Function(Task) onEdit;
   final Function(Task, DateTime) onScheduleTask;
+  final Function(Task) onUnscheduleTask;
 
   const ScheduleView({
     super.key,
@@ -15,6 +16,7 @@ class ScheduleView extends StatelessWidget {
     required this.onDelete,
     required this.onEdit,
     required this.onScheduleTask,
+    required this.onUnscheduleTask,
   });
 
   @override
@@ -142,8 +144,7 @@ class ScheduleView extends StatelessWidget {
           ),
         ),
         // Unscheduled tasks sidebar
-        if (unscheduledTasks.isNotEmpty)
-          Container(
+        Container(
             width: 200,
             decoration: BoxDecoration(
               border: Border(
@@ -166,11 +167,45 @@ class ScheduleView extends StatelessWidget {
                   ),
                 ),
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: unscheduledTasks.length,
-                    itemBuilder: (context, index) {
-                      final task = unscheduledTasks[index];
-                      return _buildUnscheduledTaskCard(context, task);
+                  child: DragTarget<Task>(
+                    onAcceptWithDetails: (details) {
+                      // Unschedule the task by setting start/end times to null
+                      onUnscheduleTask(details.data);
+                    },
+                    builder: (context, candidateData, rejectedData) {
+                      return Container(
+                        decoration: candidateData.isNotEmpty
+                            ? BoxDecoration(
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(4),
+                              )
+                            : null,
+                        child: unscheduledTasks.isNotEmpty
+                            ? ListView.builder(
+                                itemCount: unscheduledTasks.length,
+                                itemBuilder: (context, index) {
+                                  final task = unscheduledTasks[index];
+                                  return _buildUnscheduledTaskCard(context, task);
+                                },
+                              )
+                            : Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Text(
+                                    candidateData.isNotEmpty 
+                                        ? 'Drop here to unschedule' 
+                                        : 'No unscheduled tasks',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: candidateData.isNotEmpty 
+                                          ? Theme.of(context).colorScheme.primary
+                                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                      );
                     },
                   ),
                 ),
@@ -182,66 +217,136 @@ class ScheduleView extends StatelessWidget {
   }
 
   Widget _buildScheduledTaskCard(BuildContext context, Task task) {
-    return Container(
-      margin: const EdgeInsets.all(2),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: task.completedAt != null 
-            ? Theme.of(context).colorScheme.surfaceContainerHighest 
-            : Theme.of(context).colorScheme.primaryContainer,
+    return Draggable<Task>(
+      data: task,
+      feedback: Material(
+        elevation: 4,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: task.completedAt != null 
-              ? Theme.of(context).colorScheme.outline 
-              : Theme.of(context).colorScheme.primary,
-          width: 1,
+        child: Container(
+          width: 140,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.primary,
+              width: 1,
+            ),
+          ),
+          child: Text(
+            task.description,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GestureDetector(
-            onTap: () => onToggleComplete(task),
-            child: Icon(
-              task.completedAt != null 
-                  ? Icons.check_circle 
-                  : Icons.circle_outlined,
-              size: 16,
-              color: task.completedAt != null 
-                  ? Theme.of(context).colorScheme.onSurfaceVariant 
-                  : Theme.of(context).colorScheme.primary,
-            ),
+      childWhenDragging: Container(
+        margin: const EdgeInsets.all(2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
+            width: 1,
           ),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              task.description,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                decoration: task.completedAt != null 
-                    ? TextDecoration.lineThrough 
-                    : null,
-                color: task.completedAt != null 
-                    ? Theme.of(context).colorScheme.onSurfaceVariant 
-                    : Theme.of(context).colorScheme.onSurface,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.drag_handle,
+              size: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             ),
-          ),
-          if (task.startDatetime != null && task.endDatetime != null)
-            Text(
-              ' ${task.startDatetime!.hour.toString().padLeft(2, '0')}:${task.startDatetime!.minute.toString().padLeft(2, '0')}-${task.endDatetime!.hour.toString().padLeft(2, '0')}:${task.endDatetime!.minute.toString().padLeft(2, '0')}',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w400,
-                color: task.completedAt != null 
-                    ? Theme.of(context).colorScheme.onSurfaceVariant 
-                    : Theme.of(context).colorScheme.onSurface,
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                task.description,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-        ],
+          ],
+        ),
+      ),
+      child: Container(
+        margin: const EdgeInsets.all(2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: task.completedAt != null 
+              ? Theme.of(context).colorScheme.surfaceContainerHighest 
+              : Theme.of(context).colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: task.completedAt != null 
+                ? Theme.of(context).colorScheme.outline 
+                : Theme.of(context).colorScheme.primary,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: () => onToggleComplete(task),
+              child: Icon(
+                task.completedAt != null 
+                    ? Icons.check_circle 
+                    : Icons.circle_outlined,
+                size: 16,
+                color: task.completedAt != null 
+                    ? Theme.of(context).colorScheme.onSurfaceVariant 
+                    : Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.drag_handle,
+              size: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 2),
+            Flexible(
+              child: Text(
+                task.description,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  decoration: task.completedAt != null 
+                      ? TextDecoration.lineThrough 
+                      : null,
+                  color: task.completedAt != null 
+                      ? Theme.of(context).colorScheme.onSurfaceVariant 
+                      : Theme.of(context).colorScheme.onSurface,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (task.startDatetime != null && task.endDatetime != null)
+              Text(
+                ' ${task.startDatetime!.hour.toString().padLeft(2, '0')}:${task.startDatetime!.minute.toString().padLeft(2, '0')}-${task.endDatetime!.hour.toString().padLeft(2, '0')}:${task.endDatetime!.minute.toString().padLeft(2, '0')}',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w400,
+                  color: task.completedAt != null 
+                      ? Theme.of(context).colorScheme.onSurfaceVariant 
+                      : Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

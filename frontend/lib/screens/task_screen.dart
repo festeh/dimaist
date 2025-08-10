@@ -144,6 +144,22 @@ class TaskScreenState extends State<TaskScreen> {
     }
   }
 
+  Future<void> _unscheduleTask(Task task) async {
+    final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+    
+    try {
+      final updatedTask = task.copyWith(
+        startDatetime: const ValueWrapper(null),
+        endDatetime: const ValueWrapper(null),
+      );
+      
+      await taskProvider.updateTask(task.id!, updatedTask);
+    } catch (e) {
+      LoggingService.logger.severe('Error unscheduling task: $e');
+      _showErrorDialog('Error unscheduling task: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<TaskProvider>(
@@ -192,6 +208,7 @@ class TaskScreenState extends State<TaskScreen> {
                 onDelete: _deleteTask,
                 onEdit: _showEditTaskDialog,
                 onScheduleTask: _scheduleTask,
+                onUnscheduleTask: _unscheduleTask,
               );
             })()
           : taskProvider.tasks.isEmpty
