@@ -50,9 +50,7 @@ jobs:
     - name: Deploy environment variables
       run: |
         cat > .env << EOF
-        DATABASE_URL=${{ secrets.DATABASE_URL }}
-        ELEVENLABS_API_KEY=${{ secrets.ELEVENLABS_API_KEY }}
-        PORT=${{ secrets.PORT }}
+        ${{ secrets.ENV_FILE }}
         EOF
         scp .env root@${{ secrets.HOST }}:${{ env.DEPLOY_PATH }}/.env
         rm .env
