@@ -1,4 +1,5 @@
 import 'package:dimaist/utils/value_wrapper.dart';
+import 'package:dimaist/services/logging_service.dart';
 
 class Task {
   final int? id;
@@ -86,20 +87,20 @@ class Task {
   }
 
   factory Task.fromJson(Map<String, dynamic> json) {
-    print('Task.fromJson: Processing task JSON: $json');
+    LoggingService.logger.fine('Task.fromJson: Processing task JSON: $json');
     try {
-      print('Task.fromJson: id = ${json['id']}');
-      print('Task.fromJson: description = ${json['description']}');
-      print('Task.fromJson: project_id = ${json['project_id']}');
-      print('Task.fromJson: due_date = ${json['due_date']}');
-      print('Task.fromJson: due_datetime = ${json['due_datetime']}');
-      print('Task.fromJson: start_datetime = ${json['start_datetime']}');
-      print('Task.fromJson: end_datetime = ${json['end_datetime']}');
-      print('Task.fromJson: labels = ${json['labels']}');
-      print('Task.fromJson: order = ${json['order']}');
-      print('Task.fromJson: completed_at = ${json['completed_at']}');
-      print('Task.fromJson: reminders = ${json['reminders']}');
-      print('Task.fromJson: recurrence = ${json['recurrence']}');
+      LoggingService.logger.fine('Task.fromJson: id = ${json['id']}');
+      LoggingService.logger.fine('Task.fromJson: description = ${json['description']}');
+      LoggingService.logger.fine('Task.fromJson: project_id = ${json['project_id']}');
+      LoggingService.logger.fine('Task.fromJson: due_date = ${json['due_date']}');
+      LoggingService.logger.fine('Task.fromJson: due_datetime = ${json['due_datetime']}');
+      LoggingService.logger.fine('Task.fromJson: start_datetime = ${json['start_datetime']}');
+      LoggingService.logger.fine('Task.fromJson: end_datetime = ${json['end_datetime']}');
+      LoggingService.logger.fine('Task.fromJson: labels = ${json['labels']}');
+      LoggingService.logger.fine('Task.fromJson: order = ${json['order']}');
+      LoggingService.logger.fine('Task.fromJson: completed_at = ${json['completed_at']}');
+      LoggingService.logger.fine('Task.fromJson: reminders = ${json['reminders']}');
+      LoggingService.logger.fine('Task.fromJson: recurrence = ${json['recurrence']}');
 
       return Task(
         id: json['id'],
@@ -122,7 +123,7 @@ class Task {
         recurrence: json['recurrence'],
       );
     } catch (e) {
-      print('Task.fromJson: Error processing task JSON: $e');
+      LoggingService.logger.severe('Task.fromJson: Error processing task JSON: $e');
       rethrow;
     }
   }

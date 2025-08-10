@@ -61,7 +61,7 @@ class TaskFormDialogState extends State<TaskFormDialog> {
       text: task?.description ?? '',
     );
     _labelsController = TextEditingController(
-      text: task?.labels?.join(', ') ?? '',
+      text: task?.labels.join(', ') ?? '',
     );
     _recurrenceController = TextEditingController(
       text: task?.recurrence ?? '',
@@ -82,8 +82,8 @@ class TaskFormDialogState extends State<TaskFormDialog> {
         _selectedEndDate = task.endDatetime;
         _selectedEndTime = TimeOfDay.fromDateTime(task.endDatetime!);
       }
-      if (task.reminders != null) {
-        _selectedReminders = task.reminders!
+      if (task.reminders.isNotEmpty) {
+        _selectedReminders = task.reminders
             .map(
               (e) => _reminderStringFromDateTime(
                 e,

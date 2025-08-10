@@ -1,4 +1,5 @@
 import 'package:dimaist/widgets/completed_task_widget.dart';
+import 'package:dimaist/services/logging_service.dart';
 import 'package:dimaist/widgets/custom_view_widget.dart';
 import 'package:dimaist/widgets/task_form_dialog.dart';
 import 'package:dimaist/widgets/schedule_view.dart';
@@ -150,11 +151,11 @@ class TaskScreenState extends State<TaskScreen> {
                     constraints: const BoxConstraints(),
                     icon: Icon(_isScheduleView ? Icons.list : Icons.calendar_view_day),
                     onPressed: () {
-                      print('Toggle button pressed! Current state: $_isScheduleView');
+                      LoggingService.logger.fine('Toggle button pressed! Current state: $_isScheduleView');
                       setState(() {
                         _isScheduleView = !_isScheduleView;
                       });
-                      print('New state: $_isScheduleView');
+                      LoggingService.logger.fine('New state: $_isScheduleView');
                     },
                     tooltip: _isScheduleView ? 'List View' : 'Schedule View',
                   ),
@@ -168,7 +169,7 @@ class TaskScreenState extends State<TaskScreen> {
               ? const Center(child: SizedBox.shrink())
               : (widget.customView?.name == 'Today' && _isScheduleView)
           ? (() {
-              print('Showing ScheduleView - customView: ${widget.customView?.name}, isScheduleView: $_isScheduleView');
+              LoggingService.logger.fine('Showing ScheduleView - customView: ${widget.customView?.name}, isScheduleView: $_isScheduleView');
               return ScheduleView(
                 tasks: taskProvider.tasks,
                 onToggleComplete: _toggleComplete,
@@ -199,7 +200,7 @@ class TaskScreenState extends State<TaskScreen> {
               ),
             )
           : (() {
-              print('Showing ListView - customView: ${widget.customView?.name}, isScheduleView: $_isScheduleView');
+              LoggingService.logger.fine('Showing ListView - customView: ${widget.customView?.name}, isScheduleView: $_isScheduleView');
               return ReorderableListView.builder(
               buildDefaultDragHandles: false,
               padding: const EdgeInsets.all(8.0),
@@ -258,7 +259,7 @@ class TaskScreenState extends State<TaskScreen> {
             onPressed: _showAddTaskDialog,
             onMenuItemSelected: (value) {
               // ignore: avoid_print
-              print(value);
+              LoggingService.logger.fine('Reorder callback: $value');
             },
           ),
         );

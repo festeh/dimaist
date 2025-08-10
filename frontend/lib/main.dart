@@ -1,4 +1,3 @@
-import 'package:dimaist/utils/events.dart';
 import 'package:dimaist/widgets/left_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,9 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'dart:io' show Platform;
 import 'widgets/add_project_dialog.dart';
-import 'widgets/custom_view_widget.dart';
 import 'widgets/project_list_widget.dart';
-import 'services/app_database.dart';
 import 'screens/task_screen.dart';
 import 'services/api_service.dart';
 import 'services/logging_service.dart';
@@ -88,7 +85,6 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  final AppDatabase _db = AppDatabase();
   GlobalKey<TaskScreenState>? _currentTaskScreenKey;
   bool _isLoading = true;
 
@@ -111,24 +107,24 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    print('_loadInitialData: Starting initial data load...');
+    LoggingService.logger.info('_loadInitialData: Starting initial data load...');
     try {
-      print('_loadInitialData: Getting shared preferences...');
+      LoggingService.logger.info('_loadInitialData: Getting shared preferences...');
       final prefs = await SharedPreferences.getInstance();
       final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
       
-      print('_loadInitialData: Loading projects from database...');
+      LoggingService.logger.info('_loadInitialData: Loading projects from database...');
       await projectProvider.loadProjects();
-      print('_loadInitialData: Loaded ${projectProvider.projects.length} projects from database');
+      LoggingService.logger.info('_loadInitialData: Loaded ${projectProvider.projects.length} projects from database');
 
       if (projectProvider.projects.isEmpty) {
-        print('_loadInitialData: No projects found, performing initial sync...');
+        LoggingService.logger.info('_loadInitialData: No projects found, performing initial sync...');
         prefs.remove('sync_token');
       }
 
-      print('_loadInitialData: Syncing data with API...');
+      LoggingService.logger.info('_loadInitialData: Syncing data with API...');
       await ApiService.syncData();
-      print('_loadInitialData: Data sync completed successfully');
+      LoggingService.logger.info('_loadInitialData: Data sync completed successfully');
 
       await projectProvider.loadProjects();
       
@@ -138,7 +134,7 @@ class _MainScreenState extends State<MainScreen> {
         });
       }
     } catch (e) {
-      print('_loadInitialData: Error occurred: $e');
+      LoggingService.logger.severe('_loadInitialData: Error occurred: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;

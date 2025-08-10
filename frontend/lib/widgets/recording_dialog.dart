@@ -1,7 +1,7 @@
 import 'dart:async';
+import 'package:dimaist/services/logging_service.dart';
 import 'dart:io';
 import 'package:dimaist/services/api_service.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
@@ -89,9 +89,7 @@ class _RecordingDialogState extends State<RecordingDialog>
         final bytes = await file.readAsBytes();
         await ApiService.sendAudio(bytes);
       } catch (e) {
-        if (kDebugMode) {
-          print('Error sending audio: $e');
-        }
+        LoggingService.logger.severe('Error sending audio: $e');
       } finally {
         if (mounted) {
           Navigator.of(context).pop();

@@ -30,55 +30,55 @@ class ApiService {
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
-        print('ApiService.syncData: Response body: ${response.body}');
+        LoggingService.logger.fine('ApiService.syncData: Response body: ${response.body}');
         final data = json.decode(response.body);
-        print('ApiService.syncData: Parsed data: $data');
+        LoggingService.logger.fine('ApiService.syncData: Parsed data: $data');
         
         final projectsData = data['projects'] as List?;
-        print('ApiService.syncData: Projects data: $projectsData');
+        LoggingService.logger.fine('ApiService.syncData: Projects data: $projectsData');
         final projects = (projectsData ?? []).map((p) {
-          print('ApiService.syncData: Processing project: $p');
+          LoggingService.logger.fine('ApiService.syncData: Processing project: $p');
           try {
             return Project.fromJson(p);
           } catch (e) {
-            print('ApiService.syncData: Error processing project $p: $e');
+            LoggingService.logger.severe('ApiService.syncData: Error processing project $p: $e');
             rethrow;
           }
         }).toList();
         
         final tasksData = data['tasks'] as List?;
-        print('ApiService.syncData: Tasks data: $tasksData');
-        print('ApiService.syncData: Processing ${tasksData?.length ?? 0} tasks...');
+        LoggingService.logger.fine('ApiService.syncData: Tasks data: $tasksData');
+        LoggingService.logger.info('ApiService.syncData: Processing ${tasksData?.length ?? 0} tasks...');
         final tasks = (tasksData ?? []).map((t) {
-          print('ApiService.syncData: Processing task: $t');
+          LoggingService.logger.fine('ApiService.syncData: Processing task: $t');
           try {
             return Task.fromJson(t);
           } catch (e) {
-            print('ApiService.syncData: Error processing task $t: $e');
+            LoggingService.logger.severe('ApiService.syncData: Error processing task $t: $e');
             rethrow;
           }
         }).toList();
         
         final newSyncToken = data['sync_token'];
-        print('ApiService.syncData: New sync token: $newSyncToken');
+        LoggingService.logger.info('ApiService.syncData: New sync token: $newSyncToken');
 
         _logger.info(
           'Received ${projects.length} projects and ${tasks.length} tasks.',
         );
 
-        print('ApiService.syncData: Upserting ${projects.length} projects...');
+        LoggingService.logger.info('ApiService.syncData: Upserting ${projects.length} projects...');
         for (var project in projects) {
-          print('ApiService.syncData: Upserting project: $project');
+          LoggingService.logger.fine('ApiService.syncData: Upserting project: $project');
           await _db.upsertProject(project);
         }
         
-        print('ApiService.syncData: Upserting ${tasks.length} tasks...');
+        LoggingService.logger.info('ApiService.syncData: Upserting ${tasks.length} tasks...');
         for (var task in tasks) {
-          print('ApiService.syncData: Upserting task: $task');
+          LoggingService.logger.fine('ApiService.syncData: Upserting task: $task');
           await _db.upsertTask(task);
         }
 
-        print('ApiService.syncData: Saving sync token: $newSyncToken');
+        LoggingService.logger.info('ApiService.syncData: Saving sync token: $newSyncToken');
         await prefs.setString('sync_token', newSyncToken);
         _logger.info('Sync completed. New sync token saved.');
       } else {
@@ -292,9 +292,9 @@ class ApiService {
       if (response.statusCode == 200) {
         _logger.info('Audio sent successfully.');
         final responseBody = await response.stream.bytesToString();
-        print('Voice AI transcription result: $responseBody');
+        LoggingService.logger.info('Voice AI transcription result: $responseBody');
         final decoded = json.decode(responseBody);
-        print('Transcription: ${decoded['content']}');
+        LoggingService.logger.info('Transcription: ${decoded['content']}');
       } else {
         _logger.warning('Failed to send audio: ${response.statusCode}');
         throw Exception('Failed to send audio');

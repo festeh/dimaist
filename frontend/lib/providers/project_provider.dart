@@ -6,7 +6,7 @@ import '../services/api_service.dart';
 class ProjectProvider extends ChangeNotifier {
   final AppDatabase _db = AppDatabase();
   List<Project> _projects = [];
-  bool _isLoading = false;
+  final bool _isLoading = false;
   String? _error;
 
   List<Project> get projects => _projects;
