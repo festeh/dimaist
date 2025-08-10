@@ -2,13 +2,13 @@ import 'package:dimaist/widgets/completed_task_widget.dart';
 import 'package:dimaist/widgets/custom_view_widget.dart';
 import 'package:dimaist/widgets/task_form_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:dimaist/widgets/error_dialog.dart';
 import 'package:dimaist/widgets/task_widget.dart';
 import '../models/task.dart';
 import '../models/project.dart';
-import '../services/api_service.dart';
-import '../services/app_database.dart';
-import '../utils/value_wrapper.dart';
+import '../providers/task_provider.dart';
+import '../providers/project_provider.dart';
 import 'package:dimaist/widgets/long_press_fab.dart';
 
 class TaskScreen extends StatefulWidget {
@@ -23,59 +23,24 @@ class TaskScreen extends StatefulWidget {
 }
 
 class TaskScreenState extends State<TaskScreen> {
-  final AppDatabase _db = AppDatabase();
-  List<Task> _tasks = [];
-  bool _isLoading = true;
-
   @override
   void initState() {
     super.initState();
-    _loadTasks();
-  }
-
-  Future<void> _loadTasks() async {
-    if (!mounted) return;
-    setState(() {
-      _isLoading = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+      taskProvider.loadTasks(project: widget.project, customView: widget.customView);
     });
-
-    try {
-      List<Task> tasks;
-      if (widget.project != null && widget.project!.id != null) {
-        tasks = await _db.getTasksByProject(widget.project!.id!);
-      } else if (widget.customView?.name == 'Today') {
-        tasks = await _db.getTodayTasks();
-      } else if (widget.customView?.name == 'Upcoming') {
-        tasks = await _db.getUpcomingTasks();
-      } else if (widget.customView?.name == 'Next') {
-        tasks = await _db.getTasksByLabel('next');
-      } else {
-        tasks = [];
-      }
-      if (mounted) {
-        setState(() {
-          _tasks = tasks;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        _showErrorDialog('Error loading tasks: $e');
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
   }
+
 
   void showAddTaskDialog() {
     _showAddTaskDialog();
   }
 
   Future<void> _sync() async {
+    final taskProvider = Provider.of<TaskProvider>(context, listen: false);
     try {
-      await ApiService.syncData();
-      await _loadTasks();
+      await taskProvider.syncData();
     } catch (e) {
       _showErrorDialog('Error syncing tasks: $e');
     }
@@ -90,123 +55,93 @@ class TaskScreenState extends State<TaskScreen> {
   }
 
   Future<void> _deleteTask(int id) async {
+    final taskProvider = Provider.of<TaskProvider>(context, listen: false);
     try {
-      await ApiService.deleteTask(id);
-      await _loadTasks();
+      await taskProvider.deleteTask(id);
     } catch (e) {
       _showErrorDialog('Error deleting task: $e');
     }
   }
 
   Future<void> _toggleComplete(Task task) async {
+    final taskProvider = Provider.of<TaskProvider>(context, listen: false);
     try {
-      if (task.completedAt != null) {
-        final updatedTask = task.copyWith(
-          completedAt: const ValueWrapper(null),
-        );
-        await ApiService.updateTask(task.id!, updatedTask);
-      } else {
-        await ApiService.completeTask(task.id!);
-      }
+      await taskProvider.toggleComplete(task);
     } catch (e) {
       _showErrorDialog('Error toggling task completion: $e');
-    } finally {
-      await _loadTasks();
     }
   }
 
   void _showAddTaskDialog() async {
+    final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+    final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
+    
     Project? selectedProject = widget.project;
     DateTime? defaultDueDate;
 
     if (widget.customView?.name == 'Today') {
-      final projects = await _db.allProjects;
-      final inboxProject = projects.firstWhere(
-        (p) => p.name == 'Inbox',
-        orElse: () => projects.first,
-      );
-      selectedProject = inboxProject;
-      defaultDueDate = DateTime.now();
+      try {
+        selectedProject = await taskProvider.getDefaultProjectForToday();
+        defaultDueDate = DateTime.now();
+      } catch (e) {
+        _showErrorDialog('Error loading default project: $e');
+        return;
+      }
     }
 
     if (!mounted) return;
     showDialog(
       context: context,
-      builder: (context) => FutureBuilder<List<Project>>(
-        future: _db.allProjects,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: SizedBox.shrink());
-          }
-          return TaskFormDialog(
-            projects: snapshot.data ?? [],
-            selectedProject: selectedProject,
-            defaultDueDate: defaultDueDate,
-            onSave: (task) async {
-              await ApiService.createTask(task);
-              await _loadTasks();
-            },
-            title: 'Add New Task',
-            submitButtonText: 'Add',
-          );
+      builder: (context) => TaskFormDialog(
+        projects: projectProvider.projects,
+        selectedProject: selectedProject,
+        defaultDueDate: defaultDueDate,
+        onSave: (task) async {
+          await taskProvider.createTask(task);
         },
+        title: 'Add New Task',
+        submitButtonText: 'Add',
       ),
     );
   }
 
   void _showEditTaskDialog(Task task) {
+    final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+    final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
+    
     showDialog(
       context: context,
-      builder: (context) => FutureBuilder<List<Project>>(
-        future: _db.allProjects,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: SizedBox.shrink());
-          }
-          return TaskFormDialog(
-            task: task,
-            projects: snapshot.data ?? [],
-            onSave: (updatedTask) async {
-              await ApiService.updateTask(task.id!, updatedTask);
-              await _loadTasks();
-            },
-            title: 'Edit Task',
-            submitButtonText: 'Save',
-          );
+      builder: (context) => TaskFormDialog(
+        task: task,
+        projects: projectProvider.projects,
+        onSave: (updatedTask) async {
+          await taskProvider.updateTask(task.id!, updatedTask);
         },
+        title: 'Edit Task',
+        submitButtonText: 'Save',
       ),
     );
   }
 
-  String get _title {
-    if (widget.project != null) {
-      return 'Tasks for ${widget.project!.name}';
-    }
-    if (widget.customView != null) {
-      return widget.customView!.name;
-    }
-    return 'Tasks';
-  }
 
   @override
   Widget build(BuildContext context) {
-    final nonCompletedTasks = _tasks
-        .where((task) => task.completedAt == null)
-        .toList();
-    final completedTasks = widget.customView?.name == 'Today'
-        ? <Task>[]
-        : _tasks.where((task) => task.completedAt != null).toList();
-    completedTasks.sort((a, b) => b.completedAt!.compareTo(a.completedAt!));
+    return Consumer<TaskProvider>(
+      builder: (context, taskProvider, child) {
+        final nonCompletedTasks = taskProvider.nonCompletedTasks;
+        final completedTasks = widget.customView?.name == 'Today'
+            ? <Task>[]
+            : taskProvider.completedTasks;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_title, style: Theme.of(context).textTheme.headlineSmall),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: _isLoading
-          ? const Center(child: SizedBox.shrink())
-          : _tasks.isEmpty
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(taskProvider.title, style: Theme.of(context).textTheme.headlineSmall),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+          ),
+          body: taskProvider.isLoading
+              ? const Center(child: SizedBox.shrink())
+              : taskProvider.tasks.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -274,53 +209,22 @@ class TaskScreenState extends State<TaskScreen> {
                 }
               },
               onReorder: (oldIndex, newIndex) async {
-                if (widget.project == null) return;
-                if (oldIndex >= nonCompletedTasks.length ||
-                    newIndex > nonCompletedTasks.length) {
-                  return;
-                }
-
-                if (newIndex > oldIndex) {
-                  newIndex -= 1;
-                }
-
-                setState(() {
-                  final task = nonCompletedTasks.removeAt(oldIndex);
-                  nonCompletedTasks.insert(newIndex, task);
-                  _tasks = [...nonCompletedTasks, ...completedTasks];
-                });
-
-                final newlyOrderedTasks = nonCompletedTasks;
-
-                for (int i = 0; i < newlyOrderedTasks.length; i++) {
-                  final taskToUpdate = newlyOrderedTasks[i];
-                  if (taskToUpdate.order != i) {
-                    await _db.updateTask(taskToUpdate.copyWith(order: i));
-                  }
-                }
-
                 try {
-                  final allProjectTaskIds = newlyOrderedTasks
-                      .map((t) => t.id!)
-                      .toList();
-                  await ApiService.reorderTasks(
-                    widget.project!.id!,
-                    allProjectTaskIds,
-                  );
+                  await taskProvider.reorderTasks(oldIndex, newIndex);
                 } catch (e) {
                   _showErrorDialog('Error reordering tasks: $e');
-                  // If reorder fails, reload from the source of truth
-                  await _loadTasks();
                 }
               },
             ),
-      floatingActionButton: LongPressFab(
-        onPressed: _showAddTaskDialog,
-        onMenuItemSelected: (value) {
-          // ignore: avoid_print
-          print(value);
-        },
-      ),
+          floatingActionButton: LongPressFab(
+            onPressed: _showAddTaskDialog,
+            onMenuItemSelected: (value) {
+              // ignore: avoid_print
+              print(value);
+            },
+          ),
+        );
+      },
     );
   }
 }

@@ -20,6 +20,7 @@ import 'models/project.dart';
 import 'widgets/edit_project_dialog.dart';
 import 'widgets/error_dialog.dart';
 import 'providers/project_provider.dart';
+import 'providers/task_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +38,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ProjectProvider()),
+        ChangeNotifierProvider(create: (_) => TaskProvider()),
       ],
       child: MaterialApp(
         title: 'Dimaist',
