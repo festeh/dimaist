@@ -6,6 +6,7 @@ class ScheduleView extends StatelessWidget {
   final Function(Task) onToggleComplete;
   final Function(int) onDelete;
   final Function(Task) onEdit;
+  final Function(Task, DateTime) onScheduleTask;
 
   const ScheduleView({
     super.key,
@@ -13,6 +14,7 @@ class ScheduleView extends StatelessWidget {
     required this.onToggleComplete,
     required this.onDelete,
     required this.onEdit,
+    required this.onScheduleTask,
   });
 
   @override
@@ -95,13 +97,40 @@ class ScheduleView extends StatelessWidget {
                           ),
                           // Tasks in this slot
                           Expanded(
-                            child: tasksInSlot.isNotEmpty
-                                ? Wrap(
-                                    children: tasksInSlot.map((task) => 
-                                      _buildScheduledTaskCard(context, task)
-                                    ).toList(),
-                                  )
-                                : const SizedBox(),
+                            child: DragTarget<Task>(
+                              onAcceptWithDetails: (details) {
+                                onScheduleTask(details.data, timeSlot);
+                              },
+                              builder: (context, candidateData, rejectedData) {
+                                return Container(
+                                  decoration: candidateData.isNotEmpty
+                                      ? BoxDecoration(
+                                          color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                                          borderRadius: BorderRadius.circular(4),
+                                        )
+                                      : null,
+                                  child: tasksInSlot.isNotEmpty
+                                      ? Wrap(
+                                          children: tasksInSlot.map((task) => 
+                                            _buildScheduledTaskCard(context, task)
+                                          ).toList(),
+                                        )
+                                      : Container(
+                                          height: 40,
+                                          alignment: Alignment.center,
+                                          child: candidateData.isNotEmpty
+                                              ? Text(
+                                                  'Drop task here',
+                                                  style: TextStyle(
+                                                    color: Theme.of(context).colorScheme.primary,
+                                                    fontSize: 12,
+                                                  ),
+                                                )
+                                              : null,
+                                        ),
+                                );
+                              },
+                            ),
                           ),
                         ],
                       ),
@@ -218,52 +247,121 @@ class ScheduleView extends StatelessWidget {
   }
 
   Widget _buildUnscheduledTaskCard(BuildContext context, Task task) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: task.completedAt != null 
-            ? Theme.of(context).colorScheme.surfaceContainerHighest 
-            : Theme.of(context).colorScheme.surface,
+    return Draggable<Task>(
+      data: task,
+      feedback: Material(
+        elevation: 4,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline,
-          width: 1,
+        child: Container(
+          width: 180,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.primary,
+              width: 1,
+            ),
+          ),
+          child: Text(
+            task.description,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => onToggleComplete(task),
-            child: Icon(
-              task.completedAt != null 
-                  ? Icons.check_circle 
-                  : Icons.circle_outlined,
-              size: 18,
-              color: task.completedAt != null 
-                  ? Theme.of(context).colorScheme.onSurfaceVariant 
-                  : Theme.of(context).colorScheme.primary,
-            ),
+      childWhenDragging: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
+            width: 1,
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              task.description,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                decoration: task.completedAt != null 
-                    ? TextDecoration.lineThrough 
-                    : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.drag_handle,
+              size: 18,
+              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                task.description,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: task.completedAt != null 
+              ? Theme.of(context).colorScheme.surfaceContainerHighest 
+              : Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outline,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: () => onToggleComplete(task),
+              child: Icon(
+                task.completedAt != null 
+                    ? Icons.check_circle 
+                    : Icons.circle_outlined,
+                size: 18,
                 color: task.completedAt != null 
                     ? Theme.of(context).colorScheme.onSurfaceVariant 
-                    : Theme.of(context).colorScheme.onSurface,
+                    : Theme.of(context).colorScheme.primary,
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Icon(
+              Icons.drag_handle,
+              size: 16,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                task.description,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  decoration: task.completedAt != null 
+                      ? TextDecoration.lineThrough 
+                      : null,
+                  color: task.completedAt != null 
+                      ? Theme.of(context).colorScheme.onSurfaceVariant 
+                      : Theme.of(context).colorScheme.onSurface,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

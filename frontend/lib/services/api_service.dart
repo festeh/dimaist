@@ -126,7 +126,17 @@ class ApiService {
         _logger.warning('Failed to update task $id: ${response.statusCode}');
         throw Exception('Failed to update task');
       }
-      await _db.updateTask(task);
+      
+      // Parse the response to get the updated task from backend
+      if (response.body.isNotEmpty) {
+        final updatedTaskData = json.decode(response.body);
+        final updatedTask = Task.fromJson(updatedTaskData);
+        await _db.updateTask(updatedTask);
+      } else {
+        // Fallback to using the task we sent
+        await _db.updateTask(task);
+      }
+      
       _logger.info('Task $id updated successfully.');
     } catch (e) {
       _logger.severe('Error updating task $id: $e');

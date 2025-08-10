@@ -132,6 +132,8 @@ class Tasks extends Table {
   IntColumn get projectId => integer()();
   DateTimeColumn get dueDate => dateTime().nullable()();
   DateTimeColumn get dueDatetime => dateTime().nullable()();
+  DateTimeColumn get startDatetime => dateTime().nullable()();
+  DateTimeColumn get endDatetime => dateTime().nullable()();
   TextColumn get labels =>
       text().map(const ListOfStringConverter()).nullable()();
   IntColumn get order => integer()();
@@ -263,6 +265,8 @@ class AppDatabase extends _$AppDatabase {
       projectId: Value(task.projectId),
       dueDate: Value(task.dueDate),
       dueDatetime: Value(task.dueDatetime),
+      startDatetime: Value(task.startDatetime),
+      endDatetime: Value(task.endDatetime),
       labels: Value(task.labels),
       order: Value(task.order),
       completedAt: Value(task.completedAt),

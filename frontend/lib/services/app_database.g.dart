@@ -261,6 +261,29 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _startDatetimeMeta = const VerificationMeta(
+    'startDatetime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startDatetime =
+      GeneratedColumn<DateTime>(
+        'start_datetime',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _endDatetimeMeta = const VerificationMeta(
+    'endDatetime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> endDatetime = GeneratedColumn<DateTime>(
+    'end_datetime',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   late final GeneratedColumnWithTypeConverter<List<String>?, String> labels =
       GeneratedColumn<String>(
@@ -317,6 +340,8 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
     projectId,
     dueDate,
     dueDatetime,
+    startDatetime,
+    endDatetime,
     labels,
     order,
     completedAt,
@@ -372,6 +397,24 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
         ),
       );
     }
+    if (data.containsKey('start_datetime')) {
+      context.handle(
+        _startDatetimeMeta,
+        startDatetime.isAcceptableOrUnknown(
+          data['start_datetime']!,
+          _startDatetimeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('end_datetime')) {
+      context.handle(
+        _endDatetimeMeta,
+        endDatetime.isAcceptableOrUnknown(
+          data['end_datetime']!,
+          _endDatetimeMeta,
+        ),
+      );
+    }
     if (data.containsKey('order')) {
       context.handle(
         _orderMeta,
@@ -424,6 +467,14 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}due_datetime'],
       ),
+      startDatetime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}start_datetime'],
+      ),
+      endDatetime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}end_datetime'],
+      ),
       labels: $TasksTable.$converterlabels.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
@@ -468,6 +519,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
   final Value<int> projectId;
   final Value<DateTime?> dueDate;
   final Value<DateTime?> dueDatetime;
+  final Value<DateTime?> startDatetime;
+  final Value<DateTime?> endDatetime;
   final Value<List<String>?> labels;
   final Value<int> order;
   final Value<DateTime?> completedAt;
@@ -479,6 +532,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     this.projectId = const Value.absent(),
     this.dueDate = const Value.absent(),
     this.dueDatetime = const Value.absent(),
+    this.startDatetime = const Value.absent(),
+    this.endDatetime = const Value.absent(),
     this.labels = const Value.absent(),
     this.order = const Value.absent(),
     this.completedAt = const Value.absent(),
@@ -491,6 +546,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     required int projectId,
     this.dueDate = const Value.absent(),
     this.dueDatetime = const Value.absent(),
+    this.startDatetime = const Value.absent(),
+    this.endDatetime = const Value.absent(),
     this.labels = const Value.absent(),
     required int order,
     this.completedAt = const Value.absent(),
@@ -505,6 +562,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     Expression<int>? projectId,
     Expression<DateTime>? dueDate,
     Expression<DateTime>? dueDatetime,
+    Expression<DateTime>? startDatetime,
+    Expression<DateTime>? endDatetime,
     Expression<String>? labels,
     Expression<int>? order,
     Expression<DateTime>? completedAt,
@@ -517,6 +576,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
       if (projectId != null) 'project_id': projectId,
       if (dueDate != null) 'due_date': dueDate,
       if (dueDatetime != null) 'due_datetime': dueDatetime,
+      if (startDatetime != null) 'start_datetime': startDatetime,
+      if (endDatetime != null) 'end_datetime': endDatetime,
       if (labels != null) 'labels': labels,
       if (order != null) 'order': order,
       if (completedAt != null) 'completed_at': completedAt,
@@ -531,6 +592,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     Value<int>? projectId,
     Value<DateTime?>? dueDate,
     Value<DateTime?>? dueDatetime,
+    Value<DateTime?>? startDatetime,
+    Value<DateTime?>? endDatetime,
     Value<List<String>?>? labels,
     Value<int>? order,
     Value<DateTime?>? completedAt,
@@ -543,6 +606,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
       projectId: projectId ?? this.projectId,
       dueDate: dueDate ?? this.dueDate,
       dueDatetime: dueDatetime ?? this.dueDatetime,
+      startDatetime: startDatetime ?? this.startDatetime,
+      endDatetime: endDatetime ?? this.endDatetime,
       labels: labels ?? this.labels,
       order: order ?? this.order,
       completedAt: completedAt ?? this.completedAt,
@@ -568,6 +633,12 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     }
     if (dueDatetime.present) {
       map['due_datetime'] = Variable<DateTime>(dueDatetime.value);
+    }
+    if (startDatetime.present) {
+      map['start_datetime'] = Variable<DateTime>(startDatetime.value);
+    }
+    if (endDatetime.present) {
+      map['end_datetime'] = Variable<DateTime>(endDatetime.value);
     }
     if (labels.present) {
       map['labels'] = Variable<String>(
@@ -599,6 +670,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
           ..write('projectId: $projectId, ')
           ..write('dueDate: $dueDate, ')
           ..write('dueDatetime: $dueDatetime, ')
+          ..write('startDatetime: $startDatetime, ')
+          ..write('endDatetime: $endDatetime, ')
           ..write('labels: $labels, ')
           ..write('order: $order, ')
           ..write('completedAt: $completedAt, ')
@@ -807,6 +880,8 @@ typedef $$TasksTableCreateCompanionBuilder =
       required int projectId,
       Value<DateTime?> dueDate,
       Value<DateTime?> dueDatetime,
+      Value<DateTime?> startDatetime,
+      Value<DateTime?> endDatetime,
       Value<List<String>?> labels,
       required int order,
       Value<DateTime?> completedAt,
@@ -820,6 +895,8 @@ typedef $$TasksTableUpdateCompanionBuilder =
       Value<int> projectId,
       Value<DateTime?> dueDate,
       Value<DateTime?> dueDatetime,
+      Value<DateTime?> startDatetime,
+      Value<DateTime?> endDatetime,
       Value<List<String>?> labels,
       Value<int> order,
       Value<DateTime?> completedAt,
@@ -857,6 +934,16 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<DateTime> get dueDatetime => $composableBuilder(
     column: $table.dueDatetime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startDatetime => $composableBuilder(
+    column: $table.startDatetime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get endDatetime => $composableBuilder(
+    column: $table.endDatetime,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -922,6 +1009,16 @@ class $$TasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get startDatetime => $composableBuilder(
+    column: $table.startDatetime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get endDatetime => $composableBuilder(
+    column: $table.endDatetime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get labels => $composableBuilder(
     column: $table.labels,
     builder: (column) => ColumnOrderings(column),
@@ -973,6 +1070,16 @@ class $$TasksTableAnnotationComposer
 
   GeneratedColumn<DateTime> get dueDatetime => $composableBuilder(
     column: $table.dueDatetime,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get startDatetime => $composableBuilder(
+    column: $table.startDatetime,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get endDatetime => $composableBuilder(
+    column: $table.endDatetime,
     builder: (column) => column,
   );
 
@@ -1032,6 +1139,8 @@ class $$TasksTableTableManager
                 Value<int> projectId = const Value.absent(),
                 Value<DateTime?> dueDate = const Value.absent(),
                 Value<DateTime?> dueDatetime = const Value.absent(),
+                Value<DateTime?> startDatetime = const Value.absent(),
+                Value<DateTime?> endDatetime = const Value.absent(),
                 Value<List<String>?> labels = const Value.absent(),
                 Value<int> order = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
@@ -1043,6 +1152,8 @@ class $$TasksTableTableManager
                 projectId: projectId,
                 dueDate: dueDate,
                 dueDatetime: dueDatetime,
+                startDatetime: startDatetime,
+                endDatetime: endDatetime,
                 labels: labels,
                 order: order,
                 completedAt: completedAt,
@@ -1056,6 +1167,8 @@ class $$TasksTableTableManager
                 required int projectId,
                 Value<DateTime?> dueDate = const Value.absent(),
                 Value<DateTime?> dueDatetime = const Value.absent(),
+                Value<DateTime?> startDatetime = const Value.absent(),
+                Value<DateTime?> endDatetime = const Value.absent(),
                 Value<List<String>?> labels = const Value.absent(),
                 required int order,
                 Value<DateTime?> completedAt = const Value.absent(),
@@ -1067,6 +1180,8 @@ class $$TasksTableTableManager
                 projectId: projectId,
                 dueDate: dueDate,
                 dueDatetime: dueDatetime,
+                startDatetime: startDatetime,
+                endDatetime: endDatetime,
                 labels: labels,
                 order: order,
                 completedAt: completedAt,

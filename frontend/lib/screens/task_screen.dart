@@ -3,6 +3,7 @@ import 'package:dimaist/services/logging_service.dart';
 import 'package:dimaist/widgets/custom_view_widget.dart';
 import 'package:dimaist/widgets/task_form_dialog.dart';
 import 'package:dimaist/widgets/schedule_view.dart';
+import 'package:dimaist/utils/value_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:dimaist/widgets/error_dialog.dart';
@@ -127,6 +128,21 @@ class TaskScreenState extends State<TaskScreen> {
     );
   }
 
+  Future<void> _scheduleTask(Task task, DateTime timeSlot) async {
+    final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+    
+    try {
+      final updatedTask = task.copyWith(
+        startDatetime: ValueWrapper(timeSlot),
+        endDatetime: ValueWrapper(timeSlot.add(const Duration(minutes: 30))), // Default 30-minute duration
+      );
+      
+      await taskProvider.updateTask(task.id!, updatedTask);
+    } catch (e) {
+      LoggingService.logger.severe('Error scheduling task: $e');
+      _showErrorDialog('Error scheduling task: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -175,6 +191,7 @@ class TaskScreenState extends State<TaskScreen> {
                 onToggleComplete: _toggleComplete,
                 onDelete: _deleteTask,
                 onEdit: _showEditTaskDialog,
+                onScheduleTask: _scheduleTask,
               );
             })()
           : taskProvider.tasks.isEmpty
