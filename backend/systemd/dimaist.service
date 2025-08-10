@@ -1,7 +1,6 @@
 [Unit]
 Description=Dimaist Task Management API Server
-After=network.target postgresql.service
-Requires=postgresql.service
+After=network.target
 
 [Service]
 Type=simple
