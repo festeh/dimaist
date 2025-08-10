@@ -36,7 +36,7 @@ class CompletedTaskWidget extends StatelessWidget {
             task.description,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   decoration: TextDecoration.lineThrough,
-                  color: Colors.grey,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
           ),
           trailing: IconButton(

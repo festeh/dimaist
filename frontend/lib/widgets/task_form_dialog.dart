@@ -543,7 +543,7 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                 scaffoldMessenger.showSnackBar(
                   SnackBar(
                     content: Text('Error saving task: $e'),
-                    backgroundColor: Colors.red,
+                    backgroundColor: Theme.of(context).colorScheme.error,
                   ),
                 );
               }

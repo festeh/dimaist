@@ -208,7 +208,7 @@ class _MenuOverlay extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withAlpha(25),
+                color: Theme.of(context).colorScheme.shadow.withAlpha(25),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),

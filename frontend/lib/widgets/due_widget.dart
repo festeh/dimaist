@@ -59,13 +59,13 @@ class DueWidget extends StatelessWidget {
         Icon(
           Icons.calendar_today,
           size: 16,
-          color: isMissed ? Colors.red : Colors.green,
+          color: isMissed ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
         ),
         const SizedBox(width: 4),
         Text(
           formattedDate,
           style: TextStyle(
-            color: isMissed ? Colors.red : Colors.green,
+            color: isMissed ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
           ),
         ),
       ],
