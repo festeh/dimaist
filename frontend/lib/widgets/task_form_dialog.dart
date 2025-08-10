@@ -37,6 +37,10 @@ class TaskFormDialogState extends State<TaskFormDialog> {
   int? _selectedProjectId;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+  DateTime? _selectedStartDate;
+  TimeOfDay? _selectedStartTime;
+  DateTime? _selectedEndDate;
+  TimeOfDay? _selectedEndTime;
   final AppDatabase _db = AppDatabase();
   List<String> _selectedReminders = [];
 
@@ -69,6 +73,14 @@ class TaskFormDialogState extends State<TaskFormDialog> {
         _selectedTime = TimeOfDay.fromDateTime(task.dueDatetime!);
       } else if (task.dueDate != null) {
         _selectedDate = task.dueDate;
+      }
+      if (task.startDatetime != null) {
+        _selectedStartDate = task.startDatetime;
+        _selectedStartTime = TimeOfDay.fromDateTime(task.startDatetime!);
+      }
+      if (task.endDatetime != null) {
+        _selectedEndDate = task.endDatetime;
+        _selectedEndTime = TimeOfDay.fromDateTime(task.endDatetime!);
       }
       if (task.reminders != null) {
         _selectedReminders = task.reminders!
@@ -225,6 +237,160 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                 ],
               ),
               const SizedBox(height: 16),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Schedule',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Start', style: TextStyle(fontSize: 12)),
+                        Row(
+                          children: [
+                            const Icon(Icons.access_time, size: 16),
+                            const SizedBox(width: 4),
+                            TextButton(
+                              onPressed: () async {
+                                final date = await showDatePicker(
+                                  context: context,
+                                  initialDate: _selectedStartDate ?? DateTime.now(),
+                                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                                );
+                                if (date != null) {
+                                  setState(() {
+                                    _selectedStartDate = date;
+                                  });
+                                }
+                              },
+                              child: Text(
+                                _selectedStartDate?.toLocal().toString().split(' ')[0] ?? 'Date',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            const SizedBox(width: 20),
+                            TextButton(
+                              onPressed: () async {
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: _selectedStartTime ?? TimeOfDay.now(),
+                                  builder: (BuildContext context, Widget? child) {
+                                    return MediaQuery(
+                                      data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                                      child: child!,
+                                    );
+                                  },
+                                );
+                                if (time != null) {
+                                  setState(() {
+                                    _selectedStartTime = time;
+                                    _selectedStartDate ??= DateTime.now();
+                                  });
+                                }
+                              },
+                              child: Text(
+                                _selectedStartTime != null
+                                    ? '${_selectedStartTime!.hour.toString().padLeft(2, '0')}:${_selectedStartTime!.minute.toString().padLeft(2, '0')}'
+                                    : 'Time',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('End', style: TextStyle(fontSize: 12)),
+                        Row(
+                          children: [
+                            const Icon(Icons.access_time, size: 16),
+                            const SizedBox(width: 4),
+                            TextButton(
+                              onPressed: () async {
+                                final date = await showDatePicker(
+                                  context: context,
+                                  initialDate: _selectedEndDate ?? DateTime.now(),
+                                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                                );
+                                if (date != null) {
+                                  setState(() {
+                                    _selectedEndDate = date;
+                                  });
+                                }
+                              },
+                              child: Text(
+                                _selectedEndDate?.toLocal().toString().split(' ')[0] ?? 'Date',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            const SizedBox(width: 20),
+                            TextButton(
+                              onPressed: () async {
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: _selectedEndTime ?? TimeOfDay.now(),
+                                  builder: (BuildContext context, Widget? child) {
+                                    return MediaQuery(
+                                      data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                                      child: child!,
+                                    );
+                                  },
+                                );
+                                if (time != null) {
+                                  setState(() {
+                                    _selectedEndTime = time;
+                                    _selectedEndDate ??= DateTime.now();
+                                  });
+                                }
+                              },
+                              child: Text(
+                                _selectedEndTime != null
+                                    ? '${_selectedEndTime!.hour.toString().padLeft(2, '0')}:${_selectedEndTime!.minute.toString().padLeft(2, '0')}'
+                                    : 'Time',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.clear, size: 16),
+                    tooltip: 'Clear schedule',
+                    onPressed: () {
+                      setState(() {
+                        _selectedStartDate = null;
+                        _selectedStartTime = null;
+                        _selectedEndDate = null;
+                        _selectedEndTime = null;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _labelsController,
                 decoration: const InputDecoration(
@@ -310,6 +476,27 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                   }
                 }
 
+                DateTime? startDatetime;
+                DateTime? endDatetime;
+                if (_selectedStartDate != null && _selectedStartTime != null) {
+                  startDatetime = DateTime(
+                    _selectedStartDate!.year,
+                    _selectedStartDate!.month,
+                    _selectedStartDate!.day,
+                    _selectedStartTime!.hour,
+                    _selectedStartTime!.minute,
+                  );
+                }
+                if (_selectedEndDate != null && _selectedEndTime != null) {
+                  endDatetime = DateTime(
+                    _selectedEndDate!.year,
+                    _selectedEndDate!.month,
+                    _selectedEndDate!.day,
+                    _selectedEndTime!.hour,
+                    _selectedEndTime!.minute,
+                  );
+                }
+
                 final tasksForProject = await _db.getTasksByProject(_selectedProjectId!);
                 final newOrder =
                     (tasksForProject.isNotEmpty
@@ -340,6 +527,8 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                   projectId: _selectedProjectId!,
                   dueDate: dueDate,
                   dueDatetime: dueDatetime,
+                  startDatetime: startDatetime,
+                  endDatetime: endDatetime,
                   labels: labels,
                   order: widget.task?.order ?? newOrder,
                   completedAt: widget.task?.completedAt,

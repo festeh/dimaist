@@ -6,6 +6,8 @@ class Task {
   final int projectId;
   final DateTime? dueDate;
   final DateTime? dueDatetime;
+  final DateTime? startDatetime;
+  final DateTime? endDatetime;
   final List<String>? _labels;
   final int order;
   final DateTime? completedAt;
@@ -18,6 +20,8 @@ class Task {
     required this.projectId,
     this.dueDate,
     this.dueDatetime,
+    this.startDatetime,
+    this.endDatetime,
     List<String>? labels,
     required this.order,
     this.completedAt,
@@ -89,6 +93,8 @@ class Task {
       print('Task.fromJson: project_id = ${json['project_id']}');
       print('Task.fromJson: due_date = ${json['due_date']}');
       print('Task.fromJson: due_datetime = ${json['due_datetime']}');
+      print('Task.fromJson: start_datetime = ${json['start_datetime']}');
+      print('Task.fromJson: end_datetime = ${json['end_datetime']}');
       print('Task.fromJson: labels = ${json['labels']}');
       print('Task.fromJson: order = ${json['order']}');
       print('Task.fromJson: completed_at = ${json['completed_at']}');
@@ -101,6 +107,8 @@ class Task {
         projectId: json['project_id'],
         dueDate: _parseDate(json['due_date']),
         dueDatetime: _parseDate(json['due_datetime']),
+        startDatetime: _parseDate(json['start_datetime']),
+        endDatetime: _parseDate(json['end_datetime']),
         labels: json['labels'] != null ? List<String>.from(json['labels']) : [],
         order: json['order'],
         completedAt: _parseDate(json['completed_at']),
@@ -126,6 +134,8 @@ class Task {
       'project_id': projectId,
       'due_date': dueDate?.toUtc().toIso8601String(),
       'due_datetime': dueDatetime?.toUtc().toIso8601String(),
+      'start_datetime': startDatetime?.toUtc().toIso8601String(),
+      'end_datetime': endDatetime?.toUtc().toIso8601String(),
       'labels': labels,
       'order': order,
       'completed_at': completedAt?.toUtc().toIso8601String(),
@@ -140,6 +150,8 @@ class Task {
     int? projectId,
     ValueWrapper<DateTime?>? dueDate,
     ValueWrapper<DateTime?>? dueDatetime,
+    ValueWrapper<DateTime?>? startDatetime,
+    ValueWrapper<DateTime?>? endDatetime,
     List<String>? labels,
     int? order,
     ValueWrapper<DateTime?>? completedAt,
@@ -152,6 +164,8 @@ class Task {
       projectId: projectId ?? this.projectId,
       dueDate: dueDate != null ? dueDate.value : this.dueDate,
       dueDatetime: dueDatetime != null ? dueDatetime.value : this.dueDatetime,
+      startDatetime: startDatetime != null ? startDatetime.value : this.startDatetime,
+      endDatetime: endDatetime != null ? endDatetime.value : this.endDatetime,
       labels: labels ?? this.labels,
       order: order ?? this.order,
       completedAt: completedAt != null ? completedAt.value : this.completedAt,

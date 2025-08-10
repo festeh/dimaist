@@ -1,6 +1,7 @@
 import 'package:dimaist/widgets/completed_task_widget.dart';
 import 'package:dimaist/widgets/custom_view_widget.dart';
 import 'package:dimaist/widgets/task_form_dialog.dart';
+import 'package:dimaist/widgets/schedule_view.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:dimaist/widgets/error_dialog.dart';
@@ -23,6 +24,8 @@ class TaskScreen extends StatefulWidget {
 }
 
 class TaskScreenState extends State<TaskScreen> {
+  bool _isScheduleView = false;
+
   @override
   void initState() {
     super.initState();
@@ -135,13 +138,45 @@ class TaskScreenState extends State<TaskScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(taskProvider.title, style: Theme.of(context).textTheme.headlineSmall),
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(taskProvider.title, style: Theme.of(context).textTheme.headlineSmall),
+                if (widget.customView?.name == 'Today') ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    iconSize: 20,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: Icon(_isScheduleView ? Icons.list : Icons.calendar_view_day),
+                    onPressed: () {
+                      print('Toggle button pressed! Current state: $_isScheduleView');
+                      setState(() {
+                        _isScheduleView = !_isScheduleView;
+                      });
+                      print('New state: $_isScheduleView');
+                    },
+                    tooltip: _isScheduleView ? 'List View' : 'Schedule View',
+                  ),
+                ],
+              ],
+            ),
             backgroundColor: Colors.transparent,
             elevation: 0,
           ),
           body: taskProvider.isLoading
               ? const Center(child: SizedBox.shrink())
-              : taskProvider.tasks.isEmpty
+              : (widget.customView?.name == 'Today' && _isScheduleView)
+          ? (() {
+              print('Showing ScheduleView - customView: ${widget.customView?.name}, isScheduleView: $_isScheduleView');
+              return ScheduleView(
+                tasks: taskProvider.tasks,
+                onToggleComplete: _toggleComplete,
+                onDelete: _deleteTask,
+                onEdit: _showEditTaskDialog,
+              );
+            })()
+          : taskProvider.tasks.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -163,7 +198,9 @@ class TaskScreenState extends State<TaskScreen> {
                 ],
               ),
             )
-          : ReorderableListView.builder(
+          : (() {
+              print('Showing ListView - customView: ${widget.customView?.name}, isScheduleView: $_isScheduleView');
+              return ReorderableListView.builder(
               buildDefaultDragHandles: false,
               padding: const EdgeInsets.all(8.0),
               itemCount:
@@ -215,7 +252,8 @@ class TaskScreenState extends State<TaskScreen> {
                   _showErrorDialog('Error reordering tasks: $e');
                 }
               },
-            ),
+            );
+          })(),
           floatingActionButton: LongPressFab(
             onPressed: _showAddTaskDialog,
             onMenuItemSelected: (value) {
