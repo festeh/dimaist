@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dimaist/models/project.dart';
 import 'package:dimaist/models/task.dart';
-import 'package:dimaist/services/api_service.dart';
 import 'package:dimaist/services/app_database.dart';
-import 'package:dimaist/widgets/error_dialog.dart';
 
 class TaskFormDialog extends StatefulWidget {
   final Task? task;
@@ -447,6 +445,8 @@ class TaskFormDialogState extends State<TaskFormDialog> {
         ElevatedButton(
           onPressed: () async {
             if (_formKey.currentState!.validate()) {
+              final navigator = Navigator.of(context);
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
               try {
                 final labels = _labelsController.text
                     .split(',')
@@ -537,19 +537,13 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                 );
 
                 await widget.onSave(task);
-                Navigator.of(context).pop();
+                navigator.pop();
               } catch (e) {
-                showDialog(
-                  context: context,
-                  builder: (context) => ErrorDialog(
-                    error: 'Error saving task: $e',
-                    onSync: () async {
-                      try {
-                        await ApiService.syncData();
-                      } catch (e) {
-                        // ignore
-                      }
-                    },
+                // Show error to user
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(
+                    content: Text('Error saving task: $e'),
+                    backgroundColor: Colors.red,
                   ),
                 );
               }

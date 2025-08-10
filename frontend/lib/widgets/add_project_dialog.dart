@@ -88,6 +88,8 @@ class AddProjectDialogState extends State<AddProjectDialog> {
         ElevatedButton(
           onPressed: () async {
             if (_formKey.currentState!.validate()) {
+              final navigator = Navigator.of(context);
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
               try {
                 final projects = await _db.allProjects;
                 final newOrder = (projects.isNotEmpty
@@ -102,10 +104,10 @@ class AddProjectDialogState extends State<AddProjectDialog> {
                   order: newOrder,
                 );
                 await ApiService.createProject(project);
-                Navigator.of(context).pop();
+                navigator.pop();
                 widget.onProjectAdded();
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                scaffoldMessenger.showSnackBar(
                   SnackBar(content: Text('Error creating project: $e')),
                 );
               }

@@ -111,6 +111,7 @@ class _MainScreenState extends State<MainScreen> {
     try {
       LoggingService.logger.info('_loadInitialData: Getting shared preferences...');
       final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
       final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
       
       LoggingService.logger.info('_loadInitialData: Loading projects from database...');

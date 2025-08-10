@@ -89,6 +89,8 @@ class _EditProjectDialogState extends State<EditProjectDialog> {
         ElevatedButton(
           onPressed: () async {
             if (_formKey.currentState!.validate()) {
+              final navigator = Navigator.of(context);
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
               try {
                 final updatedProject = Project(
                   id: widget.project.id,
@@ -100,10 +102,10 @@ class _EditProjectDialogState extends State<EditProjectDialog> {
                   widget.project.id!,
                   updatedProject,
                 );
-                Navigator.of(context).pop();
+                navigator.pop();
                 widget.onProjectUpdated();
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                scaffoldMessenger.showSnackBar(
                   SnackBar(content: Text('Error updating project: $e')),
                 );
               }
