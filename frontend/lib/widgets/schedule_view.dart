@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/task.dart';
 
-class ScheduleView extends StatelessWidget {
+class ScheduleView extends StatefulWidget {
   final List<Task> tasks;
   final Function(Task) onToggleComplete;
   final Function(int) onDelete;
@@ -20,6 +20,60 @@ class ScheduleView extends StatelessWidget {
   });
 
   @override
+  State<ScheduleView> createState() => _ScheduleViewState();
+}
+
+class _ScheduleViewState extends State<ScheduleView> {
+  late ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    
+    // Auto-scroll to current time after the widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToCurrentTime();
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToCurrentTime() {
+    final now = DateTime.now();
+    final startTime = DateTime(now.year, now.month, now.day, 6, 0);
+    
+    if (now.isBefore(startTime)) {
+      // If current time is before 6:00, scroll to top
+      _scrollController.jumpTo(0);
+      return;
+    }
+    
+    final endTime = DateTime(now.year, now.month, now.day, 23, 30);
+    if (now.isAfter(endTime)) {
+      // If current time is after 23:30, scroll to bottom
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      return;
+    }
+    
+    // Calculate which time slot the current time falls into
+    final timeDifference = now.difference(startTime);
+    final slotIndex = (timeDifference.inMinutes / 30).floor();
+    
+    // Scroll so current time is near the top (but not at the very top)
+    const itemHeight = 60.0; // Height of each time slot
+    final scrollOffset = (slotIndex * itemHeight) - (itemHeight * 2); // Show 2 slots above current time
+    
+    _scrollController.jumpTo(
+      scrollOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Create time slots from 6:00 to 23:30 (30-minute intervals)
     final timeSlots = <DateTime>[];
@@ -31,10 +85,10 @@ class ScheduleView extends StatelessWidget {
     }
 
     // Separate tasks with and without time slots
-    final scheduledTasks = tasks.where((task) => 
+    final scheduledTasks = widget.tasks.where((task) => 
       task.startDatetime != null && task.endDatetime != null
     ).toList();
-    final unscheduledTasks = tasks.where((task) => 
+    final unscheduledTasks = widget.tasks.where((task) => 
       task.startDatetime == null || task.endDatetime == null
     ).toList();
 
@@ -58,6 +112,7 @@ class ScheduleView extends StatelessWidget {
               // Time grid
               Expanded(
                 child: ListView.builder(
+                  controller: _scrollController,
                   itemCount: timeSlots.length,
                   itemBuilder: (context, index) {
                     final timeSlot = timeSlots[index];
@@ -73,6 +128,10 @@ class ScheduleView extends StatelessWidget {
                       return (taskStart.isBefore(slotEnd) && taskEnd.isAfter(timeSlot));
                     }).toList();
 
+                    // Check if current time falls within this slot
+                    final slotEnd = timeSlot.add(const Duration(minutes: 30));
+                    final isCurrentTimeInSlot = now.isAfter(timeSlot) && now.isBefore(slotEnd);
+
                     return Container(
                       height: 60,
                       decoration: BoxDecoration(
@@ -83,8 +142,10 @@ class ScheduleView extends StatelessWidget {
                           ),
                         ),
                       ),
-                      child: Row(
+                      child: Stack(
                         children: [
+                          Row(
+                            children: [
                           // Time label
                           Container(
                             width: 80,
@@ -101,7 +162,7 @@ class ScheduleView extends StatelessWidget {
                           Expanded(
                             child: DragTarget<Task>(
                               onAcceptWithDetails: (details) {
-                                onScheduleTask(details.data, timeSlot);
+                                widget.onScheduleTask(details.data, timeSlot);
                               },
                               builder: (context, candidateData, rejectedData) {
                                 return Container(
@@ -134,6 +195,11 @@ class ScheduleView extends StatelessWidget {
                               },
                             ),
                           ),
+                            ],
+                          ),
+                          // Current time indicator
+                          if (isCurrentTimeInSlot) 
+                            _buildCurrentTimeIndicator(now, timeSlot),
                         ],
                       ),
                     );
@@ -170,7 +236,7 @@ class ScheduleView extends StatelessWidget {
                   child: DragTarget<Task>(
                     onAcceptWithDetails: (details) {
                       // Unschedule the task by setting start/end times to null
-                      onUnscheduleTask(details.data);
+                      widget.onUnscheduleTask(details.data);
                     },
                     builder: (context, candidateData, rejectedData) {
                       return Container(
@@ -299,7 +365,7 @@ class ScheduleView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             GestureDetector(
-              onTap: () => onToggleComplete(task),
+              onTap: () => widget.onToggleComplete(task),
               child: Icon(
                 task.completedAt != null 
                     ? Icons.check_circle 
@@ -430,7 +496,7 @@ class ScheduleView extends StatelessWidget {
         child: Row(
           children: [
             GestureDetector(
-              onTap: () => onToggleComplete(task),
+              onTap: () => widget.onToggleComplete(task),
               child: Icon(
                 task.completedAt != null 
                     ? Icons.check_circle 
@@ -467,6 +533,23 @@ class ScheduleView extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentTimeIndicator(DateTime now, DateTime timeSlot) {
+    // Calculate the exact position within the 30-minute slot
+    final minutesFromSlotStart = now.difference(timeSlot).inMinutes;
+    final slotHeight = 60.0;
+    final linePosition = (minutesFromSlotStart / 30.0) * slotHeight;
+
+    return Positioned(
+      top: linePosition,
+      left: 0,
+      right: 0,
+      child: Container(
+        height: 2,
+        color: Theme.of(context).colorScheme.primary,
       ),
     );
   }
