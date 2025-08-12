@@ -194,9 +194,11 @@ class _ScheduleViewState extends State<ScheduleView> {
                                         )
                                       : null,
                                   child: tasksInSlot.isNotEmpty
-                                      ? Wrap(
+                                      ? Column(
                                           children: tasksInSlot.map((task) => 
-                                            _buildScheduledTaskCard(context, task)
+                                            Expanded(
+                                              child: _buildScheduledTaskCard(context, task, timeSlot)
+                                            )
                                           ).toList(),
                                         )
                                       : Container(
@@ -303,11 +305,16 @@ class _ScheduleViewState extends State<ScheduleView> {
     );
   }
 
-  Widget _buildScheduledTaskCard(BuildContext context, Task task) {
+  Widget _buildScheduledTaskCard(BuildContext context, Task task, DateTime currentTimeSlot) {
     final taskDuration = task.startDatetime != null && task.endDatetime != null
         ? task.endDatetime!.difference(task.startDatetime!).inMinutes
         : 0;
     final canShrink = taskDuration > 30;
+    
+    // Check if this is the starting cell for the task (aligned to 30-minute slots)
+    final isStartingCell = task.startDatetime != null && 
+        task.startDatetime!.hour == currentTimeSlot.hour && 
+        task.startDatetime!.minute == currentTimeSlot.minute;
     
     return Draggable<Task>(
       data: task,
@@ -338,8 +345,9 @@ class _ScheduleViewState extends State<ScheduleView> {
         ),
       ),
       childWhenDragging: Container(
-        margin: const EdgeInsets.all(2),
+        margin: const EdgeInsets.all(1),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        height: double.infinity,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(4),
@@ -375,8 +383,9 @@ class _ScheduleViewState extends State<ScheduleView> {
       child: MouseRegion(
         cursor: SystemMouseCursors.grab,
         child: Container(
-          margin: const EdgeInsets.all(2),
+          margin: const EdgeInsets.all(0),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          height: double.infinity,
           decoration: BoxDecoration(
             color: task.completedAt != null 
                 ? Theme.of(context).colorScheme.surfaceContainerHighest 
@@ -392,19 +401,28 @@ class _ScheduleViewState extends State<ScheduleView> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Minus button (left side)
-              _HoverButton(
-                onTap: canShrink ? () => _adjustTaskDuration(task, -30) : null,
-                enabled: canShrink,
-                child: Icon(
-                  Icons.remove,
-                  size: 14,
-                  color: canShrink 
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+              // Minus button (left side) - only show in starting cell
+              if (isStartingCell) ...[
+                _HoverButton(
+                  onTap: canShrink ? () => _adjustTaskDuration(task, -30) : null,
+                  enabled: canShrink,
+                  child: Icon(
+                    Icons.remove,
+                    size: 14,
+                    color: canShrink 
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 2),
+                const SizedBox(width: 2),
+              ] else ...[
+                // Invisible placeholder to maintain width
+                const SizedBox(
+                  width: 18, // 14 (icon) + 4 (padding)
+                  height: 18,
+                ),
+                const SizedBox(width: 2),
+              ],
               GestureDetector(
                 onTap: () => widget.onToggleComplete(task),
                 child: Icon(
@@ -452,17 +470,26 @@ class _ScheduleViewState extends State<ScheduleView> {
                         : Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
-              const SizedBox(width: 2),
-              // Plus button (right side)
-              _HoverButton(
-                onTap: () => _adjustTaskDuration(task, 30),
-                enabled: true,
-                child: Icon(
-                  Icons.add,
-                  size: 14,
-                  color: Theme.of(context).colorScheme.primary,
+              // Plus button (right side) - only show in starting cell
+              if (isStartingCell) ...[
+                const SizedBox(width: 2),
+                _HoverButton(
+                  onTap: () => _adjustTaskDuration(task, 30),
+                  enabled: true,
+                  child: Icon(
+                    Icons.add,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
-              ),
+              ] else ...[
+                // Invisible placeholder to maintain width
+                const SizedBox(width: 2),
+                const SizedBox(
+                  width: 18, // 14 (icon) + 4 (padding)
+                  height: 18,
+                ),
+              ],
             ],
           ),
         ),
