@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/task.dart';
+import '../utils/value_wrapper.dart';
 
 class ScheduleView extends StatefulWidget {
   final List<Task> tasks;
@@ -8,6 +9,7 @@ class ScheduleView extends StatefulWidget {
   final Function(Task) onEdit;
   final Function(Task, DateTime) onScheduleTask;
   final Function(Task) onUnscheduleTask;
+  final Function(Task)? onUpdateTask;
 
   const ScheduleView({
     super.key,
@@ -17,6 +19,7 @@ class ScheduleView extends StatefulWidget {
     required this.onEdit,
     required this.onScheduleTask,
     required this.onUnscheduleTask,
+    this.onUpdateTask,
   });
 
   @override
@@ -71,6 +74,24 @@ class _ScheduleViewState extends State<ScheduleView> {
     _scrollController.jumpTo(
       scrollOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
     );
+  }
+
+  void _adjustTaskDuration(Task task, int minutesToAdd) {
+    if (task.startDatetime == null || task.endDatetime == null) return;
+    
+    final newEndTime = task.endDatetime!.add(Duration(minutes: minutesToAdd));
+    
+    // Create updated task with new end time, keeping the same start time
+    final updatedTask = task.copyWith(
+      endDatetime: ValueWrapper(newEndTime),
+    );
+    
+    // Use onUpdateTask if available, otherwise fall back to onEdit
+    if (widget.onUpdateTask != null) {
+      widget.onUpdateTask!(updatedTask);
+    } else {
+      widget.onEdit(updatedTask);
+    }
   }
 
   @override
@@ -283,6 +304,11 @@ class _ScheduleViewState extends State<ScheduleView> {
   }
 
   Widget _buildScheduledTaskCard(BuildContext context, Task task) {
+    final taskDuration = task.startDatetime != null && task.endDatetime != null
+        ? task.endDatetime!.difference(task.startDatetime!).inMinutes
+        : 0;
+    final canShrink = taskDuration > 30;
+    
     return Draggable<Task>(
       data: task,
       feedback: Material(
@@ -346,72 +372,99 @@ class _ScheduleViewState extends State<ScheduleView> {
           ],
         ),
       ),
-      child: Container(
-        margin: const EdgeInsets.all(2),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: task.completedAt != null 
-              ? Theme.of(context).colorScheme.surfaceContainerHighest 
-              : Theme.of(context).colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
+      child: MouseRegion(
+        cursor: SystemMouseCursors.grab,
+        child: Container(
+          margin: const EdgeInsets.all(2),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
             color: task.completedAt != null 
-                ? Theme.of(context).colorScheme.outline 
-                : Theme.of(context).colorScheme.primary,
-            width: 1,
+                ? Theme.of(context).colorScheme.surfaceContainerHighest 
+                : Theme.of(context).colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: task.completedAt != null 
+                  ? Theme.of(context).colorScheme.outline 
+                  : Theme.of(context).colorScheme.primary,
+              width: 1,
+            ),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GestureDetector(
-              onTap: () => widget.onToggleComplete(task),
-              child: Icon(
-                task.completedAt != null 
-                    ? Icons.check_circle 
-                    : Icons.circle_outlined,
-                size: 16,
-                color: task.completedAt != null 
-                    ? Theme.of(context).colorScheme.onSurfaceVariant 
-                    : Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.drag_handle,
-              size: 12,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 2),
-            Flexible(
-              child: Text(
-                task.description,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  decoration: task.completedAt != null 
-                      ? TextDecoration.lineThrough 
-                      : null,
-                  color: task.completedAt != null 
-                      ? Theme.of(context).colorScheme.onSurfaceVariant 
-                      : Theme.of(context).colorScheme.onSurface,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (task.startDatetime != null && task.endDatetime != null)
-              Text(
-                ' ${task.startDatetime!.hour.toString().padLeft(2, '0')}:${task.startDatetime!.minute.toString().padLeft(2, '0')}-${task.endDatetime!.hour.toString().padLeft(2, '0')}:${task.endDatetime!.minute.toString().padLeft(2, '0')}',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w400,
-                  color: task.completedAt != null 
-                      ? Theme.of(context).colorScheme.onSurfaceVariant 
-                      : Theme.of(context).colorScheme.onSurface,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Minus button (left side)
+              _HoverButton(
+                onTap: canShrink ? () => _adjustTaskDuration(task, -30) : null,
+                enabled: canShrink,
+                child: Icon(
+                  Icons.remove,
+                  size: 14,
+                  color: canShrink 
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                 ),
               ),
-          ],
+              const SizedBox(width: 2),
+              GestureDetector(
+                onTap: () => widget.onToggleComplete(task),
+                child: Icon(
+                  task.completedAt != null 
+                      ? Icons.check_circle 
+                      : Icons.circle_outlined,
+                  size: 16,
+                  color: task.completedAt != null 
+                      ? Theme.of(context).colorScheme.onSurfaceVariant 
+                      : Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.drag_handle,
+                size: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 2),
+              Flexible(
+                child: Text(
+                  task.description,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    decoration: task.completedAt != null 
+                        ? TextDecoration.lineThrough 
+                        : null,
+                    color: task.completedAt != null 
+                        ? Theme.of(context).colorScheme.onSurfaceVariant 
+                        : Theme.of(context).colorScheme.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (task.startDatetime != null && task.endDatetime != null)
+                Text(
+                  ' ${task.startDatetime!.hour.toString().padLeft(2, '0')}:${task.startDatetime!.minute.toString().padLeft(2, '0')}-${task.endDatetime!.hour.toString().padLeft(2, '0')}:${task.endDatetime!.minute.toString().padLeft(2, '0')}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w400,
+                    color: task.completedAt != null 
+                        ? Theme.of(context).colorScheme.onSurfaceVariant 
+                        : Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+              const SizedBox(width: 2),
+              // Plus button (right side)
+              _HoverButton(
+                onTap: () => _adjustTaskDuration(task, 30),
+                enabled: true,
+                child: Icon(
+                  Icons.add,
+                  size: 14,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -550,6 +603,48 @@ class _ScheduleViewState extends State<ScheduleView> {
       child: Container(
         height: 2,
         color: Theme.of(context).colorScheme.primary,
+      ),
+    );
+  }
+}
+
+class _HoverButton extends StatefulWidget {
+  final VoidCallback? onTap;
+  final bool enabled;
+  final Widget child;
+
+  const _HoverButton({
+    required this.onTap,
+    required this.enabled,
+    required this.child,
+  });
+
+  @override
+  State<_HoverButton> createState() => _HoverButtonState();
+}
+
+class _HoverButtonState extends State<_HoverButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: widget.enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.enabled ? widget.onTap : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: _isHovered && widget.enabled
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: widget.child,
+        ),
       ),
     );
   }

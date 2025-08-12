@@ -160,6 +160,17 @@ class TaskScreenState extends State<TaskScreen> {
     }
   }
 
+  Future<void> _updateTask(Task task) async {
+    final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+    
+    try {
+      await taskProvider.updateTask(task.id!, task);
+    } catch (e) {
+      LoggingService.logger.severe('Error updating task: $e');
+      _showErrorDialog('Error updating task: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<TaskProvider>(
@@ -209,6 +220,7 @@ class TaskScreenState extends State<TaskScreen> {
                 onEdit: _showEditTaskDialog,
                 onScheduleTask: _scheduleTask,
                 onUnscheduleTask: _unscheduleTask,
+                onUpdateTask: _updateTask,
               );
             })()
           : taskProvider.tasks.isEmpty
