@@ -206,7 +206,7 @@ class _ScheduleViewState extends State<ScheduleView> {
                                           alignment: Alignment.center,
                                           child: candidateData.isNotEmpty
                                               ? Text(
-                                                  'Drop task here',
+                                                  'Task starts here',
                                                   style: TextStyle(
                                                     color: Theme.of(context).colorScheme.primary,
                                                     fontSize: 12,
