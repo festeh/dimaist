@@ -12,6 +12,7 @@ import 'screens/task_screen.dart';
 import 'services/api_service.dart';
 import 'services/logging_service.dart';
 import 'services/tray_service.dart';
+import 'utils/responsive_utils.dart';
 
 import 'models/project.dart';
 import 'widgets/edit_project_dialog.dart';
@@ -91,6 +92,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   GlobalKey<TaskScreenState>? _currentTaskScreenKey;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isLoading = true;
 
   @override
@@ -191,6 +193,42 @@ class _MainScreenState extends State<MainScreen> {
       builder: (context, projectProvider, viewProvider, child) {
         final projects = projectProvider.projects;
         final selectedProjectIndex = viewProvider.getSelectedProjectIndex(projects);
+        final isMobile = ResponsiveUtils.isMobile(context);
+
+        final leftBarContent = LeftBar(
+          selectedView: viewProvider.selectedCustomView,
+          onCustomViewSelected: (view) {
+            viewProvider.selectCustomView(view);
+            if (isMobile) {
+              Navigator.of(context).pop();
+            }
+          },
+          onAddProject: () {
+            if (isMobile) {
+              Navigator.of(context).pop();
+            }
+            _showAddProjectDialog();
+          },
+          projectList: ProjectList(
+            projects: projects,
+            selectedIndex: selectedProjectIndex,
+            onProjectSelected: (index) {
+              viewProvider.selectProject(projects[index].id!);
+              if (isMobile) {
+                Navigator.of(context).pop();
+              }
+            },
+            onReorder: (oldIndex, newIndex) async {
+              try {
+                await projectProvider.reorderProjects(oldIndex, newIndex);
+              } catch (e) {
+                _showErrorDialog('Error reordering projects: $e');
+              }
+            },
+            onEdit: _showEditProjectDialog,
+            onDelete: _deleteProject,
+          ),
+        );
 
         return Focus(
           autofocus: true,
@@ -227,39 +265,67 @@ class _MainScreenState extends State<MainScreen> {
             return KeyEventResult.ignored;
           },
           child: Scaffold(
-            body: Row(
-              children: [
-                LeftBar(
-                  selectedView: viewProvider.selectedCustomView,
-                  onCustomViewSelected: viewProvider.selectCustomView,
-                  onAddProject: _showAddProjectDialog,
-                  projectList: ProjectList(
-                    projects: projects,
-                    selectedIndex: selectedProjectIndex,
-                    onProjectSelected: (index) {
-                      viewProvider.selectProject(projects[index].id!);
-                    },
-                    onReorder: (oldIndex, newIndex) async {
-                      try {
-                        await projectProvider.reorderProjects(oldIndex, newIndex);
-                      } catch (e) {
-                        _showErrorDialog('Error reordering projects: $e');
-                      }
-                    },
-                    onEdit: _showEditProjectDialog,
-                    onDelete: _deleteProject,
-                  ),
-                ),
-                Expanded(
-                  child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _buildMainContent(projects, viewProvider),
-                ),
-              ],
-            ),
+            key: _scaffoldKey,
+            appBar: isMobile ? _buildMobileAppBar(viewProvider) : null,
+            drawer: isMobile ? Drawer(child: leftBarContent) : null,
+            body: isMobile
+                ? _buildMobileLayout(projects, viewProvider)
+                : _buildDesktopLayout(projects, viewProvider, leftBarContent),
           ),
         );
       },
+    );
+  }
+
+  AppBar _buildMobileAppBar(ViewProvider viewProvider) {
+    String title = 'Dimaist';
+    if (viewProvider.selectedCustomView != null) {
+      title = viewProvider.selectedCustomView!;
+    } else if (viewProvider.selectedProjectId != null) {
+      final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
+      final project = projectProvider.projects.firstWhere(
+        (p) => p.id == viewProvider.selectedProjectId,
+        orElse: () => Project(name: 'Dimaist', color: '#6200EE', order: 0),
+      );
+      title = project.name;
+    }
+
+    return AppBar(
+      title: Text(title),
+      leading: IconButton(
+        icon: const Icon(Icons.menu),
+        onPressed: () {
+          _scaffoldKey.currentState?.openDrawer();
+        },
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.add),
+          onPressed: () {
+            _currentTaskScreenKey?.currentState?.showAddTaskDialog();
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileLayout(List<Project> projects, ViewProvider viewProvider) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return _buildMainContent(projects, viewProvider);
+  }
+
+  Widget _buildDesktopLayout(List<Project> projects, ViewProvider viewProvider, Widget leftBarContent) {
+    return Row(
+      children: [
+        leftBarContent,
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _buildMainContent(projects, viewProvider),
+        ),
+      ],
     );
   }
 
