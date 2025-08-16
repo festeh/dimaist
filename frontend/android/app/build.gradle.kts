@@ -19,8 +19,11 @@ android {
     }
 
     defaultConfig {
+        applicationId = "com.example.dimaist"
         minSdk = 25
         targetSdk = 30
+        versionCode = 1
+        versionName = "1.0"
         flavorDimensions += "appType"
         productFlavors {
             create("phone") {

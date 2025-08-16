@@ -24,7 +24,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   LoggingService.setup();
-  await TrayService.initialize();
+  
+  // Only initialize tray service on desktop platforms
+  if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+    await TrayService.initialize();
+  }
+  
   runApp(const MyApp());
 }
 
