@@ -165,73 +165,85 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-              Row(
+              Wrap(
+                spacing: 8.0,
+                runSpacing: 8.0,
+                alignment: WrapAlignment.spaceBetween,
                 children: [
-                  const Icon(Icons.calendar_today),
-                  const SizedBox(width: 8),
-                  TextButton(
-                    onPressed: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: _selectedDate ?? DateTime.now(),
-                        firstDate: DateTime.now().subtract(
-                          const Duration(days: 365),
-                        ),
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                      );
-                      if (date != null) {
-                        setState(() {
-                          _selectedDate = date;
-                        });
-                      }
-                    },
-                    child: Text(
-                      _selectedDate?.toLocal().toString().split(' ')[0] ??
-                          'Select Date',
-                    ),
-                  ),
-                  const Spacer(),
-                  const Icon(Icons.access_time),
-                  const SizedBox(width: 8),
-                  TextButton(
-                    onPressed: () async {
-                      final time = await showTimePicker(
-                        context: context,
-                        initialTime: _selectedTime ?? TimeOfDay.now(),
-                        builder: (BuildContext context, Widget? child) {
-                          return MediaQuery(
-                            data: MediaQuery.of(
-                              context,
-                            ).copyWith(alwaysUse24HourFormat: true),
-                            child: child!,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.calendar_today),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: _selectedDate ?? DateTime.now(),
+                            firstDate: DateTime.now().subtract(
+                              const Duration(days: 365),
+                            ),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
                           );
+                          if (date != null) {
+                            setState(() {
+                              _selectedDate = date;
+                            });
+                          }
                         },
-                      );
-                      if (time != null) {
-                        setState(() {
-                          _selectedTime = time;
-                          _selectedDate ??= DateTime.now();
-                        });
-                      }
-                    },
-                    child: Text(
-                      _selectedTime != null
-                          ? '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}'
-                          : 'Select Time',
-                    ),
+                        child: Text(
+                          _selectedDate?.toLocal().toString().split(' ')[0] ??
+                              'Select Date',
+                        ),
+                      ),
+                    ],
                   ),
-                  if (_selectedDate != null)
-                    IconButton(
-                      icon: const Icon(Icons.clear),
-                      tooltip: 'Clear date and time',
-                      onPressed: () {
-                        setState(() {
-                          _selectedDate = null;
-                          _selectedTime = null;
-                          _selectedReminders.clear();
-                        });
-                      },
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.access_time),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () async {
+                          final time = await showTimePicker(
+                            context: context,
+                            initialTime: _selectedTime ?? TimeOfDay.now(),
+                            builder: (BuildContext context, Widget? child) {
+                              return MediaQuery(
+                                data: MediaQuery.of(
+                                  context,
+                                ).copyWith(alwaysUse24HourFormat: true),
+                                child: child!,
+                              );
+                            },
+                          );
+                          if (time != null) {
+                            setState(() {
+                              _selectedTime = time;
+                              _selectedDate ??= DateTime.now();
+                            });
+                          }
+                        },
+                        child: Text(
+                          _selectedTime != null
+                              ? '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}'
+                              : 'Select Time',
+                        ),
+                      ),
+                      if (_selectedDate != null)
+                        IconButton(
+                          icon: const Icon(Icons.clear),
+                          tooltip: 'Clear date and time',
+                          onPressed: () {
+                            setState(() {
+                              _selectedDate = null;
+                              _selectedTime = null;
+                              _selectedReminders.clear();
+                            });
+                          },
+                        ),
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -254,23 +266,26 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                           children: [
                             const Icon(Icons.access_time, size: 16),
                             const SizedBox(width: 4),
-                            TextButton(
-                              onPressed: () async {
-                                final date = await showDatePicker(
-                                  context: context,
-                                  initialDate: _selectedStartDate ?? DateTime.now(),
-                                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                                  lastDate: DateTime.now().add(const Duration(days: 365)),
-                                );
-                                if (date != null) {
-                                  setState(() {
-                                    _selectedStartDate = date;
-                                  });
-                                }
-                              },
-                              child: Text(
-                                _selectedStartDate?.toLocal().toString().split(' ')[0] ?? 'Date',
-                                style: const TextStyle(fontSize: 12),
+                            Flexible(
+                              child: TextButton(
+                                onPressed: () async {
+                                  final date = await showDatePicker(
+                                    context: context,
+                                    initialDate: _selectedStartDate ?? DateTime.now(),
+                                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                  );
+                                  if (date != null) {
+                                    setState(() {
+                                      _selectedStartDate = date;
+                                    });
+                                  }
+                                },
+                                child: Text(
+                                  _selectedStartDate?.toLocal().toString().split(' ')[0] ?? 'Date',
+                                  style: const TextStyle(fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ),
                           ],
@@ -278,30 +293,32 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                         Row(
                           children: [
                             const SizedBox(width: 20),
-                            TextButton(
-                              onPressed: () async {
-                                final time = await showTimePicker(
-                                  context: context,
-                                  initialTime: _selectedStartTime ?? TimeOfDay.now(),
-                                  builder: (BuildContext context, Widget? child) {
-                                    return MediaQuery(
-                                      data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-                                      child: child!,
-                                    );
-                                  },
-                                );
-                                if (time != null) {
-                                  setState(() {
-                                    _selectedStartTime = time;
-                                    _selectedStartDate ??= DateTime.now();
-                                  });
-                                }
-                              },
-                              child: Text(
-                                _selectedStartTime != null
-                                    ? '${_selectedStartTime!.hour.toString().padLeft(2, '0')}:${_selectedStartTime!.minute.toString().padLeft(2, '0')}'
-                                    : 'Time',
-                                style: const TextStyle(fontSize: 12),
+                            Flexible(
+                              child: TextButton(
+                                onPressed: () async {
+                                  final time = await showTimePicker(
+                                    context: context,
+                                    initialTime: _selectedStartTime ?? TimeOfDay.now(),
+                                    builder: (BuildContext context, Widget? child) {
+                                      return MediaQuery(
+                                        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                                        child: child!,
+                                      );
+                                    },
+                                  );
+                                  if (time != null) {
+                                    setState(() {
+                                      _selectedStartTime = time;
+                                      _selectedStartDate ??= DateTime.now();
+                                    });
+                                  }
+                                },
+                                child: Text(
+                                  _selectedStartTime != null
+                                      ? '${_selectedStartTime!.hour.toString().padLeft(2, '0')}:${_selectedStartTime!.minute.toString().padLeft(2, '0')}'
+                                      : 'Time',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
                               ),
                             ),
                           ],
@@ -309,7 +326,7 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -319,23 +336,26 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                           children: [
                             const Icon(Icons.access_time, size: 16),
                             const SizedBox(width: 4),
-                            TextButton(
-                              onPressed: () async {
-                                final date = await showDatePicker(
-                                  context: context,
-                                  initialDate: _selectedEndDate ?? DateTime.now(),
-                                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                                  lastDate: DateTime.now().add(const Duration(days: 365)),
-                                );
-                                if (date != null) {
-                                  setState(() {
-                                    _selectedEndDate = date;
-                                  });
-                                }
-                              },
-                              child: Text(
-                                _selectedEndDate?.toLocal().toString().split(' ')[0] ?? 'Date',
-                                style: const TextStyle(fontSize: 12),
+                            Flexible(
+                              child: TextButton(
+                                onPressed: () async {
+                                  final date = await showDatePicker(
+                                    context: context,
+                                    initialDate: _selectedEndDate ?? DateTime.now(),
+                                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                  );
+                                  if (date != null) {
+                                    setState(() {
+                                      _selectedEndDate = date;
+                                    });
+                                  }
+                                },
+                                child: Text(
+                                  _selectedEndDate?.toLocal().toString().split(' ')[0] ?? 'Date',
+                                  style: const TextStyle(fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ),
                           ],
@@ -343,30 +363,32 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                         Row(
                           children: [
                             const SizedBox(width: 20),
-                            TextButton(
-                              onPressed: () async {
-                                final time = await showTimePicker(
-                                  context: context,
-                                  initialTime: _selectedEndTime ?? TimeOfDay.now(),
-                                  builder: (BuildContext context, Widget? child) {
-                                    return MediaQuery(
-                                      data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-                                      child: child!,
-                                    );
-                                  },
-                                );
-                                if (time != null) {
-                                  setState(() {
-                                    _selectedEndTime = time;
-                                    _selectedEndDate ??= DateTime.now();
-                                  });
-                                }
-                              },
-                              child: Text(
-                                _selectedEndTime != null
-                                    ? '${_selectedEndTime!.hour.toString().padLeft(2, '0')}:${_selectedEndTime!.minute.toString().padLeft(2, '0')}'
-                                    : 'Time',
-                                style: const TextStyle(fontSize: 12),
+                            Flexible(
+                              child: TextButton(
+                                onPressed: () async {
+                                  final time = await showTimePicker(
+                                    context: context,
+                                    initialTime: _selectedEndTime ?? TimeOfDay.now(),
+                                    builder: (BuildContext context, Widget? child) {
+                                      return MediaQuery(
+                                        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                                        child: child!,
+                                      );
+                                    },
+                                  );
+                                  if (time != null) {
+                                    setState(() {
+                                      _selectedEndTime = time;
+                                      _selectedEndDate ??= DateTime.now();
+                                    });
+                                  }
+                                },
+                                child: Text(
+                                  _selectedEndTime != null
+                                      ? '${_selectedEndTime!.hour.toString().padLeft(2, '0')}:${_selectedEndTime!.minute.toString().padLeft(2, '0')}'
+                                      : 'Time',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
                               ),
                             ),
                           ],
@@ -377,6 +399,8 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                   IconButton(
                     icon: const Icon(Icons.clear, size: 16),
                     tooltip: 'Clear schedule',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                     onPressed: () {
                       setState(() {
                         _selectedStartDate = null;

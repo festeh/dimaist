@@ -1,5 +1,6 @@
 import 'package:dimaist/widgets/recording_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class LongPressFab extends StatefulWidget {
   final VoidCallback onPressed;
@@ -22,6 +23,9 @@ class _LongPressFabState extends State<LongPressFab>
   final GlobalKey _menuKey = GlobalKey();
 
   void _showMenu() {
+    // Add haptic feedback for better UX on mobile
+    HapticFeedback.mediumImpact();
+    
     final RenderBox button = context.findRenderObject() as RenderBox;
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
@@ -79,6 +83,7 @@ class _LongPressFabState extends State<LongPressFab>
       }
 
       if (_selectedValue != newSelection) {
+        HapticFeedback.lightImpact();  // Light feedback when selection changes
         setState(() {
           _selectedValue = newSelection;
         });
@@ -117,6 +122,7 @@ class _LongPressFabState extends State<LongPressFab>
       },
       onLongPressEnd: (_) {
         if (_selectedValue != null) {
+          HapticFeedback.mediumImpact();  // Feedback on selection
           if (_selectedValue == 'Voice AI') {
             _showRecordingDialog();
           } else {
@@ -136,7 +142,7 @@ class _LongPressFabState extends State<LongPressFab>
       },
       child: FloatingActionButton(
         onPressed: widget.onPressed,
-        tooltip: 'Action',
+        tooltip: null,  // Remove tooltip to prevent interference with long press on Android
         child: const Icon(Icons.add),
       ),
     );
