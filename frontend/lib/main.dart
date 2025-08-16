@@ -267,10 +267,12 @@ class _MainScreenState extends State<MainScreen> {
           child: Scaffold(
             key: _scaffoldKey,
             appBar: isMobile ? _buildMobileAppBar(viewProvider) : null,
-            drawer: isMobile ? Drawer(child: leftBarContent) : null,
-            body: isMobile
-                ? _buildMobileLayout(projects, viewProvider)
-                : _buildDesktopLayout(projects, viewProvider, leftBarContent),
+            drawer: isMobile ? Drawer(child: SafeArea(child: leftBarContent)) : null,
+            body: SafeArea(
+              child: isMobile
+                  ? _buildMobileLayout(projects, viewProvider)
+                  : _buildDesktopLayout(projects, viewProvider, leftBarContent),
+            ),
           ),
         );
       },
@@ -298,14 +300,6 @@ class _MainScreenState extends State<MainScreen> {
           _scaffoldKey.currentState?.openDrawer();
         },
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.add),
-          onPressed: () {
-            _currentTaskScreenKey?.currentState?.showAddTaskDialog();
-          },
-        ),
-      ],
     );
   }
 
