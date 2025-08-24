@@ -94,8 +94,9 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
 
   void _showAddTaskDialog() async {
     final taskNotifier = ref.read(taskProvider.notifier);
-    final projectState = ref.read(projectProvider);
+    final projectAsyncValue = ref.read(projectProvider);
 
+    final projects = projectAsyncValue.valueOrNull ?? <Project>[];
     Project? selectedProject = widget.project;
     DateTime? defaultDueDate;
 
@@ -113,7 +114,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
     showDialog(
       context: context,
       builder: (context) => TaskFormDialog(
-        projects: projectState.projects,
+        projects: projects,
         selectedProject: selectedProject,
         defaultDueDate: defaultDueDate,
         onSave: (task) async {
@@ -127,13 +128,15 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
 
   void _showEditTaskDialog(Task task) {
     final taskNotifier = ref.read(taskProvider.notifier);
-    final projectState = ref.read(projectProvider);
+    final projectAsyncValue = ref.read(projectProvider);
+
+    final projects = projectAsyncValue.valueOrNull ?? <Project>[];
 
     showDialog(
       context: context,
       builder: (context) => TaskFormDialog(
         task: task,
-        projects: projectState.projects,
+        projects: projects,
         onSave: (updatedTask) async {
           await taskNotifier.updateTask(task.id!, updatedTask);
         },
@@ -190,12 +193,40 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final taskState = ref.watch(taskProvider);
+    final taskAsyncValue = ref.watch(taskProvider);
     final taskNotifier = ref.read(taskProvider.notifier);
-    final nonCompletedTasks = taskState.nonCompletedTasks;
+
+    return taskAsyncValue.when(
+      data: (taskData) => _buildTaskContent(context, taskData, taskNotifier),
+      loading: () => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stack) => Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Error loading tasks: $error'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => taskNotifier.loadTasks(
+                  project: widget.project,
+                  customView: widget.customView,
+                ),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTaskContent(BuildContext context, TaskViewData taskData, TaskNotifier taskNotifier) {
+    final nonCompletedTasks = taskData.nonCompletedTasks;
     final completedTasks = widget.customView?.type == BuiltInViewType.today
         ? <Task>[]
-        : taskState.completedTasks;
+        : taskData.completedTasks;
 
     return Scaffold(
       appBar: AppBar(
@@ -203,7 +234,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              taskState.title,
+              taskData.title,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             if (widget.customView?.type == BuiltInViewType.today) ...[
@@ -232,16 +263,14 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: taskState.isLoading
-          ? const Center(child: SizedBox.shrink())
-          : (widget.customView?.type == BuiltInViewType.today &&
+      body: (widget.customView?.type == BuiltInViewType.today &&
                 _isScheduleView)
           ? (() {
               LoggingService.logger.fine(
                 'Showing ScheduleView - customView: ${widget.customView?.name}, isScheduleView: $_isScheduleView',
               );
               return ScheduleView(
-                tasks: taskState.tasks,
+                tasks: taskData.tasks,
                 onToggleComplete: _toggleComplete,
                 onDelete: _deleteTask,
                 onEdit: _showEditTaskDialog,
@@ -250,7 +279,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                 onUpdateTask: _updateTask,
               );
             })()
-          : taskState.tasks.isEmpty
+          : taskData.tasks.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,

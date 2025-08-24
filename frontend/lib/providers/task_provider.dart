@@ -7,32 +7,21 @@ import '../repositories/providers.dart';
 import '../repositories/interfaces/task_repository_interface.dart';
 import 'view_provider.dart';
 
-// Sentinel object for unchanged values in copyWith
-const Object _unchanged = Object();
-
-class TaskState {
+class TaskViewData {
   final List<Task> tasks;
-  final bool isLoading;
-  final String? error;
   final ViewSelection? currentView;
 
-  const TaskState({
+  const TaskViewData({
     this.tasks = const [],
-    this.isLoading = false,
-    this.error,
     this.currentView,
   });
 
-  TaskState copyWith({
+  TaskViewData copyWith({
     List<Task>? tasks,
-    bool? isLoading,
-    Object? error = _unchanged,
     ViewSelection? currentView,
   }) {
-    return TaskState(
+    return TaskViewData(
       tasks: tasks ?? this.tasks,
-      isLoading: isLoading ?? this.isLoading,
-      error: error == _unchanged ? this.error : error as String?,
       currentView: currentView ?? this.currentView,
     );
   }
@@ -56,10 +45,13 @@ class TaskState {
   }
 }
 
-class TaskNotifier extends StateNotifier<TaskState> {
-  final ITaskRepository _repository;
+class TaskNotifier extends AsyncNotifier<TaskViewData> {
+  ITaskRepository get _repository => ref.read(taskRepositoryProvider);
 
-  TaskNotifier(this._repository) : super(const TaskState());
+  @override
+  Future<TaskViewData> build() async {
+    return const TaskViewData();
+  }
 
   Future<void> loadTasks({Project? project, CustomView? customView}) async {
     // Create the appropriate view selection
@@ -70,13 +62,7 @@ class TaskNotifier extends StateNotifier<TaskState> {
       viewSelection = CustomViewSelection(customView);
     }
 
-    state = state.copyWith(
-      currentView: viewSelection,
-      isLoading: true,
-      error: null,
-    );
-
-    try {
+    state = await AsyncValue.guard(() async {
       final tasks = await switch (viewSelection) {
         ProjectViewSelection(project: final proj) when proj.id != null =>
           _repository.getTasksByProject(proj.id!),
@@ -91,108 +77,68 @@ class TaskNotifier extends StateNotifier<TaskState> {
         null => Future.value(<Task>[]),
       };
 
-      state = state.copyWith(tasks: tasks, isLoading: false);
-    } catch (e) {
-      state = state.copyWith(
-        error: 'Error loading tasks: $e',
-        isLoading: false,
-      );
-    }
+      return TaskViewData(tasks: tasks, currentView: viewSelection);
+    });
   }
 
   Future<void> createTask(Task task) async {
-    try {
-      state = state.copyWith(error: null);
-      await _repository.createTask(task);
-      await _reloadCurrentTasks();
-    } catch (e) {
-      state = state.copyWith(error: 'Error creating task: $e');
-      rethrow;
-    }
+    await _repository.createTask(task);
+    await _reloadCurrentTasks();
   }
 
   Future<void> updateTask(int id, Task task) async {
-    try {
-      state = state.copyWith(error: null);
-      await _repository.updateTask(id, task);
-      await _reloadCurrentTasks();
-    } catch (e) {
-      state = state.copyWith(error: 'Error updating task: $e');
-      rethrow;
-    }
+    await _repository.updateTask(id, task);
+    await _reloadCurrentTasks();
   }
 
   Future<void> deleteTask(int id) async {
-    try {
-      state = state.copyWith(error: null);
-      await _repository.deleteTask(id);
-      await _reloadCurrentTasks();
-    } catch (e) {
-      state = state.copyWith(error: 'Error deleting task: $e');
-      rethrow;
-    }
+    await _repository.deleteTask(id);
+    await _reloadCurrentTasks();
   }
 
   Future<void> toggleComplete(Task task) async {
-    try {
-      state = state.copyWith(error: null);
-      if (task.completedAt != null) {
-        final updatedTask = task.copyWith(
-          completedAt: const ValueWrapper(null),
-        );
-        await _repository.updateTask(task.id!, updatedTask);
-      } else {
-        await _repository.completeTask(task.id!);
-      }
-      await _reloadCurrentTasks();
-    } catch (e) {
-      state = state.copyWith(error: 'Error toggling task completion: $e');
-      rethrow;
+    if (task.completedAt != null) {
+      final updatedTask = task.copyWith(
+        completedAt: const ValueWrapper(null),
+      );
+      await _repository.updateTask(task.id!, updatedTask);
+    } else {
+      await _repository.completeTask(task.id!);
     }
+    await _reloadCurrentTasks();
   }
 
   Future<void> reorderTasks(int oldIndex, int newIndex) async {
-    final currentView = state.currentView;
-    if (currentView is! ProjectViewSelection) return;
-    final nonCompleted = state.nonCompletedTasks;
+    state = await AsyncValue.guard(() async {
+      final currentData = state.valueOrNull ?? const TaskViewData();
+      final currentView = currentData.currentView;
+      if (currentView is! ProjectViewSelection) return currentData;
+      
+      final nonCompleted = currentData.nonCompletedTasks;
+      if (oldIndex >= nonCompleted.length || newIndex > nonCompleted.length) {
+        return currentData;
+      }
 
-    if (oldIndex >= nonCompleted.length || newIndex > nonCompleted.length) {
-      return;
-    }
-
-    if (newIndex > oldIndex) {
-      newIndex -= 1;
-    }
-
-    try {
-      state = state.copyWith(error: null);
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
 
       // Update UI immediately
       final task = nonCompleted.removeAt(oldIndex);
       nonCompleted.insert(newIndex, task);
-      final updatedTasks = [...nonCompleted, ...state.completedTasks];
-      state = state.copyWith(tasks: updatedTasks);
-
+      final updatedTasks = [...nonCompleted, ...currentData.completedTasks];
+      
       // Update order on server
       final allProjectTaskIds = nonCompleted.map((t) => t.id!).toList();
       await _repository.reorderTasks(currentView.project.id!, allProjectTaskIds);
-    } catch (e) {
-      state = state.copyWith(error: 'Error reordering tasks: $e');
-      // If reorder fails, reload from the source of truth
-      await _reloadCurrentTasks();
-      rethrow;
-    }
+      
+      return currentData.copyWith(tasks: updatedTasks);
+    });
   }
 
   Future<void> syncData() async {
-    try {
-      state = state.copyWith(error: null);
-      await _repository.syncTasks();
-      await _reloadCurrentTasks();
-    } catch (e) {
-      state = state.copyWith(error: 'Error syncing tasks: $e');
-      rethrow;
-    }
+    await _repository.syncTasks();
+    await _reloadCurrentTasks();
   }
 
   Future<Project?> getDefaultProjectForToday() async {
@@ -200,7 +146,10 @@ class TaskNotifier extends StateNotifier<TaskState> {
   }
 
   Future<void> _reloadCurrentTasks() async {
-    final currentView = state.currentView;
+    final currentData = state.valueOrNull;
+    if (currentData == null) return;
+    
+    final currentView = currentData.currentView;
     switch (currentView) {
       case ProjectViewSelection(project: final project):
         await loadTasks(project: project);
@@ -211,13 +160,8 @@ class TaskNotifier extends StateNotifier<TaskState> {
         break;
     }
   }
-
-  void clearError() {
-    state = state.copyWith(error: null);
-  }
 }
 
-final taskProvider = StateNotifierProvider<TaskNotifier, TaskState>((ref) {
-  final repository = ref.watch(taskRepositoryProvider);
-  return TaskNotifier(repository);
-});
+final taskProvider = AsyncNotifierProvider<TaskNotifier, TaskViewData>(
+  () => TaskNotifier(),
+);
