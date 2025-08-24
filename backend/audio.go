@@ -18,7 +18,6 @@ type AsrResponse struct {
 
 // TranscribeWAV transcribes WAV audio data using external ASR service
 func TranscribeWAV(wavData []byte, asrUrl string) (*AsrResponse, error) {
-
 	// Create multipart form data
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
@@ -70,10 +69,6 @@ func TranscribeWAV(wavData []byte, asrUrl string) (*AsrResponse, error) {
 	return &asrResponse, nil
 }
 
-type AudioTranscriptionRequest struct {
-	PCMData []byte `json:"pcm_data"`
-}
-
 func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Transcribing audio").Send()
 
@@ -116,11 +111,6 @@ func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Info("Successfully transcribed audio").Str("text", result.Text).Send()
-
-	// Return just the transcription result
-	logger.Info("Successfully transcribed audio").
-		Str("text", result.Text).
-		Send()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
