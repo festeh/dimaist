@@ -89,15 +89,6 @@ func main() {
 	// Reordering routes (separate to avoid conflicts)
 	r.Put("/projects-reorder", reorderProjects)
 
-	// Notes routes
-	r.Route("/notes", func(r chi.Router) {
-		r.Get("/", listNotes)
-		r.Post("/", createNote)
-		r.Route("/{noteID}", func(r chi.Router) {
-			r.Put("/", updateNote)
-			r.Delete("/", deleteNote)
-		})
-	})
 
 	// AI routes
 	r.Route("/ai", func(r chi.Router) {
@@ -121,7 +112,7 @@ func listTasks(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Listing tasks").Send()
 
 	var tasks []database.Task
-	result := database.DB.Preload("Project").Find(&tasks)
+	result := database.DB.Preload("Project").Where("deleted_at IS NULL").Find(&tasks)
 	if result.Error != nil {
 		logger.Error("Failed to retrieve tasks").Err(result.Error).Send()
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
@@ -153,7 +144,7 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 	// Set order if not provided
 	if t.Order == 0 {
 		var maxOrder int
-		database.DB.Model(&database.Task{}).Select("COALESCE(MAX(order), 0)").Where("project_id = ?", t.ProjectID).Scan(&maxOrder)
+		database.DB.Model(&database.Task{}).Select("COALESCE(MAX(order), 0)").Where("project_id = ? AND deleted_at IS NULL", t.ProjectID).Scan(&maxOrder)
 		t.Order = maxOrder + 1
 	}
 
@@ -191,7 +182,7 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := database.DB.Model(&t).Where("id = ?", id).Select("*").Updates(t)
+	result := database.DB.Model(&t).Where("id = ? AND deleted_at IS NULL", id).Select("*").Updates(t)
 	if result.Error != nil {
 		logger.Error("Failed to update task").Uint("task_id", id).Err(result.Error).Send()
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
@@ -210,7 +201,10 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := database.DB.Delete(&database.Task{}, id)
+	result := database.DB.Model(&database.Task{}).Where("id = ?", id).Updates(map[string]any{
+		"deleted_at": time.Now(),
+		"updated_at": time.Now(),
+	})
 	if result.Error != nil {
 		logger.Error("Failed to delete task").Uint("task_id", id).Err(result.Error).Send()
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
@@ -231,7 +225,7 @@ func completeTask(w http.ResponseWriter, r *http.Request) {
 
 	// First, fetch the task to check if it's recurring
 	var task database.Task
-	result := database.DB.Where("id = ?", id).First(&task)
+	result := database.DB.Where("id = ? AND deleted_at IS NULL", id).First(&task)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			logger.Error("Task not found").Uint("task_id", id).Send()
@@ -296,7 +290,7 @@ func listProjects(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Listing projects").Send()
 
 	var projects []database.Project
-	result := database.DB.Preload("Tasks").Find(&projects)
+	result := database.DB.Preload("Tasks", "deleted_at IS NULL").Where("deleted_at IS NULL").Find(&projects)
 	if result.Error != nil {
 		logger.Error("Failed to retrieve projects").Err(result.Error).Send()
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
@@ -321,7 +315,7 @@ func createProject(w http.ResponseWriter, r *http.Request) {
 	// Set order if not provided
 	if p.Order == 0 {
 		var maxOrder int
-		database.DB.Model(&database.Project{}).Select("COALESCE(MAX(order), 0)").Scan(&maxOrder)
+		database.DB.Model(&database.Project{}).Select("COALESCE(MAX(order), 0)").Where("deleted_at IS NULL").Scan(&maxOrder)
 		p.Order = maxOrder + 1
 	}
 
@@ -352,7 +346,7 @@ func updateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := database.DB.Model(&p).Where("id = ?", id).Updates(p)
+	result := database.DB.Model(&p).Where("id = ? AND deleted_at IS NULL", id).Updates(p)
 	if result.Error != nil {
 		logger.Error("Failed to update project").Uint("project_id", id).Err(result.Error).Send()
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
@@ -371,7 +365,10 @@ func deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := database.DB.Delete(&database.Project{}, id)
+	result := database.DB.Model(&database.Project{}).Where("id = ?", id).Updates(map[string]any{
+		"deleted_at": time.Now(),
+		"updated_at": time.Now(),
+	})
 	if result.Error != nil {
 		logger.Error("Failed to delete project").Uint("project_id", id).Err(result.Error).Send()
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
@@ -386,9 +383,9 @@ func updateOrderBatch(model any, ids []uint, whereClause string, whereArgs ...an
 	for i, id := range ids {
 		var result *gorm.DB
 		if whereClause != "" {
-			result = database.DB.Model(model).Where("id = ? AND "+whereClause, append([]any{id}, whereArgs...)...).Update("order", i+1)
+			result = database.DB.Model(model).Where("id = ? AND deleted_at IS NULL AND "+whereClause, append([]any{id}, whereArgs...)...).Update("order", i+1)
 		} else {
-			result = database.DB.Model(model).Where("id = ?", id).Update("order", i+1)
+			result = database.DB.Model(model).Where("id = ? AND deleted_at IS NULL", id).Update("order", i+1)
 		}
 		if result.Error != nil {
 			return result.Error
@@ -448,9 +445,11 @@ func reorderTasks(w http.ResponseWriter, r *http.Request) {
 }
 
 type SyncResponse struct {
-	Projects  []database.Project `json:"projects"`
-	Tasks     []database.Task    `json:"tasks"`
-	SyncToken string             `json:"sync_token"`
+	Projects          []database.Project `json:"projects"`
+	Tasks             []database.Task    `json:"tasks"`
+	DeletedProjectIds []uint             `json:"deleted_project_ids"`
+	DeletedTaskIds    []uint             `json:"deleted_task_ids"`
+	SyncToken         string             `json:"sync_token"`
 }
 
 func syncData(w http.ResponseWriter, r *http.Request) {
@@ -460,6 +459,8 @@ func syncData(w http.ResponseWriter, r *http.Request) {
 	
 	var projects []database.Project
 	var tasks []database.Task
+	var deletedProjectIds []uint
+	var deletedTaskIds []uint
 	
 	// Parse sync token if provided
 	var syncTime time.Time
@@ -474,8 +475,8 @@ func syncData(w http.ResponseWriter, r *http.Request) {
 		logger.Info("Syncing from timestamp").Time("sync_time", syncTime).Send()
 	}
 	
-	// Query projects modified after sync token
-	projectQuery := database.DB.Preload("Tasks")
+	// Query active projects modified after sync token
+	projectQuery := database.DB.Preload("Tasks", "deleted_at IS NULL").Where("deleted_at IS NULL")
 	if syncToken != "" {
 		projectQuery = projectQuery.Where("updated_at > ?", syncTime)
 	}
@@ -487,8 +488,8 @@ func syncData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Query tasks modified after sync token
-	taskQuery := database.DB.Preload("Project")
+	// Query active tasks modified after sync token
+	taskQuery := database.DB.Preload("Project").Where("deleted_at IS NULL")
 	if syncToken != "" {
 		taskQuery = taskQuery.Where("updated_at > ?", syncTime)
 	}
@@ -500,18 +501,49 @@ func syncData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	// Query deleted items if sync token is provided
+	if syncToken != "" {
+		// Get deleted project IDs
+		var deletedProjects []database.Project
+		result = database.DB.Select("id").Where("deleted_at > ?", syncTime).Find(&deletedProjects)
+		if result.Error != nil {
+			logger.Error("Failed to retrieve deleted projects").Err(result.Error).Send()
+			http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+			return
+		}
+		for _, p := range deletedProjects {
+			deletedProjectIds = append(deletedProjectIds, p.ID)
+		}
+		
+		// Get deleted task IDs
+		var deletedTasks []database.Task
+		result = database.DB.Select("id").Where("deleted_at > ?", syncTime).Find(&deletedTasks)
+		if result.Error != nil {
+			logger.Error("Failed to retrieve deleted tasks").Err(result.Error).Send()
+			http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+			return
+		}
+		for _, t := range deletedTasks {
+			deletedTaskIds = append(deletedTaskIds, t.ID)
+		}
+	}
+	
 	// Generate new sync token (current timestamp)
 	newSyncToken := time.Now().Format(time.RFC3339)
 	
 	response := SyncResponse{
-		Projects:  projects,
-		Tasks:     tasks,
-		SyncToken: newSyncToken,
+		Projects:          projects,
+		Tasks:             tasks,
+		DeletedProjectIds: deletedProjectIds,
+		DeletedTaskIds:    deletedTaskIds,
+		SyncToken:         newSyncToken,
 	}
 	
 	logger.Info("Successfully synced data").
 		Int("projects", len(projects)).
 		Int("tasks", len(tasks)).
+		Int("deleted_projects", len(deletedProjectIds)).
+		Int("deleted_tasks", len(deletedTaskIds)).
 		Str("new_sync_token", newSyncToken).
 		Send()
 	
@@ -519,85 +551,3 @@ func syncData(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func listNotes(w http.ResponseWriter, r *http.Request) {
-	logger.Info("Listing notes").Send()
-
-	var notes []database.Note
-	result := database.DB.Find(&notes)
-	if result.Error != nil {
-		logger.Error("Failed to retrieve notes").Err(result.Error).Send()
-		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	logger.Info("Successfully retrieved notes").Int64("count", result.RowsAffected).Send()
-	json.NewEncoder(w).Encode(notes)
-}
-
-func createNote(w http.ResponseWriter, r *http.Request) {
-	logger.Info("Creating new note").Send()
-
-	var n database.Note
-	err := json.NewDecoder(r.Body).Decode(&n)
-	if err != nil {
-		logger.Error("Failed to decode note request").Err(err).Send()
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	result := database.DB.Create(&n)
-	if result.Error != nil {
-		logger.Error("Failed to create note").Err(result.Error).Str("title", n.Title).Send()
-		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	logger.Info("Successfully created note").Uint("note_id", n.ID).Str("title", n.Title).Send()
-	json.NewEncoder(w).Encode(n)
-}
-
-func updateNote(w http.ResponseWriter, r *http.Request) {
-	logger.Info("Updating note").Send()
-
-	id, ok := utils.ParseNoteID(r, w)
-	if !ok {
-		return
-	}
-
-	var n database.Note
-	err := json.NewDecoder(r.Body).Decode(&n)
-	if err != nil {
-		logger.Error("Failed to decode note update request").Err(err).Send()
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	result := database.DB.Model(&n).Where("id = ?", id).Updates(n)
-	if result.Error != nil {
-		logger.Error("Failed to update note").Uint("note_id", id).Err(result.Error).Send()
-		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	logger.Info("Successfully updated note").Uint("note_id", id).Send()
-	w.WriteHeader(http.StatusOK)
-}
-
-func deleteNote(w http.ResponseWriter, r *http.Request) {
-	logger.Info("Deleting note").Send()
-
-	id, ok := utils.ParseNoteID(r, w)
-	if !ok {
-		return
-	}
-
-	result := database.DB.Delete(&database.Note{}, id)
-	if result.Error != nil {
-		logger.Error("Failed to delete note").Uint("note_id", id).Err(result.Error).Send()
-		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	logger.Info("Successfully deleted note").Uint("note_id", id).Send()
-	w.WriteHeader(http.StatusOK)
-}

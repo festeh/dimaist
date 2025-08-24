@@ -77,29 +77,6 @@ func findItems(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Search notes
-	var notes []database.Note
-	noteResult := database.DB.Where("LOWER(title) LIKE LOWER(?) OR LOWER(content) LIKE LOWER(?)", 
-		"%"+query+"%", "%"+query+"%").Find(&notes)
-	
-	if noteResult.Error != nil {
-		logger.Error("Failed to search notes").Err(noteResult.Error).Send()
-		http.Error(w, noteResult.Error.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	for _, note := range notes {
-		content := note.Content
-		if len(content) > 100 {
-			content = content[:100] + "..."
-		}
-		results = append(results, SearchResult{
-			Type:    "note",
-			ID:      note.ID,
-			Title:   note.Title,
-			Content: content,
-		})
-	}
 
 	response := FindResponse{
 		Results: results,

@@ -54,6 +54,7 @@ type Task struct {
 	Order         int            `gorm:"default:0" json:"order"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     *time.Time     `gorm:"index" json:"deleted_at,omitempty"`
 	CompletedAt   *time.Time     `json:"completed_at"`
 }
 
@@ -65,16 +66,9 @@ type Project struct {
 	Tasks     []Task    `gorm:"foreignKey:ProjectID" json:"tasks"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+	DeletedAt *time.Time `gorm:"index" json:"deleted_at,omitempty"`
 }
 
-type Note struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	Title     string    `gorm:"not null" json:"title"`
-	Content   string    `json:"content"`
-	AudioID   *uint     `gorm:"index" json:"audio_id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
 
 type Audio struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`

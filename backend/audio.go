@@ -124,26 +124,17 @@ func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("Successfully transcribed audio").Str("text", result.Text).Send()
 
-	// Create a new note with the transcribed text and audio reference
-	note := database.Note{
-		Title:   result.Text,
-		Content: "",
-		AudioID: &audio.ID,
-	}
-
-	noteResult := database.DB.Create(&note)
-	if noteResult.Error != nil {
-		logger.Error("Failed to create note").Err(noteResult.Error).Send()
-		http.Error(w, "Failed to create note", http.StatusInternalServerError)
-		return
-	}
-
-	logger.Info("Successfully created note").
-		Uint("note_id", note.ID).
+	// Return just the transcription result
+	logger.Info("Successfully transcribed audio").
 		Uint("audio_id", audio.ID).
 		Str("transcribed_text", result.Text).
 		Send()
 
+	response := map[string]interface{}{
+		"content":  result.Text,
+		"audio_id": audio.ID,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(note)
+	json.NewEncoder(w).Encode(response)
 }
