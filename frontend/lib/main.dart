@@ -2,10 +2,11 @@ import 'package:dimaist/widgets/left_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io' show Platform;
+import 'config/app_theme.dart';
+import 'config/app_constants.dart';
 import 'widgets/add_project_dialog.dart';
 import 'widgets/project_list_widget.dart';
 import 'widgets/custom_view_widget.dart';
@@ -40,37 +41,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Dimaist',
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        primaryColor: const Color(0xFF6200EE),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6200EE),
-          brightness: Brightness.dark,
-          secondary: const Color(0xFF03DAC6),
-        ),
-        scaffoldBackgroundColor: const Color(0xFF121212),
-        cardColor: const Color(0xFF1E1E1E),
-        useMaterial3: true,
-        textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme)
-            .copyWith(
-              headlineSmall: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-              bodyLarge: const TextStyle(fontSize: 16, color: Colors.white),
-              bodyMedium: const TextStyle(fontSize: 14, color: Colors.white),
-            ),
-      ),
+      title: AppConstants.appName,
+      theme: AppTheme.darkTheme(context),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('en', 'GB'), // English, Great Britain
-      ],
+      supportedLocales: const [Locale('en', 'GB')],
       home: const MainScreen(),
     );
   }
@@ -296,7 +274,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   AppBar _buildMobileAppBar(ViewState viewState, ViewNotifier viewNotifier) {
-    String title = 'Dimaist';
+    String title = AppConstants.appName;
     final customView = viewState.currentCustomView;
     final project = viewState.currentProject;
 
