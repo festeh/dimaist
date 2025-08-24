@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/task.dart';
 import '../models/project.dart';
-import '../services/app_database.dart';
-import '../services/api_service.dart';
 import '../utils/value_wrapper.dart';
 import '../widgets/custom_view_widget.dart';
+import '../repositories/providers.dart';
+import '../repositories/interfaces/task_repository_interface.dart';
 import 'view_provider.dart';
 
 // Sentinel object for unchanged values in copyWith
@@ -57,9 +57,9 @@ class TaskState {
 }
 
 class TaskNotifier extends StateNotifier<TaskState> {
-  final AppDatabase _db = AppDatabase();
+  final ITaskRepository _repository;
 
-  TaskNotifier() : super(const TaskState());
+  TaskNotifier(this._repository) : super(const TaskState());
 
   Future<void> loadTasks({Project? project, CustomView? customView}) async {
     // Create the appropriate view selection
@@ -79,14 +79,14 @@ class TaskNotifier extends StateNotifier<TaskState> {
     try {
       final tasks = await switch (viewSelection) {
         ProjectViewSelection(project: final proj) when proj.id != null =>
-          _db.getTasksByProject(proj.id!),
+          _repository.getTasksByProject(proj.id!),
         ProjectViewSelection() => Future.value(
           <Task>[],
         ), // Handle case where project has no id
         CustomViewSelection(customView: final view) => switch (view.type) {
-          BuiltInViewType.today => _db.getTodayTasks(),
-          BuiltInViewType.upcoming => _db.getUpcomingTasks(),
-          BuiltInViewType.next => _db.getTasksByLabel('next'),
+          BuiltInViewType.today => _repository.getTodayTasks(),
+          BuiltInViewType.upcoming => _repository.getUpcomingTasks(),
+          BuiltInViewType.next => _repository.getTasksByLabel('next'),
         },
         null => Future.value(<Task>[]),
       };
@@ -103,7 +103,7 @@ class TaskNotifier extends StateNotifier<TaskState> {
   Future<void> createTask(Task task) async {
     try {
       state = state.copyWith(error: null);
-      await ApiService.createTask(task);
+      await _repository.createTask(task);
       await _reloadCurrentTasks();
     } catch (e) {
       state = state.copyWith(error: 'Error creating task: $e');
@@ -114,7 +114,7 @@ class TaskNotifier extends StateNotifier<TaskState> {
   Future<void> updateTask(int id, Task task) async {
     try {
       state = state.copyWith(error: null);
-      await ApiService.updateTask(id, task);
+      await _repository.updateTask(id, task);
       await _reloadCurrentTasks();
     } catch (e) {
       state = state.copyWith(error: 'Error updating task: $e');
@@ -125,7 +125,7 @@ class TaskNotifier extends StateNotifier<TaskState> {
   Future<void> deleteTask(int id) async {
     try {
       state = state.copyWith(error: null);
-      await ApiService.deleteTask(id);
+      await _repository.deleteTask(id);
       await _reloadCurrentTasks();
     } catch (e) {
       state = state.copyWith(error: 'Error deleting task: $e');
@@ -140,9 +140,9 @@ class TaskNotifier extends StateNotifier<TaskState> {
         final updatedTask = task.copyWith(
           completedAt: const ValueWrapper(null),
         );
-        await ApiService.updateTask(task.id!, updatedTask);
+        await _repository.updateTask(task.id!, updatedTask);
       } else {
-        await ApiService.completeTask(task.id!);
+        await _repository.completeTask(task.id!);
       }
       await _reloadCurrentTasks();
     } catch (e) {
@@ -173,17 +173,9 @@ class TaskNotifier extends StateNotifier<TaskState> {
       final updatedTasks = [...nonCompleted, ...state.completedTasks];
       state = state.copyWith(tasks: updatedTasks);
 
-      // Update order in database
-      for (int i = 0; i < nonCompleted.length; i++) {
-        final taskToUpdate = nonCompleted[i];
-        if (taskToUpdate.order != i) {
-          await _db.updateTask(taskToUpdate.copyWith(order: i));
-        }
-      }
-
       // Update order on server
       final allProjectTaskIds = nonCompleted.map((t) => t.id!).toList();
-      await ApiService.reorderTasks(currentView.project.id!, allProjectTaskIds);
+      await _repository.reorderTasks(currentView.project.id!, allProjectTaskIds);
     } catch (e) {
       state = state.copyWith(error: 'Error reordering tasks: $e');
       // If reorder fails, reload from the source of truth
@@ -195,7 +187,7 @@ class TaskNotifier extends StateNotifier<TaskState> {
   Future<void> syncData() async {
     try {
       state = state.copyWith(error: null);
-      await ApiService.syncData();
+      await _repository.syncTasks();
       await _reloadCurrentTasks();
     } catch (e) {
       state = state.copyWith(error: 'Error syncing tasks: $e');
@@ -204,13 +196,7 @@ class TaskNotifier extends StateNotifier<TaskState> {
   }
 
   Future<Project?> getDefaultProjectForToday() async {
-    final projects = await _db.allProjects;
-    return projects.firstWhere(
-      (p) => p.name == 'Inbox',
-      orElse: () => projects.isNotEmpty
-          ? projects.first
-          : throw Exception('No projects found'),
-    );
+    return _repository.getDefaultProjectForToday();
   }
 
   Future<void> _reloadCurrentTasks() async {
@@ -232,5 +218,6 @@ class TaskNotifier extends StateNotifier<TaskState> {
 }
 
 final taskProvider = StateNotifierProvider<TaskNotifier, TaskState>((ref) {
-  return TaskNotifier();
+  final repository = ref.watch(taskRepositoryProvider);
+  return TaskNotifier(repository);
 });

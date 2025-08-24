@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/project.dart';
-import '../services/app_database.dart';
-import '../services/api_service.dart';
+import '../repositories/providers.dart';
+import '../repositories/interfaces/project_repository_interface.dart';
 
 class ProjectState {
   final List<Project> projects;
@@ -28,30 +28,36 @@ class ProjectState {
 }
 
 class ProjectNotifier extends StateNotifier<ProjectState> {
-  final AppDatabase _db = AppDatabase();
+  final IProjectRepository _repository;
 
-  ProjectNotifier() : super(const ProjectState());
+  ProjectNotifier(this._repository) : super(const ProjectState());
 
   Future<void> loadProjects() async {
     try {
       state = state.copyWith(error: null);
-      final projects = await _db.allProjects;
+      final projects = await _repository.getAllProjects();
       state = state.copyWith(projects: projects);
     } catch (e) {
       state = state.copyWith(error: 'Error loading projects: $e');
     }
   }
 
+  /// Load projects with initial sync - replaces the initialization logic from MainScreen
+  Future<void> loadProjectsWithSync() async {
+    try {
+      state = state.copyWith(isLoading: true, error: null);
+      final projects = await _repository.syncAndGetProjects();
+      state = state.copyWith(projects: projects, isLoading: false);
+    } catch (e) {
+      state = state.copyWith(error: 'Error loading initial data: $e', isLoading: false);
+      rethrow;
+    }
+  }
+
   Future<void> addProject(String name, String color) async {
     try {
       state = state.copyWith(error: null);
-      final newProject = Project(
-        name: name,
-        color: color,
-        order: state.projects.length,
-      );
-
-      final createdProject = await ApiService.createProject(newProject);
+      final createdProject = await _repository.createProject(name, color);
       final updatedProjects = [...state.projects, createdProject];
       state = state.copyWith(projects: updatedProjects);
     } catch (e) {
@@ -63,7 +69,7 @@ class ProjectNotifier extends StateNotifier<ProjectState> {
   Future<void> updateProject(Project project) async {
     try {
       state = state.copyWith(error: null);
-      await ApiService.updateProject(project.id!, project);
+      await _repository.updateProject(project);
 
       final updatedProjects = state.projects
           .map((p) => p.id == project.id ? project : p)
@@ -78,7 +84,7 @@ class ProjectNotifier extends StateNotifier<ProjectState> {
   Future<void> deleteProject(int id) async {
     try {
       state = state.copyWith(error: null);
-      await ApiService.deleteProject(id);
+      await _repository.deleteProject(id);
       final updatedProjects = state.projects.where((p) => p.id != id).toList();
       state = state.copyWith(projects: updatedProjects);
     } catch (e) {
@@ -101,15 +107,7 @@ class ProjectNotifier extends StateNotifier<ProjectState> {
 
       state = state.copyWith(projects: projects); // Update UI immediately
 
-      // Update order in the database
-      for (int i = 0; i < projects.length; i++) {
-        final projectToUpdate = projects[i];
-        if (projectToUpdate.order != i) {
-          await _db.updateProject(projectToUpdate.copyWith(order: i));
-        }
-      }
-
-      await ApiService.reorderProjects(projects.map((p) => p.id!).toList());
+      await _repository.reorderProjects(projects.map((p) => p.id!).toList());
     } catch (e) {
       state = state.copyWith(error: 'Error reordering projects: $e');
       // If reorder fails, reload from the source of truth
@@ -126,5 +124,6 @@ class ProjectNotifier extends StateNotifier<ProjectState> {
 final projectProvider = StateNotifierProvider<ProjectNotifier, ProjectState>((
   ref,
 ) {
-  return ProjectNotifier();
+  final repository = ref.watch(projectRepositoryProvider);
+  return ProjectNotifier(repository);
 });

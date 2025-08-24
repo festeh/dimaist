@@ -1,19 +1,20 @@
 import 'dart:async';
 import 'package:dimaist/services/logging_service.dart';
 import 'dart:io';
-import 'package:dimaist/services/api_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
+import '../repositories/providers.dart';
 
-class RecordingDialog extends StatefulWidget {
+class RecordingDialog extends ConsumerStatefulWidget {
   const RecordingDialog({super.key});
 
   @override
-  State<RecordingDialog> createState() => _RecordingDialogState();
+  ConsumerState<RecordingDialog> createState() => _RecordingDialogState();
 }
 
-class _RecordingDialogState extends State<RecordingDialog>
+class _RecordingDialogState extends ConsumerState<RecordingDialog>
     with SingleTickerProviderStateMixin {
   final AudioRecorder _recorder = AudioRecorder();
   bool _isRecording = false;
@@ -84,7 +85,7 @@ class _RecordingDialogState extends State<RecordingDialog>
       try {
         final file = File(_audioPath!);
         final bytes = await file.readAsBytes();
-        await ApiService.sendAudio(bytes);
+        await ref.read(apiServiceProvider).sendAudio(bytes);
       } catch (e) {
         LoggingService.logger.severe('Error sending audio: $e');
       } finally {

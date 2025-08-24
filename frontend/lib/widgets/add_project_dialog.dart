@@ -1,23 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:dimaist/services/app_database.dart';
-import '../models/project.dart';
-import '../services/api_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/project_provider.dart';
 import '../utils/color_utils.dart';
 
-class AddProjectDialog extends StatefulWidget {
+class AddProjectDialog extends ConsumerStatefulWidget {
   final VoidCallback onProjectAdded;
 
   const AddProjectDialog({super.key, required this.onProjectAdded});
 
   @override
-  AddProjectDialogState createState() => AddProjectDialogState();
+  ConsumerState<AddProjectDialog> createState() => AddProjectDialogState();
 }
 
-class AddProjectDialogState extends State<AddProjectDialog> {
+class AddProjectDialogState extends ConsumerState<AddProjectDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   String? _selectedColor;
-  final AppDatabase _db = AppDatabase();
 
   @override
   void initState() {
@@ -93,20 +91,10 @@ class AddProjectDialogState extends State<AddProjectDialog> {
               final navigator = Navigator.of(context);
               final scaffoldMessenger = ScaffoldMessenger.of(context);
               try {
-                final projects = await _db.allProjects;
-                final newOrder =
-                    (projects.isNotEmpty
-                        ? projects
-                              .map((p) => p.order)
-                              .reduce((a, b) => a > b ? a : b)
-                        : 0) +
-                    1;
-                final project = Project(
-                  name: _nameController.text,
-                  color: _selectedColor!,
-                  order: newOrder,
+                await ref.read(projectProvider.notifier).addProject(
+                  _nameController.text,
+                  _selectedColor!,
                 );
-                await ApiService.createProject(project);
                 navigator.pop();
                 widget.onProjectAdded();
               } catch (e) {

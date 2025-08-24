@@ -2,7 +2,6 @@ import 'package:dimaist/widgets/left_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io' show Platform;
 import 'config/app_theme.dart';
@@ -11,7 +10,6 @@ import 'widgets/add_project_dialog.dart';
 import 'widgets/project_list_widget.dart';
 import 'widgets/custom_view_widget.dart';
 import 'screens/task_screen.dart';
-import 'services/api_service.dart';
 import 'services/logging_service.dart';
 import 'services/tray_service.dart';
 import 'utils/responsive_utils.dart';
@@ -86,48 +84,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    LoggingService.logger.info(
-      '_loadInitialData: Starting initial data load...',
-    );
     try {
-      LoggingService.logger.info(
-        '_loadInitialData: Getting shared preferences...',
-      );
-      final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
       final projectNotifier = ref.read(projectProvider.notifier);
-
-      LoggingService.logger.info(
-        '_loadInitialData: Loading projects from database...',
-      );
-      await projectNotifier.loadProjects();
-      final projects = ref.read(projectProvider).projects;
-      LoggingService.logger.info(
-        '_loadInitialData: Loaded ${projects.length} projects from database',
-      );
-
-      if (projects.isEmpty) {
-        LoggingService.logger.info(
-          '_loadInitialData: No projects found, performing initial sync...',
-        );
-        prefs.remove('sync_token');
-      }
-
-      LoggingService.logger.info('_loadInitialData: Syncing data with API...');
-      await ApiService.syncData();
-      LoggingService.logger.info(
-        '_loadInitialData: Data sync completed successfully',
-      );
-
-      await projectNotifier.loadProjects();
-
+      await projectNotifier.loadProjectsWithSync();
+      
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
     } catch (e) {
-      LoggingService.logger.severe('_loadInitialData: Error occurred: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;

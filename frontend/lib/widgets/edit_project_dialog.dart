@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dimaist/models/project.dart';
-import 'package:dimaist/services/api_service.dart';
 import 'package:dimaist/utils/color_utils.dart';
+import '../providers/project_provider.dart';
 
-class EditProjectDialog extends StatefulWidget {
+class EditProjectDialog extends ConsumerStatefulWidget {
   final Project project;
   final VoidCallback onProjectUpdated;
 
@@ -14,10 +15,10 @@ class EditProjectDialog extends StatefulWidget {
   });
 
   @override
-  State<EditProjectDialog> createState() => _EditProjectDialogState();
+  ConsumerState<EditProjectDialog> createState() => _EditProjectDialogState();
 }
 
-class _EditProjectDialogState extends State<EditProjectDialog> {
+class _EditProjectDialogState extends ConsumerState<EditProjectDialog> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   String? _selectedColor;
@@ -103,10 +104,7 @@ class _EditProjectDialogState extends State<EditProjectDialog> {
                   color: _selectedColor!,
                   order: widget.project.order,
                 );
-                await ApiService.updateProject(
-                  widget.project.id!,
-                  updatedProject,
-                );
+                await ref.read(projectProvider.notifier).updateProject(updatedProject);
                 navigator.pop();
                 widget.onProjectUpdated();
               } catch (e) {
