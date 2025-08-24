@@ -17,7 +17,7 @@ func CreateExampleAgent() *Agent {
 	}
 
 	context := `You are a helpful AI assistant for a task management application. 
-You have access to a database of tasks, projects, and notes. 
+You have access to a database of tasks and projects. 
 You can help users manage their tasks, create projects, and organize their work.
 The application uses PostgreSQL database with GORM for ORM.`
 
@@ -46,10 +46,9 @@ Always be helpful and provide clear responses.`
 		},
 		{
 			Name:        "create_project",
-			Description: "Create a new project with name and optional description",
+			Description: "Create a new project with name",
 			Parameters: map[string]interface{}{
-				"name":        "string",
-				"description": "string (optional)",
+				"name": "string",
 			},
 			Function: createProjectTool,
 		},
@@ -157,10 +156,6 @@ func createProjectTool(args map[string]interface{}) (string, error) {
 		Name: name,
 	}
 
-	if description, ok := args["description"].(string); ok {
-		project.Description = description
-	}
-
 	var maxOrder int
 	database.DB.Model(&database.Project{}).Select("COALESCE(MAX(order), 0)").Scan(&maxOrder)
 	project.Order = maxOrder + 1
@@ -187,13 +182,8 @@ func listProjectsTool(args map[string]interface{}) (string, error) {
 	response := fmt.Sprintf("Found %d projects:\n", len(projects))
 	for _, project := range projects {
 		taskCount := len(project.Tasks)
-		response += fmt.Sprintf("- ID: %d, Name: %s, Tasks: %d", 
+		response += fmt.Sprintf("- ID: %d, Name: %s, Tasks: %d\n", 
 			project.ID, project.Name, taskCount)
-		
-		if project.Description != "" {
-			response += fmt.Sprintf(", Description: %s", project.Description)
-		}
-		response += "\n"
 	}
 
 	return response, nil

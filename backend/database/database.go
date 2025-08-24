@@ -45,7 +45,7 @@ func InitDB(databaseURL string) error {
 
 	// Auto-migrate the schema
 	logger.Info("Running database migrations").Send()
-	err = DB.AutoMigrate(&Project{}, &Task{}, &Note{}, &Audio{})
+	err = DB.AutoMigrate(&Project{}, &Task{}, &Audio{})
 	if err != nil {
 		logger.Error("Failed to run database migrations").Err(err).Send()
 		return err

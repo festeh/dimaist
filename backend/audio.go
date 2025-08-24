@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -12,67 +10,10 @@ import (
 	"github.com/dima-b/go-task-backend/logger"
 )
 
-type AsrResponse struct {
-	Text string `json:"text"`
-}
-
-// TranscribeWAV transcribes WAV audio data using external ASR service
-func TranscribeWAV(wavData []byte, asrUrl string) (*AsrResponse, error) {
-	// Create multipart form data
-	var buf bytes.Buffer
-	writer := multipart.NewWriter(&buf)
-
-	// Add audio file
-	fileWriter, err := writer.CreateFormFile("audio", "audio.wav")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create form file: %v", err)
-	}
-
-	_, err = fileWriter.Write(wavData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write audio data: %v", err)
-	}
-
-	err = writer.Close()
-	if err != nil {
-		return nil, fmt.Errorf("failed to close multipart writer: %v", err)
-	}
-
-	// Create request to external ASR service
-	req, err := http.NewRequest("POST", asrUrl, &buf)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create ASR request: %v", err)
-	}
-
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	// Make request to ASR service
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call ASR API: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("ASR API error (status %d): %s", resp.StatusCode, string(body))
-	}
-
-	// Parse ASR response
-	var asrResponse AsrResponse
-	err = json.NewDecoder(resp.Body).Decode(&asrResponse)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode ASR response: %v", err)
-	}
-
-	return &asrResponse, nil
-}
-
 func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Transcribing audio").Send()
 
-	// Handle multipart form data (frontend)
+	// Parse multipart form
 	err := r.ParseMultipartForm(32 << 20) // 32MB max
 	if err != nil {
 		logger.Error("Failed to parse multipart form").Err(err).Send()
@@ -80,8 +21,8 @@ func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the audio file from the form
-	file, _, err := r.FormFile("audio")
+	// Get audio file from form
+	file, fileHeader, err := r.FormFile("audio")
 	if err != nil {
 		logger.Error("Failed to get audio file from form").Err(err).Send()
 		http.Error(w, "audio file is required", http.StatusBadRequest)
@@ -89,29 +30,63 @@ func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Read the WAV file data
-	wavData, err := io.ReadAll(file)
+	// Create streaming pipe to ASR service
+	pipeReader, pipeWriter := io.Pipe()
+	writer := multipart.NewWriter(pipeWriter)
+	
+	// Stream multipart form to ASR service in goroutine
+	go func() {
+		defer pipeWriter.Close()
+		defer writer.Close()
+		
+		fileWriter, err := writer.CreateFormFile("audio", fileHeader.Filename)
+		if err != nil {
+			pipeWriter.CloseWithError(err)
+			return
+		}
+		
+		if _, err = io.Copy(fileWriter, file); err != nil {
+			pipeWriter.CloseWithError(err)
+		}
+	}()
+
+	// Create and send request to ASR service
+	req, err := http.NewRequest("POST", appEnv.AsrUrl, pipeReader)
 	if err != nil {
-		logger.Error("Failed to read audio file").Err(err).Send()
-		http.Error(w, "Failed to read audio file", http.StatusInternalServerError)
+		logger.Error("Failed to create ASR request").Err(err).Send()
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.Error("Failed to call ASR API").Err(err).Send()
+		http.Error(w, "Failed to transcribe audio", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		logger.Error("ASR API error").Int("status", resp.StatusCode).Str("body", string(body)).Send()
+		http.Error(w, "Transcription service error", http.StatusInternalServerError)
 		return
 	}
 
-	if len(wavData) == 0 {
-		logger.Error("Empty audio file provided").Send()
-		http.Error(w, "audio file is empty", http.StatusBadRequest)
-		return
+	// Parse and return response
+	var result struct {
+		Text string `json:"text"`
 	}
-
-	result, err := TranscribeWAV(wavData, appEnv.AsrUrl)
-	if err != nil {
-		logger.Error("Failed to transcribe audio").Err(err).Send()
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		logger.Error("Failed to decode ASR response").Err(err).Send()
+		http.Error(w, "Invalid response from transcription service", http.StatusInternalServerError)
 		return
 	}
 
 	logger.Info("Successfully transcribed audio").Str("text", result.Text).Send()
-
+	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
 }
