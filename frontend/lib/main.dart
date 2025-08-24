@@ -4,10 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io' show Platform;
 import 'widgets/add_project_dialog.dart';
 import 'widgets/project_list_widget.dart';
+import 'widgets/custom_view_widget.dart';
 import 'screens/task_screen.dart';
 import 'services/api_service.dart';
 import 'services/logging_service.dart';
@@ -18,7 +19,6 @@ import 'models/project.dart';
 import 'widgets/edit_project_dialog.dart';
 import 'widgets/error_dialog.dart';
 import 'providers/project_provider.dart';
-import 'providers/task_provider.dart';
 import 'providers/view_provider.dart';
 
 void main() async {
@@ -31,7 +31,7 @@ void main() async {
     await TrayService.initialize();
   }
   
-  runApp(const MyApp());
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -39,13 +39,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ProjectProvider()),
-        ChangeNotifierProvider(create: (_) => TaskProvider()),
-        ChangeNotifierProvider(create: (_) => ViewProvider()),
-      ],
-      child: MaterialApp(
+    return MaterialApp(
         title: 'Dimaist',
         theme: ThemeData(
           brightness: Brightness.dark,
@@ -78,22 +72,22 @@ class MyApp extends StatelessWidget {
           Locale('en', 'GB'), // English, Great Britain
         ],
         home: const MainScreen(),
-      ),
-    );
+      );
   }
 }
 
-class MainScreen extends StatefulWidget {
+class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends ConsumerState<MainScreen> {
   GlobalKey<TaskScreenState>? _currentTaskScreenKey;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isLoading = true;
+  String? _lastViewKey; // Track the current view to detect changes
 
   @override
   void initState() {
@@ -119,13 +113,14 @@ class _MainScreenState extends State<MainScreen> {
       LoggingService.logger.info('_loadInitialData: Getting shared preferences...');
       final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
-      final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
+      final projectNotifier = ref.read(projectProvider.notifier);
       
       LoggingService.logger.info('_loadInitialData: Loading projects from database...');
-      await projectProvider.loadProjects();
-      LoggingService.logger.info('_loadInitialData: Loaded ${projectProvider.projects.length} projects from database');
+      await projectNotifier.loadProjects();
+      final projects = ref.read(projectProvider).projects;
+      LoggingService.logger.info('_loadInitialData: Loaded ${projects.length} projects from database');
 
-      if (projectProvider.projects.isEmpty) {
+      if (projects.isEmpty) {
         LoggingService.logger.info('_loadInitialData: No projects found, performing initial sync...');
         prefs.remove('sync_token');
       }
@@ -134,7 +129,7 @@ class _MainScreenState extends State<MainScreen> {
       await ApiService.syncData();
       LoggingService.logger.info('_loadInitialData: Data sync completed successfully');
 
-      await projectProvider.loadProjects();
+      await projectNotifier.loadProjects();
       
       if (mounted) {
         setState(() {
@@ -157,7 +152,7 @@ class _MainScreenState extends State<MainScreen> {
       context: context,
       builder: (context) => AddProjectDialog(
         onProjectAdded: () {
-          Provider.of<ProjectProvider>(context, listen: false).loadProjects();
+          ref.read(projectProvider.notifier).loadProjects();
         },
       ),
     );
@@ -169,7 +164,7 @@ class _MainScreenState extends State<MainScreen> {
       builder: (context) => EditProjectDialog(
         project: project,
         onProjectUpdated: () {
-          Provider.of<ProjectProvider>(context, listen: false).loadProjects();
+          ref.read(projectProvider.notifier).loadProjects();
         },
       ),
     );
@@ -177,10 +172,10 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _deleteProject(int id) async {
     try {
-      final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
-      final viewProvider = Provider.of<ViewProvider>(context, listen: false);
-      await projectProvider.deleteProject(id);
-      viewProvider.handleProjectDeleted(id);
+      final projectNotifier = ref.read(projectProvider.notifier);
+      final viewNotifier = ref.read(viewProvider.notifier);
+      await projectNotifier.deleteProject(id);
+      viewNotifier.handleProjectDeleted(id);
     } catch (e) {
       _showErrorDialog('Error deleting project: $e');
     }
@@ -189,106 +184,105 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<ProjectProvider, ViewProvider>(
-      builder: (context, projectProvider, viewProvider, child) {
-        final projects = projectProvider.projects;
-        final selectedProjectIndex = viewProvider.getSelectedProjectIndex(projects);
-        final isMobile = ResponsiveUtils.isMobile(context);
+    final projectState = ref.watch(projectProvider);
+    final viewState = ref.watch(viewProvider);
+    final viewNotifier = ref.read(viewProvider.notifier);
+    final projectNotifier = ref.read(projectProvider.notifier);
+    
+    final projects = projectState.projects;
+    final selectedProjectIndex = viewNotifier.getSelectedProjectIndex(projects);
+    final isMobile = ResponsiveUtils.isMobile(context);
 
-        final leftBarContent = LeftBar(
-          selectedView: viewProvider.selectedCustomView,
-          onCustomViewSelected: (view) {
-            viewProvider.selectCustomView(view);
-            if (isMobile) {
-              Navigator.of(context).pop();
-            }
-          },
-          onAddProject: () {
-            if (isMobile) {
-              Navigator.of(context).pop();
-            }
-            _showAddProjectDialog();
-          },
-          projectList: ProjectList(
-            projects: projects,
-            selectedIndex: selectedProjectIndex,
-            onProjectSelected: (index) {
-              viewProvider.selectProject(projects[index].id!);
-              if (isMobile) {
-                Navigator.of(context).pop();
-              }
-            },
-            onReorder: (oldIndex, newIndex) async {
-              try {
-                await projectProvider.reorderProjects(oldIndex, newIndex);
-              } catch (e) {
-                _showErrorDialog('Error reordering projects: $e');
-              }
-            },
-            onEdit: _showEditProjectDialog,
-            onDelete: _deleteProject,
-          ),
-        );
-
-        return Focus(
-          autofocus: true,
-          onKeyEvent: (node, event) {
-            if (event is KeyDownEvent) {
-              final isControlPressed = HardwareKeyboard.instance.isControlPressed;
-              final isAltPressed = HardwareKeyboard.instance.isAltPressed;
-              final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
-              final isMetaPressed = HardwareKeyboard.instance.isMetaPressed;
-
-              if (!isControlPressed &&
-                  !isAltPressed &&
-                  !isShiftPressed &&
-                  !isMetaPressed) {
-                if (event.logicalKey == LogicalKeyboardKey.keyN &&
-                    Platform.isLinux) {
-                  _currentTaskScreenKey?.currentState?.showAddTaskDialog();
-                  return KeyEventResult.handled;
-                }
-                if (event.logicalKey == LogicalKeyboardKey.keyT) {
-                  viewProvider.selectCustomView('Today');
-                  return KeyEventResult.handled;
-                }
-                if (event.logicalKey == LogicalKeyboardKey.keyU) {
-                  viewProvider.selectCustomView('Upcoming');
-                  return KeyEventResult.handled;
-                }
-                if (event.logicalKey == LogicalKeyboardKey.keyE) {
-                  viewProvider.selectCustomView('Next');
-                  return KeyEventResult.handled;
-                }
-              }
-            }
-            return KeyEventResult.ignored;
-          },
-          child: Scaffold(
-            key: _scaffoldKey,
-            appBar: isMobile ? _buildMobileAppBar(viewProvider) : null,
-            drawer: isMobile ? Drawer(child: SafeArea(child: leftBarContent)) : null,
-            body: SafeArea(
-              child: isMobile
-                  ? _buildMobileLayout(projects, viewProvider)
-                  : _buildDesktopLayout(projects, viewProvider, leftBarContent),
-            ),
-          ),
-        );
+    final leftBarContent = LeftBar(
+      selectedView: viewState.currentCustomView?.name,
+      onCustomViewSelected: (view) {
+        viewNotifier.selectCustomView(view);
+        if (isMobile) {
+          Navigator.of(context).pop();
+        }
       },
+      onAddProject: () {
+        if (isMobile) {
+          Navigator.of(context).pop();
+        }
+        _showAddProjectDialog();
+      },
+      projectList: ProjectList(
+        projects: projects,
+        selectedIndex: selectedProjectIndex,
+        onProjectSelected: (index) {
+          viewNotifier.selectProject(projects[index]);
+          if (isMobile) {
+            Navigator.of(context).pop();
+          }
+        },
+        onReorder: (oldIndex, newIndex) async {
+          try {
+            await projectNotifier.reorderProjects(oldIndex, newIndex);
+          } catch (e) {
+            _showErrorDialog('Error reordering projects: $e');
+          }
+        },
+        onEdit: _showEditProjectDialog,
+        onDelete: _deleteProject,
+      ),
+    );
+
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent) {
+          final isControlPressed = HardwareKeyboard.instance.isControlPressed;
+          final isAltPressed = HardwareKeyboard.instance.isAltPressed;
+          final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
+          final isMetaPressed = HardwareKeyboard.instance.isMetaPressed;
+
+          if (!isControlPressed &&
+              !isAltPressed &&
+              !isShiftPressed &&
+              !isMetaPressed) {
+            if (event.logicalKey == LogicalKeyboardKey.keyN &&
+                Platform.isLinux) {
+              _currentTaskScreenKey?.currentState?.showAddTaskDialog();
+              return KeyEventResult.handled;
+            }
+            if (event.logicalKey == LogicalKeyboardKey.keyT) {
+              viewNotifier.selectCustomView(BuiltInViewType.today.displayName);
+              return KeyEventResult.handled;
+            }
+            if (event.logicalKey == LogicalKeyboardKey.keyU) {
+              viewNotifier.selectCustomView(BuiltInViewType.upcoming.displayName);
+              return KeyEventResult.handled;
+            }
+            if (event.logicalKey == LogicalKeyboardKey.keyE) {
+              viewNotifier.selectCustomView(BuiltInViewType.next.displayName);
+              return KeyEventResult.handled;
+            }
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        appBar: isMobile ? _buildMobileAppBar(viewState, viewNotifier) : null,
+        drawer: isMobile ? Drawer(child: SafeArea(child: leftBarContent)) : null,
+        body: SafeArea(
+          child: isMobile
+              ? _buildMobileLayout(projects, viewState, viewNotifier)
+              : _buildDesktopLayout(projects, viewState, viewNotifier, leftBarContent),
+        ),
+      ),
     );
   }
 
-  AppBar _buildMobileAppBar(ViewProvider viewProvider) {
+  AppBar _buildMobileAppBar(ViewState viewState, ViewNotifier viewNotifier) {
     String title = 'Dimaist';
-    if (viewProvider.selectedCustomView != null) {
-      title = viewProvider.selectedCustomView!;
-    } else if (viewProvider.selectedProjectId != null) {
-      final projectProvider = Provider.of<ProjectProvider>(context, listen: false);
-      final project = projectProvider.projects.firstWhere(
-        (p) => p.id == viewProvider.selectedProjectId,
-        orElse: () => Project(name: 'Dimaist', color: '#6200EE', order: 0),
-      );
+    final customView = viewState.currentCustomView;
+    final project = viewState.currentProject;
+    
+    if (customView != null) {
+      title = customView.name;
+    } else if (project != null) {
       title = project.name;
     }
 
@@ -303,40 +297,50 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildMobileLayout(List<Project> projects, ViewProvider viewProvider) {
+  Widget _buildMobileLayout(List<Project> projects, ViewState viewState, ViewNotifier viewNotifier) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    return _buildMainContent(projects, viewProvider);
+    return _buildMainContent(projects, viewState, viewNotifier);
   }
 
-  Widget _buildDesktopLayout(List<Project> projects, ViewProvider viewProvider, Widget leftBarContent) {
+  Widget _buildDesktopLayout(List<Project> projects, ViewState viewState, ViewNotifier viewNotifier, Widget leftBarContent) {
     return Row(
       children: [
         leftBarContent,
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : _buildMainContent(projects, viewProvider),
+              : _buildMainContent(projects, viewState, viewNotifier),
         ),
       ],
     );
   }
 
-  Widget _buildMainContent(List<Project> projects, ViewProvider viewProvider) {
-    final viewSelection = viewProvider.getViewSelection(projects);
+  Widget _buildMainContent(List<Project> projects, ViewState viewState, ViewNotifier viewNotifier) {
+    final customView = viewState.currentCustomView;
+    final project = viewState.currentProject;
     
-    if (viewSelection.isCustomView) {
-      _currentTaskScreenKey = GlobalKey<TaskScreenState>();
-      return TaskScreen(key: _currentTaskScreenKey, customView: viewSelection.customView);
+    if (customView != null) {
+      final currentViewKey = 'custom-${customView.name}';
+      if (_lastViewKey != currentViewKey) {
+        _currentTaskScreenKey = GlobalKey<TaskScreenState>();
+        _lastViewKey = currentViewKey;
+      }
+      return TaskScreen(key: _currentTaskScreenKey, customView: customView);
     }
 
-    if (viewSelection.isProject) {
-      _currentTaskScreenKey = GlobalKey<TaskScreenState>();
-      return TaskScreen(key: _currentTaskScreenKey, project: viewSelection.project);
+    if (project != null) {
+      final currentViewKey = 'project-${project.id}';
+      if (_lastViewKey != currentViewKey) {
+        _currentTaskScreenKey = GlobalKey<TaskScreenState>();
+        _lastViewKey = currentViewKey;
+      }
+      return TaskScreen(key: _currentTaskScreenKey, project: project);
     }
 
     _currentTaskScreenKey = null;
+    _lastViewKey = null;
     return const Center(
       child: Text('Select a project or view'),
     );

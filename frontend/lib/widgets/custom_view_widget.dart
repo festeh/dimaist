@@ -1,18 +1,39 @@
 import 'package:dimaist/widgets/dynamic_calendar_icon.dart';
 import 'package:flutter/material.dart';
 
-class CustomView {
-  final String name;
-  final IconData icon;
+enum BuiltInViewType {
+  today('Today', Icons.today),
+  upcoming('Upcoming', Icons.calendar_today),
+  next('Next', Icons.arrow_forward);
 
-  const CustomView({required this.name, required this.icon});
+  const BuiltInViewType(this.displayName, this.icon);
+  
+  final String displayName;
+  final IconData icon;
+}
+
+class CustomView {
+  final BuiltInViewType type;
+
+  const CustomView(this.type);
+
+  String get name => type.displayName;
+  IconData get icon => type.icon;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CustomView && other.type == type;
+
+  @override
+  int get hashCode => type.hashCode;
 }
 
 class CustomViewWidget extends StatelessWidget {
   static final List<CustomView> customViews = [
-    const CustomView(name: 'Today', icon: Icons.today),
-    const CustomView(name: 'Upcoming', icon: Icons.calendar_today),
-    const CustomView(name: 'Next', icon: Icons.arrow_forward),
+    const CustomView(BuiltInViewType.today),
+    const CustomView(BuiltInViewType.upcoming),
+    const CustomView(BuiltInViewType.next),
   ];
 
   final String? selectedView;
@@ -46,7 +67,7 @@ class CustomViewWidget extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  if (view.name == 'Today')
+                  if (view.type == BuiltInViewType.today)
                     const DynamicCalendarIcon()
                   else
                     Icon(view.icon, size: 24),

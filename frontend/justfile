@@ -1,0 +1,57 @@
+# Load environment variables from .env file
+set dotenv-load
+
+# Default recipe - show available commands
+default:
+    @just --list
+
+# Verify BASE_URL is set and run command with it
+_run-with-base-url cmd *args:
+    #!/usr/bin/env bash
+    source .env 2>/dev/null || true
+    if [ -z "$BASE_URL" ]; then
+        echo "ERROR: BASE_URL is not set in .env file"
+        echo "Please create a .env file with BASE_URL=your_server_url"
+        exit 1
+    fi
+    echo "Using BASE_URL=$BASE_URL"
+    {{cmd}} --dart-define BASE_URL="$BASE_URL" {{args}}
+
+run-linux:
+    @just _run-with-base-url "flutter run -d linux"
+
+# Run the phone app with environment variables
+run-phone:
+    @just _run-with-base-url "flutter run --flavor phone -t lib/main.dart"
+
+# Run the Wear OS app with environment variables
+run-wear:
+    @just _run-with-base-url "flutter run --flavor wear -t lib/main_wear.dart"
+
+# Run flutter analyze
+analyze:
+    flutter analyze
+
+# Run tests
+test:
+    flutter test
+
+# Get dependencies
+deps:
+    flutter pub get
+
+# Upgrade dependencies
+upgrade:
+    flutter pub upgrade
+
+# Build APK for phone
+build-phone:
+    @just _run-with-base-url "flutter build apk --flavor phone -t lib/main.dart"
+
+# Build APK for Wear OS
+build-wear:
+    @just _run-with-base-url "flutter build apk --flavor wear -t lib/main_wear.dart"
+
+# Clean build artifacts
+clean:
+    flutter clean

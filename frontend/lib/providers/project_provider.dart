@@ -1,104 +1,117 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/project.dart';
 import '../services/app_database.dart';
 import '../services/api_service.dart';
 
-class ProjectProvider extends ChangeNotifier {
-  final AppDatabase _db = AppDatabase();
-  List<Project> _projects = [];
-  final bool _isLoading = false;
-  String? _error;
+class ProjectState {
+  final List<Project> projects;
+  final bool isLoading;
+  final String? error;
 
-  List<Project> get projects => _projects;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
+  const ProjectState({
+    this.projects = const [],
+    this.isLoading = false,
+    this.error,
+  });
+
+  ProjectState copyWith({
+    List<Project>? projects,
+    bool? isLoading,
+    String? error,
+  }) {
+    return ProjectState(
+      projects: projects ?? this.projects,
+      isLoading: isLoading ?? this.isLoading,
+      error: error ?? this.error,
+    );
+  }
+}
+
+class ProjectNotifier extends StateNotifier<ProjectState> {
+  final AppDatabase _db = AppDatabase();
+
+  ProjectNotifier() : super(const ProjectState());
 
   Future<void> loadProjects() async {
     try {
-      _error = null;
-      _projects = await _db.allProjects;
-      notifyListeners();
+      state = state.copyWith(error: null);
+      final projects = await _db.allProjects;
+      state = state.copyWith(projects: projects);
     } catch (e) {
-      _error = 'Error loading projects: $e';
-      notifyListeners();
+      state = state.copyWith(error: 'Error loading projects: $e');
     }
   }
 
   Future<void> addProject(String name, String color) async {
     try {
-      _error = null;
+      state = state.copyWith(error: null);
       final newProject = Project(
         name: name,
         color: color,
-        order: _projects.length,
+        order: state.projects.length,
       );
       
       final createdProject = await ApiService.createProject(newProject);
-      _projects.add(createdProject);
-      notifyListeners();
+      final updatedProjects = [...state.projects, createdProject];
+      state = state.copyWith(projects: updatedProjects);
     } catch (e) {
-      _error = 'Error creating project: $e';
-      notifyListeners();
+      state = state.copyWith(error: 'Error creating project: $e');
       rethrow;
     }
   }
 
   Future<void> updateProject(Project project) async {
     try {
-      _error = null;
+      state = state.copyWith(error: null);
       await ApiService.updateProject(project.id!, project);
       
-      final index = _projects.indexWhere((p) => p.id == project.id);
-      if (index != -1) {
-        _projects[index] = project;
-        notifyListeners();
-      }
+      final updatedProjects = state.projects.map((p) => p.id == project.id ? project : p).toList();
+      state = state.copyWith(projects: updatedProjects);
     } catch (e) {
-      _error = 'Error updating project: $e';
-      notifyListeners();
+      state = state.copyWith(error: 'Error updating project: $e');
       rethrow;
     }
   }
 
   Future<void> deleteProject(int id) async {
     try {
-      _error = null;
+      state = state.copyWith(error: null);
       await ApiService.deleteProject(id);
-      _projects.removeWhere((p) => p.id == id);
-      notifyListeners();
+      final updatedProjects = state.projects.where((p) => p.id != id).toList();
+      state = state.copyWith(projects: updatedProjects);
     } catch (e) {
-      _error = 'Error deleting project: $e';
-      notifyListeners();
+      state = state.copyWith(error: 'Error deleting project: $e');
       rethrow;
     }
   }
 
   Future<void> reorderProjects(int oldIndex, int newIndex) async {
     try {
-      _error = null;
+      state = state.copyWith(error: null);
       
       if (newIndex > oldIndex) {
         newIndex -= 1;
       }
-      final project = _projects.removeAt(oldIndex);
-      _projects.insert(newIndex, project);
       
-      notifyListeners(); // Update UI immediately
+      final projects = [...state.projects];
+      final project = projects.removeAt(oldIndex);
+      projects.insert(newIndex, project);
+      
+      state = state.copyWith(projects: projects); // Update UI immediately
 
       // Update order in the database
-      for (int i = 0; i < _projects.length; i++) {
-        final projectToUpdate = _projects[i];
+      for (int i = 0; i < projects.length; i++) {
+        final projectToUpdate = projects[i];
         if (projectToUpdate.order != i) {
           await _db.updateProject(projectToUpdate.copyWith(order: i));
         }
       }
 
       await ApiService.reorderProjects(
-        _projects.map((p) => p.id!).toList(),
+        projects.map((p) => p.id!).toList(),
       );
     } catch (e) {
-      _error = 'Error reordering projects: $e';
-      notifyListeners();
+      state = state.copyWith(error: 'Error reordering projects: $e');
       // If reorder fails, reload from the source of truth
       await loadProjects();
       rethrow;
@@ -106,7 +119,10 @@ class ProjectProvider extends ChangeNotifier {
   }
 
   void clearError() {
-    _error = null;
-    notifyListeners();
+    state = state.copyWith(error: null);
   }
 }
+
+final projectProvider = StateNotifierProvider<ProjectNotifier, ProjectState>((ref) {
+  return ProjectNotifier();
+});
