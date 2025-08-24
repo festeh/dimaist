@@ -11,6 +11,8 @@ type Env struct {
 	LogLevel         string
 	LogFormat        string
 	DatabaseURL      string
+	AIEndpoint       string
+	AIToken          string
 }
 
 func New() (*Env, error) {
@@ -34,6 +36,18 @@ func New() (*Env, error) {
 		return nil, fmt.Errorf("ASR_URL environment variable is required")
 	}
 	env.AsrUrl = asrURL
+	
+	aiEndpoint := os.Getenv("AI_ENDPOINT")
+	if aiEndpoint == "" {
+		return nil, fmt.Errorf("AI_ENDPOINT environment variable is required")
+	}
+	env.AIEndpoint = aiEndpoint
+	
+	aiToken := os.Getenv("AI_TOKEN")
+	if aiToken == "" {
+		return nil, fmt.Errorf("AI_TOKEN environment variable is required")
+	}
+	env.AIToken = aiToken
 	
 	// Optional environment variables with defaults
 	env.LogLevel = getEnvOrDefault("LOG_LEVEL", "info")

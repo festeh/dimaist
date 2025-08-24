@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"mime/multipart"
@@ -29,6 +30,12 @@ func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+
+	// Get optional model parameter from form
+	model := r.FormValue("model")
+	if model == "" {
+		model = DefaultAIModel
+	}
 
 	// Create streaming pipe to ASR service
 	pipeReader, pipeWriter := io.Pipe()
@@ -85,8 +92,33 @@ func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Info("Successfully transcribed audio").Str("text", result.Text).Send()
+	logger.Info("Successfully transcribed audio, redirecting to AI text handler").Str("text", result.Text).Str("model", model).Send()
 	
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	// Create a new request for the AI text handler
+	textRequest := TextRequest{
+		Text:  result.Text,
+		Model: model,
+	}
+	
+	// Marshal the request to JSON
+	requestBody, err := json.Marshal(textRequest)
+	if err != nil {
+		logger.Error("Failed to marshal text request").Err(err).Send()
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	
+	// Create a new HTTP request with the transcribed text
+	newReq, err := http.NewRequestWithContext(r.Context(), "POST", "/ai/text", bytes.NewReader(requestBody))
+	if err != nil {
+		logger.Error("Failed to create new request").Err(err).Send()
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	
+	// Copy relevant headers
+	newReq.Header.Set("Content-Type", "application/json")
+	
+	// Forward to the AI text handler
+	handleAIText(w, newReq)
 }

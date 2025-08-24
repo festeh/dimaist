@@ -3,7 +3,6 @@ package ai
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/dima-b/go-task-backend/database"
@@ -82,7 +81,8 @@ func createTaskTool(args map[string]interface{}) (string, error) {
 	}
 
 	if projectID, ok := args["project_id"].(float64); ok {
-		task.ProjectID = uint(projectID)
+		projectIDUint := uint(projectID)
+		task.ProjectID = &projectIDUint
 	}
 
 	if dueDateStr, ok := args["due_date"].(string); ok {

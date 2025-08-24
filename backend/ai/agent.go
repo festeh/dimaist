@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/dima-b/go-task-backend/logger"
 	"github.com/revrost/go-openrouter"
@@ -45,6 +46,159 @@ func NewAgent(apiKey, context, initialPrompt string, tools []Tool) *Agent {
 		initialPrompt: initialPrompt,
 		model:         "google/gemini-2.0-flash-001",
 	}
+}
+
+// ExecuteWithSSE runs the agent with SSE streaming support
+func (a *Agent) ExecuteWithSSE(userInput string, sseWriter SSEWriter, ctx context.Context) (string, error) {
+	logger.Info("Starting AI agent execution with SSE").
+		Str("user_input", userInput).
+		Str("model", a.model).
+		Send()
+
+	messages := []Message{
+		{
+			Role:    "system",
+			Content: a.buildSystemPrompt(),
+		},
+		{
+			Role:    "user",
+			Content: userInput,
+		},
+	}
+
+	maxIterations := 15
+	for i := 0; i < maxIterations; i++ {
+		logger.Info("Agent iteration").Int("iteration", i+1).Send()
+
+		// Check context cancellation
+		select {
+		case <-ctx.Done():
+			logger.Info("Context cancelled, stopping agent").Send()
+			return "", ctx.Err()
+		default:
+		}
+
+		// Send thinking event
+		if err := sseWriter.Send("thinking", map[string]string{
+			"message": fmt.Sprintf("Processing request (iteration %d/%d)...", i+1, maxIterations),
+		}); err != nil {
+			logger.Error("Failed to send thinking event").Err(err).Send()
+			return "", err
+		}
+
+		// Call model with timeout
+		response, err := a.callModelWithTimeout(ctx, messages)
+		if err != nil {
+			logger.Error("Model call failed").Err(err).Send()
+			if err := sseWriter.Send("error", map[string]string{
+				"error": fmt.Sprintf("AI call failed: %v", err),
+			}); err != nil {
+				logger.Error("Failed to send error event").Err(err).Send()
+			}
+			return "", fmt.Errorf("model call failed: %w", err)
+		}
+
+		logger.Info("Model response received").Str("response", response).Send()
+
+		toolCall, hasToolCall := a.parseToolCall(response)
+		if !hasToolCall {
+			logger.Warn("No tool call found, prompting AI to use tools").Send()
+			
+			messages = append(messages, Message{
+				Role:    "assistant",
+				Content: response,
+			})
+			messages = append(messages, Message{
+				Role:    "user",
+				Content: "You must call a tool. If you want to respond to the user, use the 'respond' tool with your message.",
+			})
+			continue
+		}
+
+		logger.Info("Tool call detected").Str("tool", toolCall.Name).Send()
+
+		// Send tool call event
+		if err := sseWriter.Send("tool_call", map[string]interface{}{
+			"tool":      toolCall.Name,
+			"arguments": toolCall.Arguments,
+		}); err != nil {
+			logger.Error("Failed to send tool_call event").Err(err).Send()
+			return "", err
+		}
+
+		// Check for respond tool (final response)
+		if toolCall.Name == "respond" {
+			if text, ok := toolCall.Arguments["text"].(string); ok {
+				if err := sseWriter.Send("final_response", map[string]string{
+					"response": text,
+				}); err != nil {
+					logger.Error("Failed to send final_response event").Err(err).Send()
+					return "", err
+				}
+				logger.Info("Agent execution completed with respond tool").Send()
+				return text, nil
+			} else {
+				if err := sseWriter.Send("final_response", map[string]string{
+					"response": "Invalid response format",
+				}); err != nil {
+					logger.Error("Failed to send final_response event").Err(err).Send()
+				}
+				return "Invalid response format", nil
+			}
+		}
+
+		toolResult, err := a.executeTool(toolCall)
+		if err != nil {
+			logger.Error("Tool execution failed").Str("tool", toolCall.Name).Err(err).Send()
+			
+			// Send error event
+			if err := sseWriter.Send("error", map[string]string{
+				"error": fmt.Sprintf("Tool execution failed: %v", err),
+			}); err != nil {
+				logger.Error("Failed to send error event").Err(err).Send()
+				return "", err
+			}
+
+			// Add error to conversation for recovery
+			messages = append(messages, Message{
+				Role:    "assistant",
+				Content: response,
+			})
+			messages = append(messages, Message{
+				Role:    "user",
+				Content: fmt.Sprintf("Tool execution failed with error: %v. Please try a different approach.", err),
+			})
+			continue
+		}
+
+		// Send tool result event
+		if err := sseWriter.Send("tool_result", map[string]string{
+			"result": toolResult,
+		}); err != nil {
+			logger.Error("Failed to send tool_result event").Err(err).Send()
+			return "", err
+		}
+
+		messages = append(messages, Message{
+			Role:    "assistant",
+			Content: response,
+		})
+
+		messages = append(messages, Message{
+			Role:    "user",
+			Content: fmt.Sprintf("Tool result: %s", toolResult),
+		})
+
+		logger.Info("Tool executed successfully").Str("tool", toolCall.Name).Str("result", toolResult).Send()
+	}
+
+	// Max iterations reached
+	if err := sseWriter.Send("error", map[string]string{
+		"error": "Maximum iterations reached without final response",
+	}); err != nil {
+		logger.Error("Failed to send error event").Err(err).Send()
+	}
+	return "", fmt.Errorf("maximum iterations reached without final response")
 }
 
 func (a *Agent) Execute(userInput string) (string, error) {
@@ -144,6 +298,36 @@ func (a *Agent) callModel(messages []Message) (string, error) {
 	}
 
 	response, err := a.client.CreateChatCompletion(context.Background(), request)
+	if err != nil {
+		return "", err
+	}
+
+	if len(response.Choices) == 0 {
+		return "", fmt.Errorf("no choices in response")
+	}
+
+	return response.Choices[0].Message.Content.Text, nil
+}
+
+func (a *Agent) callModelWithTimeout(ctx context.Context, messages []Message) (string, error) {
+	request := openrouter.ChatCompletionRequest{
+		Model:       a.model,
+		MaxTokens:   10000,
+		Temperature: 0.1,
+	}
+
+	for _, msg := range messages {
+		request.Messages = append(request.Messages, openrouter.ChatCompletionMessage{
+			Role:    msg.Role,
+			Content: openrouter.Content{Text: msg.Content},
+		})
+	}
+
+	// Create a timeout context for this specific request
+	timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
+
+	response, err := a.client.CreateChatCompletion(timeoutCtx, request)
 	if err != nil {
 		return "", err
 	}
