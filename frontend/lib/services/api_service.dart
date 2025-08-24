@@ -8,8 +8,10 @@ import 'app_database.dart';
 import 'logging_service.dart';
 
 class ApiService {
-  static const String baseUrl =
-      String.fromEnvironment('BASE_URL', defaultValue: 'http://localhost:3000');
+  static const String baseUrl = String.fromEnvironment(
+    'BASE_URL',
+    defaultValue: 'http://localhost:3000',
+  );
   static final _logger = LoggingService.logger;
   static final AppDatabase _db = AppDatabase();
 
@@ -30,55 +32,83 @@ class ApiService {
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
-        LoggingService.logger.fine('ApiService.syncData: Response body: ${response.body}');
+        LoggingService.logger.fine(
+          'ApiService.syncData: Response body: ${response.body}',
+        );
         final data = json.decode(response.body);
         LoggingService.logger.fine('ApiService.syncData: Parsed data: $data');
-        
+
         final projectsData = data['projects'] as List?;
-        LoggingService.logger.fine('ApiService.syncData: Projects data: $projectsData');
+        LoggingService.logger.fine(
+          'ApiService.syncData: Projects data: $projectsData',
+        );
         final projects = (projectsData ?? []).map((p) {
-          LoggingService.logger.fine('ApiService.syncData: Processing project: $p');
+          LoggingService.logger.fine(
+            'ApiService.syncData: Processing project: $p',
+          );
           try {
             return Project.fromJson(p);
           } catch (e) {
-            LoggingService.logger.severe('ApiService.syncData: Error processing project $p: $e');
+            LoggingService.logger.severe(
+              'ApiService.syncData: Error processing project $p: $e',
+            );
             rethrow;
           }
         }).toList();
-        
+
         final tasksData = data['tasks'] as List?;
-        LoggingService.logger.fine('ApiService.syncData: Tasks data: $tasksData');
-        LoggingService.logger.info('ApiService.syncData: Processing ${tasksData?.length ?? 0} tasks...');
+        LoggingService.logger.fine(
+          'ApiService.syncData: Tasks data: $tasksData',
+        );
+        LoggingService.logger.info(
+          'ApiService.syncData: Processing ${tasksData?.length ?? 0} tasks...',
+        );
         final tasks = (tasksData ?? []).map((t) {
-          LoggingService.logger.fine('ApiService.syncData: Processing task: $t');
+          LoggingService.logger.fine(
+            'ApiService.syncData: Processing task: $t',
+          );
           try {
             return Task.fromJson(t);
           } catch (e) {
-            LoggingService.logger.severe('ApiService.syncData: Error processing task $t: $e');
+            LoggingService.logger.severe(
+              'ApiService.syncData: Error processing task $t: $e',
+            );
             rethrow;
           }
         }).toList();
-        
+
         final newSyncToken = data['sync_token'];
-        LoggingService.logger.info('ApiService.syncData: New sync token: $newSyncToken');
+        LoggingService.logger.info(
+          'ApiService.syncData: New sync token: $newSyncToken',
+        );
 
         _logger.info(
           'Received ${projects.length} projects and ${tasks.length} tasks.',
         );
 
-        LoggingService.logger.info('ApiService.syncData: Upserting ${projects.length} projects...');
+        LoggingService.logger.info(
+          'ApiService.syncData: Upserting ${projects.length} projects...',
+        );
         for (var project in projects) {
-          LoggingService.logger.fine('ApiService.syncData: Upserting project: $project');
+          LoggingService.logger.fine(
+            'ApiService.syncData: Upserting project: $project',
+          );
           await _db.upsertProject(project);
         }
-        
-        LoggingService.logger.info('ApiService.syncData: Upserting ${tasks.length} tasks...');
+
+        LoggingService.logger.info(
+          'ApiService.syncData: Upserting ${tasks.length} tasks...',
+        );
         for (var task in tasks) {
-          LoggingService.logger.fine('ApiService.syncData: Upserting task: $task');
+          LoggingService.logger.fine(
+            'ApiService.syncData: Upserting task: $task',
+          );
           await _db.upsertTask(task);
         }
 
-        LoggingService.logger.info('ApiService.syncData: Saving sync token: $newSyncToken');
+        LoggingService.logger.info(
+          'ApiService.syncData: Saving sync token: $newSyncToken',
+        );
         await prefs.setString('sync_token', newSyncToken);
         _logger.info('Sync completed. New sync token saved.');
       } else {
@@ -126,7 +156,7 @@ class ApiService {
         _logger.warning('Failed to update task $id: ${response.statusCode}');
         throw Exception('Failed to update task');
       }
-      
+
       // Parse the response to get the updated task from backend
       if (response.body.isNotEmpty) {
         final updatedTaskData = json.decode(response.body);
@@ -136,7 +166,7 @@ class ApiService {
         // Fallback to using the task we sent
         await _db.updateTask(task);
       }
-      
+
       _logger.info('Task $id updated successfully.');
     } catch (e) {
       _logger.severe('Error updating task $id: $e');
@@ -302,7 +332,9 @@ class ApiService {
       if (response.statusCode == 200) {
         _logger.info('Audio sent successfully.');
         final responseBody = await response.stream.bytesToString();
-        LoggingService.logger.info('Voice AI transcription result: $responseBody');
+        LoggingService.logger.info(
+          'Voice AI transcription result: $responseBody',
+        );
         final decoded = json.decode(responseBody);
         LoggingService.logger.info('Transcription: ${decoded['content']}');
       } else {

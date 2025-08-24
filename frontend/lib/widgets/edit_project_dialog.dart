@@ -61,7 +61,12 @@ class _EditProjectDialogState extends State<EditProjectDialog> {
                         radius: 10,
                       ),
                       const SizedBox(width: 10),
-                      Text(colorName, style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+                      Text(
+                        colorName,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -117,4 +122,3 @@ class _EditProjectDialogState extends State<EditProjectDialog> {
     );
   }
 }
-

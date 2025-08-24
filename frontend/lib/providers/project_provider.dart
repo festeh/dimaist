@@ -50,7 +50,7 @@ class ProjectNotifier extends StateNotifier<ProjectState> {
         color: color,
         order: state.projects.length,
       );
-      
+
       final createdProject = await ApiService.createProject(newProject);
       final updatedProjects = [...state.projects, createdProject];
       state = state.copyWith(projects: updatedProjects);
@@ -64,8 +64,10 @@ class ProjectNotifier extends StateNotifier<ProjectState> {
     try {
       state = state.copyWith(error: null);
       await ApiService.updateProject(project.id!, project);
-      
-      final updatedProjects = state.projects.map((p) => p.id == project.id ? project : p).toList();
+
+      final updatedProjects = state.projects
+          .map((p) => p.id == project.id ? project : p)
+          .toList();
       state = state.copyWith(projects: updatedProjects);
     } catch (e) {
       state = state.copyWith(error: 'Error updating project: $e');
@@ -88,15 +90,15 @@ class ProjectNotifier extends StateNotifier<ProjectState> {
   Future<void> reorderProjects(int oldIndex, int newIndex) async {
     try {
       state = state.copyWith(error: null);
-      
+
       if (newIndex > oldIndex) {
         newIndex -= 1;
       }
-      
+
       final projects = [...state.projects];
       final project = projects.removeAt(oldIndex);
       projects.insert(newIndex, project);
-      
+
       state = state.copyWith(projects: projects); // Update UI immediately
 
       // Update order in the database
@@ -107,9 +109,7 @@ class ProjectNotifier extends StateNotifier<ProjectState> {
         }
       }
 
-      await ApiService.reorderProjects(
-        projects.map((p) => p.id!).toList(),
-      );
+      await ApiService.reorderProjects(projects.map((p) => p.id!).toList());
     } catch (e) {
       state = state.copyWith(error: 'Error reordering projects: $e');
       // If reorder fails, reload from the source of truth
@@ -123,6 +123,8 @@ class ProjectNotifier extends StateNotifier<ProjectState> {
   }
 }
 
-final projectProvider = StateNotifierProvider<ProjectNotifier, ProjectState>((ref) {
+final projectProvider = StateNotifierProvider<ProjectNotifier, ProjectState>((
+  ref,
+) {
   return ProjectNotifier();
 });

@@ -33,19 +33,25 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final taskNotifier = ref.read(taskProvider.notifier);
-      taskNotifier.loadTasks(project: widget.project, customView: widget.customView);
+      taskNotifier.loadTasks(
+        project: widget.project,
+        customView: widget.customView,
+      );
     });
   }
 
   @override
   void didUpdateWidget(TaskScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.project != widget.project || oldWidget.customView != widget.customView) {
+    if (oldWidget.project != widget.project ||
+        oldWidget.customView != widget.customView) {
       final taskNotifier = ref.read(taskProvider.notifier);
-      taskNotifier.loadTasks(project: widget.project, customView: widget.customView);
+      taskNotifier.loadTasks(
+        project: widget.project,
+        customView: widget.customView,
+      );
     }
   }
-
 
   void showAddTaskDialog() {
     _showAddTaskDialog();
@@ -89,7 +95,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
   void _showAddTaskDialog() async {
     final taskNotifier = ref.read(taskProvider.notifier);
     final projectState = ref.read(projectProvider);
-    
+
     Project? selectedProject = widget.project;
     DateTime? defaultDueDate;
 
@@ -122,7 +128,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
   void _showEditTaskDialog(Task task) {
     final taskNotifier = ref.read(taskProvider.notifier);
     final projectState = ref.read(projectProvider);
-    
+
     showDialog(
       context: context,
       builder: (context) => TaskFormDialog(
@@ -139,13 +145,15 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
 
   Future<void> _scheduleTask(Task task, DateTime timeSlot) async {
     final taskNotifier = ref.read(taskProvider.notifier);
-    
+
     try {
       final updatedTask = task.copyWith(
         startDatetime: ValueWrapper(timeSlot),
-        endDatetime: ValueWrapper(timeSlot.add(const Duration(minutes: 30))), // Default 30-minute duration
+        endDatetime: ValueWrapper(
+          timeSlot.add(const Duration(minutes: 30)),
+        ), // Default 30-minute duration
       );
-      
+
       await taskNotifier.updateTask(task.id!, updatedTask);
     } catch (e) {
       LoggingService.logger.severe('Error scheduling task: $e');
@@ -155,13 +163,13 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
 
   Future<void> _unscheduleTask(Task task) async {
     final taskNotifier = ref.read(taskProvider.notifier);
-    
+
     try {
       final updatedTask = task.copyWith(
         startDatetime: const ValueWrapper(null),
         endDatetime: const ValueWrapper(null),
       );
-      
+
       await taskNotifier.updateTask(task.id!, updatedTask);
     } catch (e) {
       LoggingService.logger.severe('Error unscheduling task: $e');
@@ -171,7 +179,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
 
   Future<void> _updateTask(Task task) async {
     final taskNotifier = ref.read(taskProvider.notifier);
-    
+
     try {
       await taskNotifier.updateTask(task.id!, task);
     } catch (e) {
@@ -194,16 +202,23 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(taskState.title, style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              taskState.title,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             if (widget.customView?.type == BuiltInViewType.today) ...[
               const SizedBox(width: 8),
               IconButton(
                 iconSize: 20,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                icon: Icon(_isScheduleView ? Icons.list : Icons.calendar_view_day),
+                icon: Icon(
+                  _isScheduleView ? Icons.list : Icons.calendar_view_day,
+                ),
                 onPressed: () {
-                  LoggingService.logger.fine('Toggle button pressed! Current state: $_isScheduleView');
+                  LoggingService.logger.fine(
+                    'Toggle button pressed! Current state: $_isScheduleView',
+                  );
                   setState(() {
                     _isScheduleView = !_isScheduleView;
                   });
@@ -219,20 +234,23 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
       ),
       body: taskState.isLoading
           ? const Center(child: SizedBox.shrink())
-          : (widget.customView?.type == BuiltInViewType.today && _isScheduleView)
-      ? (() {
-          LoggingService.logger.fine('Showing ScheduleView - customView: ${widget.customView?.name}, isScheduleView: $_isScheduleView');
-          return ScheduleView(
-            tasks: taskState.tasks,
-            onToggleComplete: _toggleComplete,
-            onDelete: _deleteTask,
-            onEdit: _showEditTaskDialog,
-            onScheduleTask: _scheduleTask,
-            onUnscheduleTask: _unscheduleTask,
-            onUpdateTask: _updateTask,
-          );
-        })()
-      : taskState.tasks.isEmpty
+          : (widget.customView?.type == BuiltInViewType.today &&
+                _isScheduleView)
+          ? (() {
+              LoggingService.logger.fine(
+                'Showing ScheduleView - customView: ${widget.customView?.name}, isScheduleView: $_isScheduleView',
+              );
+              return ScheduleView(
+                tasks: taskState.tasks,
+                onToggleComplete: _toggleComplete,
+                onDelete: _deleteTask,
+                onEdit: _showEditTaskDialog,
+                onScheduleTask: _scheduleTask,
+                onUnscheduleTask: _unscheduleTask,
+                onUpdateTask: _updateTask,
+              );
+            })()
+          : taskState.tasks.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -255,68 +273,70 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
               ),
             )
           : (() {
-              LoggingService.logger.fine('Showing ListView - customView: ${widget.customView?.name}, isScheduleView: $_isScheduleView');
+              LoggingService.logger.fine(
+                'Showing ListView - customView: ${widget.customView?.name}, isScheduleView: $_isScheduleView',
+              );
               return ReorderableListView.builder(
-              buildDefaultDragHandles: false,
-              padding: const EdgeInsets.all(8.0),
-              itemCount:
-                  nonCompletedTasks.length +
-                  (completedTasks.isNotEmpty ? completedTasks.length + 1 : 0),
-              itemBuilder: (context, index) {
-                if (index < nonCompletedTasks.length) {
-                  final task = nonCompletedTasks[index];
-                  return ReorderableDragStartListener(
-                    key: Key(task.id.toString()),
-                    index: index,
-                    child: TaskWidget(
+                buildDefaultDragHandles: false,
+                padding: const EdgeInsets.all(8.0),
+                itemCount:
+                    nonCompletedTasks.length +
+                    (completedTasks.isNotEmpty ? completedTasks.length + 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index < nonCompletedTasks.length) {
+                    final task = nonCompletedTasks[index];
+                    return ReorderableDragStartListener(
+                      key: Key(task.id.toString()),
+                      index: index,
+                      child: TaskWidget(
+                        task: task,
+                        onToggleComplete: _toggleComplete,
+                        onDelete: _deleteTask,
+                        onEdit: _showEditTaskDialog,
+                      ),
+                    );
+                  } else if (index == nonCompletedTasks.length &&
+                      completedTasks.isNotEmpty) {
+                    return Column(
+                      key: const Key('completed_tasks_header'),
+                      children: const [
+                        Divider(
+                          height: 32,
+                          thickness: 2,
+                          indent: 16,
+                          endIndent: 16,
+                        ),
+                        Text('Completed tasks'),
+                      ],
+                    );
+                  } else {
+                    final task =
+                        completedTasks[index - nonCompletedTasks.length - 1];
+                    return CompletedTaskWidget(
+                      key: Key(task.id.toString()),
                       task: task,
                       onToggleComplete: _toggleComplete,
                       onDelete: _deleteTask,
                       onEdit: _showEditTaskDialog,
-                    ),
-                  );
-                } else if (index == nonCompletedTasks.length &&
-                    completedTasks.isNotEmpty) {
-                  return Column(
-                    key: const Key('completed_tasks_header'),
-                    children: const [
-                      Divider(
-                        height: 32,
-                        thickness: 2,
-                        indent: 16,
-                        endIndent: 16,
-                      ),
-                      Text('Completed tasks'),
-                    ],
-                  );
-                } else {
-                  final task =
-                      completedTasks[index - nonCompletedTasks.length - 1];
-                  return CompletedTaskWidget(
-                    key: Key(task.id.toString()),
-                    task: task,
-                    onToggleComplete: _toggleComplete,
-                    onDelete: _deleteTask,
-                    onEdit: _showEditTaskDialog,
-                  );
-                }
-              },
-              onReorder: (oldIndex, newIndex) async {
-                try {
-                  await taskNotifier.reorderTasks(oldIndex, newIndex);
-                } catch (e) {
-                  _showErrorDialog('Error reordering tasks: $e');
-                }
-              },
-            );
-          })(),
-          floatingActionButton: LongPressFab(
-            onPressed: _showAddTaskDialog,
-            onMenuItemSelected: (value) {
-              // ignore: avoid_print
-              LoggingService.logger.fine('Reorder callback: $value');
-            },
-          ),
-        );
+                    );
+                  }
+                },
+                onReorder: (oldIndex, newIndex) async {
+                  try {
+                    await taskNotifier.reorderTasks(oldIndex, newIndex);
+                  } catch (e) {
+                    _showErrorDialog('Error reordering tasks: $e');
+                  }
+                },
+              );
+            })(),
+      floatingActionButton: LongPressFab(
+        onPressed: _showAddTaskDialog,
+        onMenuItemSelected: (value) {
+          // ignore: avoid_print
+          LoggingService.logger.fine('Reorder callback: $value');
+        },
+      ),
+    );
   }
 }

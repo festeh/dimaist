@@ -25,12 +25,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   LoggingService.setup();
-  
+
   // Only initialize tray service on desktop platforms
   if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
     await TrayService.initialize();
   }
-  
+
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -40,39 +40,39 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        title: 'Dimaist',
-        theme: ThemeData(
+      title: 'Dimaist',
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        primaryColor: const Color(0xFF6200EE),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF6200EE),
           brightness: Brightness.dark,
-          primaryColor: const Color(0xFF6200EE),
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF6200EE),
-            brightness: Brightness.dark,
-            secondary: const Color(0xFF03DAC6),
-          ),
-          scaffoldBackgroundColor: const Color(0xFF121212),
-          cardColor: const Color(0xFF1E1E1E),
-          useMaterial3: true,
-          textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme)
-              .copyWith(
-                headlineSmall: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                bodyLarge: const TextStyle(fontSize: 16, color: Colors.white),
-                bodyMedium: const TextStyle(fontSize: 14, color: Colors.white),
-              ),
+          secondary: const Color(0xFF03DAC6),
         ),
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [
-          Locale('en', 'GB'), // English, Great Britain
-        ],
-        home: const MainScreen(),
-      );
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        cardColor: const Color(0xFF1E1E1E),
+        useMaterial3: true,
+        textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme)
+            .copyWith(
+              headlineSmall: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+              bodyLarge: const TextStyle(fontSize: 16, color: Colors.white),
+              bodyMedium: const TextStyle(fontSize: 14, color: Colors.white),
+            ),
+      ),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('en', 'GB'), // English, Great Britain
+      ],
+      home: const MainScreen(),
+    );
   }
 }
 
@@ -108,29 +108,41 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    LoggingService.logger.info('_loadInitialData: Starting initial data load...');
+    LoggingService.logger.info(
+      '_loadInitialData: Starting initial data load...',
+    );
     try {
-      LoggingService.logger.info('_loadInitialData: Getting shared preferences...');
+      LoggingService.logger.info(
+        '_loadInitialData: Getting shared preferences...',
+      );
       final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
       final projectNotifier = ref.read(projectProvider.notifier);
-      
-      LoggingService.logger.info('_loadInitialData: Loading projects from database...');
+
+      LoggingService.logger.info(
+        '_loadInitialData: Loading projects from database...',
+      );
       await projectNotifier.loadProjects();
       final projects = ref.read(projectProvider).projects;
-      LoggingService.logger.info('_loadInitialData: Loaded ${projects.length} projects from database');
+      LoggingService.logger.info(
+        '_loadInitialData: Loaded ${projects.length} projects from database',
+      );
 
       if (projects.isEmpty) {
-        LoggingService.logger.info('_loadInitialData: No projects found, performing initial sync...');
+        LoggingService.logger.info(
+          '_loadInitialData: No projects found, performing initial sync...',
+        );
         prefs.remove('sync_token');
       }
 
       LoggingService.logger.info('_loadInitialData: Syncing data with API...');
       await ApiService.syncData();
-      LoggingService.logger.info('_loadInitialData: Data sync completed successfully');
+      LoggingService.logger.info(
+        '_loadInitialData: Data sync completed successfully',
+      );
 
       await projectNotifier.loadProjects();
-      
+
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -181,14 +193,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     final projectState = ref.watch(projectProvider);
     final viewState = ref.watch(viewProvider);
     final viewNotifier = ref.read(viewProvider.notifier);
     final projectNotifier = ref.read(projectProvider.notifier);
-    
+
     final projects = projectState.projects;
     final selectedProjectIndex = viewNotifier.getSelectedProjectIndex(projects);
     final isMobile = ResponsiveUtils.isMobile(context);
@@ -251,7 +262,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               return KeyEventResult.handled;
             }
             if (event.logicalKey == LogicalKeyboardKey.keyU) {
-              viewNotifier.selectCustomView(BuiltInViewType.upcoming.displayName);
+              viewNotifier.selectCustomView(
+                BuiltInViewType.upcoming.displayName,
+              );
               return KeyEventResult.handled;
             }
             if (event.logicalKey == LogicalKeyboardKey.keyE) {
@@ -265,11 +278,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       child: Scaffold(
         key: _scaffoldKey,
         appBar: isMobile ? _buildMobileAppBar(viewState, viewNotifier) : null,
-        drawer: isMobile ? Drawer(child: SafeArea(child: leftBarContent)) : null,
+        drawer: isMobile
+            ? Drawer(child: SafeArea(child: leftBarContent))
+            : null,
         body: SafeArea(
           child: isMobile
               ? _buildMobileLayout(projects, viewState, viewNotifier)
-              : _buildDesktopLayout(projects, viewState, viewNotifier, leftBarContent),
+              : _buildDesktopLayout(
+                  projects,
+                  viewState,
+                  viewNotifier,
+                  leftBarContent,
+                ),
         ),
       ),
     );
@@ -279,7 +299,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     String title = 'Dimaist';
     final customView = viewState.currentCustomView;
     final project = viewState.currentProject;
-    
+
     if (customView != null) {
       title = customView.name;
     } else if (project != null) {
@@ -297,14 +317,23 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
-  Widget _buildMobileLayout(List<Project> projects, ViewState viewState, ViewNotifier viewNotifier) {
+  Widget _buildMobileLayout(
+    List<Project> projects,
+    ViewState viewState,
+    ViewNotifier viewNotifier,
+  ) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
     return _buildMainContent(projects, viewState, viewNotifier);
   }
 
-  Widget _buildDesktopLayout(List<Project> projects, ViewState viewState, ViewNotifier viewNotifier, Widget leftBarContent) {
+  Widget _buildDesktopLayout(
+    List<Project> projects,
+    ViewState viewState,
+    ViewNotifier viewNotifier,
+    Widget leftBarContent,
+  ) {
     return Row(
       children: [
         leftBarContent,
@@ -317,10 +346,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
-  Widget _buildMainContent(List<Project> projects, ViewState viewState, ViewNotifier viewNotifier) {
+  Widget _buildMainContent(
+    List<Project> projects,
+    ViewState viewState,
+    ViewNotifier viewNotifier,
+  ) {
     final customView = viewState.currentCustomView;
     final project = viewState.currentProject;
-    
+
     if (customView != null) {
       final currentViewKey = 'custom-${customView.name}';
       if (_lastViewKey != currentViewKey) {
@@ -341,8 +374,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     _currentTaskScreenKey = null;
     _lastViewKey = null;
-    return const Center(
-      child: Text('Select a project or view'),
-    );
+    return const Center(child: Text('Select a project or view'));
   }
 }

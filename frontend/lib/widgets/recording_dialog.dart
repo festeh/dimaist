@@ -30,10 +30,7 @@ class _RecordingDialogState extends State<RecordingDialog>
       duration: const Duration(milliseconds: 500),
     )..repeat(reverse: true);
     _scaleAnimation = Tween<double>(begin: 0.9, end: 1.1).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ),
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     _startRecording();
   }
@@ -105,11 +102,13 @@ class _RecordingDialogState extends State<RecordingDialog>
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(_isRecording
-          ? 'Recording...'
-          : _isProcessing
-              ? 'Processing...'
-              : 'Done'),
+      title: Text(
+        _isRecording
+            ? 'Recording...'
+            : _isProcessing
+            ? 'Processing...'
+            : 'Done',
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

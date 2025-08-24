@@ -90,17 +90,35 @@ class Task {
     LoggingService.logger.fine('Task.fromJson: Processing task JSON: $json');
     try {
       LoggingService.logger.fine('Task.fromJson: id = ${json['id']}');
-      LoggingService.logger.fine('Task.fromJson: description = ${json['description']}');
-      LoggingService.logger.fine('Task.fromJson: project_id = ${json['project_id']}');
-      LoggingService.logger.fine('Task.fromJson: due_date = ${json['due_date']}');
-      LoggingService.logger.fine('Task.fromJson: due_datetime = ${json['due_datetime']}');
-      LoggingService.logger.fine('Task.fromJson: start_datetime = ${json['start_datetime']}');
-      LoggingService.logger.fine('Task.fromJson: end_datetime = ${json['end_datetime']}');
+      LoggingService.logger.fine(
+        'Task.fromJson: description = ${json['description']}',
+      );
+      LoggingService.logger.fine(
+        'Task.fromJson: project_id = ${json['project_id']}',
+      );
+      LoggingService.logger.fine(
+        'Task.fromJson: due_date = ${json['due_date']}',
+      );
+      LoggingService.logger.fine(
+        'Task.fromJson: due_datetime = ${json['due_datetime']}',
+      );
+      LoggingService.logger.fine(
+        'Task.fromJson: start_datetime = ${json['start_datetime']}',
+      );
+      LoggingService.logger.fine(
+        'Task.fromJson: end_datetime = ${json['end_datetime']}',
+      );
       LoggingService.logger.fine('Task.fromJson: labels = ${json['labels']}');
       LoggingService.logger.fine('Task.fromJson: order = ${json['order']}');
-      LoggingService.logger.fine('Task.fromJson: completed_at = ${json['completed_at']}');
-      LoggingService.logger.fine('Task.fromJson: reminders = ${json['reminders']}');
-      LoggingService.logger.fine('Task.fromJson: recurrence = ${json['recurrence']}');
+      LoggingService.logger.fine(
+        'Task.fromJson: completed_at = ${json['completed_at']}',
+      );
+      LoggingService.logger.fine(
+        'Task.fromJson: reminders = ${json['reminders']}',
+      );
+      LoggingService.logger.fine(
+        'Task.fromJson: recurrence = ${json['recurrence']}',
+      );
 
       return Task(
         id: json['id'],
@@ -123,7 +141,9 @@ class Task {
         recurrence: json['recurrence'],
       );
     } catch (e) {
-      LoggingService.logger.severe('Task.fromJson: Error processing task JSON: $e');
+      LoggingService.logger.severe(
+        'Task.fromJson: Error processing task JSON: $e',
+      );
       rethrow;
     }
   }
@@ -165,7 +185,9 @@ class Task {
       projectId: projectId ?? this.projectId,
       dueDate: dueDate != null ? dueDate.value : this.dueDate,
       dueDatetime: dueDatetime != null ? dueDatetime.value : this.dueDatetime,
-      startDatetime: startDatetime != null ? startDatetime.value : this.startDatetime,
+      startDatetime: startDatetime != null
+          ? startDatetime.value
+          : this.startDatetime,
       endDatetime: endDatetime != null ? endDatetime.value : this.endDatetime,
       labels: labels ?? this.labels,
       order: order ?? this.order,

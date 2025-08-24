@@ -33,7 +33,7 @@ class _ScheduleViewState extends State<ScheduleView> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
-    
+
     // Auto-scroll to current time after the widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToCurrentTime();
@@ -49,28 +49,30 @@ class _ScheduleViewState extends State<ScheduleView> {
   void _scrollToCurrentTime() {
     final now = DateTime.now();
     final startTime = DateTime(now.year, now.month, now.day, 6, 0);
-    
+
     if (now.isBefore(startTime)) {
       // If current time is before 6:00, scroll to top
       _scrollController.jumpTo(0);
       return;
     }
-    
+
     final endTime = DateTime(now.year, now.month, now.day, 23, 30);
     if (now.isAfter(endTime)) {
       // If current time is after 23:30, scroll to bottom
       _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
       return;
     }
-    
+
     // Calculate which time slot the current time falls into
     final timeDifference = now.difference(startTime);
     final slotIndex = (timeDifference.inMinutes / 30).floor();
-    
+
     // Scroll so current time is near the top (but not at the very top)
     const itemHeight = 60.0; // Height of each time slot
-    final scrollOffset = (slotIndex * itemHeight) - (itemHeight * 2); // Show 2 slots above current time
-    
+    final scrollOffset =
+        (slotIndex * itemHeight) -
+        (itemHeight * 2); // Show 2 slots above current time
+
     _scrollController.jumpTo(
       scrollOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
     );
@@ -78,14 +80,12 @@ class _ScheduleViewState extends State<ScheduleView> {
 
   void _adjustTaskDuration(Task task, int minutesToAdd) {
     if (task.startDatetime == null || task.endDatetime == null) return;
-    
+
     final newEndTime = task.endDatetime!.add(Duration(minutes: minutesToAdd));
-    
+
     // Create updated task with new end time, keeping the same start time
-    final updatedTask = task.copyWith(
-      endDatetime: ValueWrapper(newEndTime),
-    );
-    
+    final updatedTask = task.copyWith(endDatetime: ValueWrapper(newEndTime));
+
     // Use onUpdateTask if available, otherwise fall back to onEdit
     if (widget.onUpdateTask != null) {
       widget.onUpdateTask!(updatedTask);
@@ -100,18 +100,19 @@ class _ScheduleViewState extends State<ScheduleView> {
     final timeSlots = <DateTime>[];
     final now = DateTime.now();
     final startTime = DateTime(now.year, now.month, now.day, 6, 0);
-    
-    for (int i = 0; i <= 35; i++) { // 6:00 to 23:30 = 35 slots of 30 minutes
+
+    for (int i = 0; i <= 35; i++) {
+      // 6:00 to 23:30 = 35 slots of 30 minutes
       timeSlots.add(startTime.add(Duration(minutes: i * 30)));
     }
 
     // Separate tasks with and without time slots
-    final scheduledTasks = widget.tasks.where((task) => 
-      task.startDatetime != null && task.endDatetime != null
-    ).toList();
-    final unscheduledTasks = widget.tasks.where((task) => 
-      task.startDatetime == null || task.endDatetime == null
-    ).toList();
+    final scheduledTasks = widget.tasks
+        .where((task) => task.startDatetime != null && task.endDatetime != null)
+        .toList();
+    final unscheduledTasks = widget.tasks
+        .where((task) => task.startDatetime == null || task.endDatetime == null)
+        .toList();
 
     return Row(
       children: [
@@ -138,20 +139,23 @@ class _ScheduleViewState extends State<ScheduleView> {
                   itemBuilder: (context, index) {
                     final timeSlot = timeSlots[index];
                     final tasksInSlot = scheduledTasks.where((task) {
-                      if (task.startDatetime == null || task.endDatetime == null) {
+                      if (task.startDatetime == null ||
+                          task.endDatetime == null) {
                         return false;
                       }
                       final taskStart = task.startDatetime!;
                       final taskEnd = task.endDatetime!;
                       final slotEnd = timeSlot.add(const Duration(minutes: 30));
-                      
+
                       // Check if task overlaps with this time slot
-                      return (taskStart.isBefore(slotEnd) && taskEnd.isAfter(timeSlot));
+                      return (taskStart.isBefore(slotEnd) &&
+                          taskEnd.isAfter(timeSlot));
                     }).toList();
 
                     // Check if current time falls within this slot
                     final slotEnd = timeSlot.add(const Duration(minutes: 30));
-                    final isCurrentTimeInSlot = now.isAfter(timeSlot) && now.isBefore(slotEnd);
+                    final isCurrentTimeInSlot =
+                        now.isAfter(timeSlot) && now.isBefore(slotEnd);
 
                     return Container(
                       height: 60,
@@ -167,61 +171,79 @@ class _ScheduleViewState extends State<ScheduleView> {
                         children: [
                           Row(
                             children: [
-                          // Time label
-                          Container(
-                            width: 80,
-                            padding: const EdgeInsets.all(8),
-                            child: Text(
-                              '${timeSlot.hour.toString().padLeft(2, '0')}:${timeSlot.minute.toString().padLeft(2, '0')}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              // Time label
+                              Container(
+                                width: 80,
+                                padding: const EdgeInsets.all(8),
+                                child: Text(
+                                  '${timeSlot.hour.toString().padLeft(2, '0')}:${timeSlot.minute.toString().padLeft(2, '0')}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          // Tasks in this slot
-                          Expanded(
-                            child: DragTarget<Task>(
-                              onAcceptWithDetails: (details) {
-                                widget.onScheduleTask(details.data, timeSlot);
-                              },
-                              builder: (context, candidateData, rejectedData) {
-                                return Container(
-                                  decoration: candidateData.isNotEmpty
-                                      ? BoxDecoration(
-                                          color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
-                                          borderRadius: BorderRadius.circular(4),
-                                        )
-                                      : null,
-                                  child: tasksInSlot.isNotEmpty
-                                      ? Column(
-                                          children: tasksInSlot.map((task) => 
-                                            Expanded(
-                                              child: _buildScheduledTaskCard(context, task, timeSlot)
+                              // Tasks in this slot
+                              Expanded(
+                                child: DragTarget<Task>(
+                                  onAcceptWithDetails: (details) {
+                                    widget.onScheduleTask(
+                                      details.data,
+                                      timeSlot,
+                                    );
+                                  },
+                                  builder: (context, candidateData, rejectedData) {
+                                    return Container(
+                                      decoration: candidateData.isNotEmpty
+                                          ? BoxDecoration(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .primaryContainer
+                                                  .withValues(alpha: 0.3),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
                                             )
-                                          ).toList(),
-                                        )
-                                      : Container(
-                                          height: 40,
-                                          alignment: Alignment.center,
-                                          child: candidateData.isNotEmpty
-                                              ? Text(
-                                                  'Task starts here',
-                                                  style: TextStyle(
-                                                    color: Theme.of(context).colorScheme.primary,
-                                                    fontSize: 12,
-                                                  ),
-                                                )
-                                              : null,
-                                        ),
-                                );
-                              },
-                            ),
-                          ),
+                                          : null,
+                                      child: tasksInSlot.isNotEmpty
+                                          ? Column(
+                                              children: tasksInSlot
+                                                  .map(
+                                                    (task) => Expanded(
+                                                      child:
+                                                          _buildScheduledTaskCard(
+                                                            context,
+                                                            task,
+                                                            timeSlot,
+                                                          ),
+                                                    ),
+                                                  )
+                                                  .toList(),
+                                            )
+                                          : Container(
+                                              height: 40,
+                                              alignment: Alignment.center,
+                                              child: candidateData.isNotEmpty
+                                                  ? Text(
+                                                      'Task starts here',
+                                                      style: TextStyle(
+                                                        color: Theme.of(
+                                                          context,
+                                                        ).colorScheme.primary,
+                                                        fontSize: 12,
+                                                      ),
+                                                    )
+                                                  : null,
+                                            ),
+                                    );
+                                  },
+                                ),
+                              ),
                             ],
                           ),
                           // Current time indicator
-                          if (isCurrentTimeInSlot) 
+                          if (isCurrentTimeInSlot)
                             _buildCurrentTimeIndicator(now, timeSlot),
                         ],
                       ),
@@ -234,88 +256,98 @@ class _ScheduleViewState extends State<ScheduleView> {
         ),
         // Unscheduled tasks sidebar
         Container(
-            width: 200,
-            decoration: BoxDecoration(
-              border: Border(
-                left: BorderSide(
-                  color: Theme.of(context).colorScheme.outline,
-                  width: 1,
-                ),
+          width: 200,
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(
+                color: Theme.of(context).colorScheme.outline,
+                width: 1,
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Unscheduled',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Unscheduled',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
-                Expanded(
-                  child: DragTarget<Task>(
-                    onAcceptWithDetails: (details) {
-                      // Unschedule the task by setting start/end times to null
-                      widget.onUnscheduleTask(details.data);
-                    },
-                    builder: (context, candidateData, rejectedData) {
-                      return Container(
-                        decoration: candidateData.isNotEmpty
-                            ? BoxDecoration(
-                                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                                borderRadius: BorderRadius.circular(4),
-                              )
-                            : null,
-                        child: unscheduledTasks.isNotEmpty
-                            ? ListView.builder(
-                                itemCount: unscheduledTasks.length,
-                                itemBuilder: (context, index) {
-                                  final task = unscheduledTasks[index];
-                                  return _buildUnscheduledTaskCard(context, task);
-                                },
-                              )
-                            : Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Text(
-                                    candidateData.isNotEmpty 
-                                        ? 'Drop here to unschedule' 
-                                        : 'No unscheduled tasks',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: candidateData.isNotEmpty 
-                                          ? Theme.of(context).colorScheme.primary
-                                          : Theme.of(context).colorScheme.onSurfaceVariant,
-                                      fontSize: 14,
-                                    ),
+              ),
+              Expanded(
+                child: DragTarget<Task>(
+                  onAcceptWithDetails: (details) {
+                    // Unschedule the task by setting start/end times to null
+                    widget.onUnscheduleTask(details.data);
+                  },
+                  builder: (context, candidateData, rejectedData) {
+                    return Container(
+                      decoration: candidateData.isNotEmpty
+                          ? BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest
+                                  .withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(4),
+                            )
+                          : null,
+                      child: unscheduledTasks.isNotEmpty
+                          ? ListView.builder(
+                              itemCount: unscheduledTasks.length,
+                              itemBuilder: (context, index) {
+                                final task = unscheduledTasks[index];
+                                return _buildUnscheduledTaskCard(context, task);
+                              },
+                            )
+                          : Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Text(
+                                  candidateData.isNotEmpty
+                                      ? 'Drop here to unschedule'
+                                      : 'No unscheduled tasks',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: candidateData.isNotEmpty
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                    fontSize: 14,
                                   ),
                                 ),
                               ),
-                      );
-                    },
-                  ),
+                            ),
+                    );
+                  },
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+        ),
       ],
     );
   }
 
-  Widget _buildScheduledTaskCard(BuildContext context, Task task, DateTime currentTimeSlot) {
+  Widget _buildScheduledTaskCard(
+    BuildContext context,
+    Task task,
+    DateTime currentTimeSlot,
+  ) {
     final taskDuration = task.startDatetime != null && task.endDatetime != null
         ? task.endDatetime!.difference(task.startDatetime!).inMinutes
         : 0;
     final canShrink = taskDuration > 30;
-    
+
     // Check if this is the starting cell for the task (aligned to 30-minute slots)
-    final isStartingCell = task.startDatetime != null && 
-        task.startDatetime!.hour == currentTimeSlot.hour && 
+    final isStartingCell =
+        task.startDatetime != null &&
+        task.startDatetime!.hour == currentTimeSlot.hour &&
         task.startDatetime!.minute == currentTimeSlot.minute;
-    
+
     return Draggable<Task>(
       data: task,
       feedback: Material(
@@ -349,7 +381,9 @@ class _ScheduleViewState extends State<ScheduleView> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         height: double.infinity,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
@@ -362,7 +396,9 @@ class _ScheduleViewState extends State<ScheduleView> {
             Icon(
               Icons.drag_handle,
               size: 12,
-              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             ),
             const SizedBox(width: 4),
             Flexible(
@@ -371,7 +407,9 @@ class _ScheduleViewState extends State<ScheduleView> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -387,13 +425,13 @@ class _ScheduleViewState extends State<ScheduleView> {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           height: double.infinity,
           decoration: BoxDecoration(
-            color: task.completedAt != null 
-                ? Theme.of(context).colorScheme.surfaceContainerHighest 
+            color: task.completedAt != null
+                ? Theme.of(context).colorScheme.surfaceContainerHighest
                 : Theme.of(context).colorScheme.primaryContainer,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: task.completedAt != null 
-                  ? Theme.of(context).colorScheme.outline 
+              color: task.completedAt != null
+                  ? Theme.of(context).colorScheme.outline
                   : Theme.of(context).colorScheme.primary,
               width: 1,
             ),
@@ -404,14 +442,18 @@ class _ScheduleViewState extends State<ScheduleView> {
               // Minus button (left side) - only show in starting cell
               if (isStartingCell) ...[
                 _HoverButton(
-                  onTap: canShrink ? () => _adjustTaskDuration(task, -30) : null,
+                  onTap: canShrink
+                      ? () => _adjustTaskDuration(task, -30)
+                      : null,
                   enabled: canShrink,
                   child: Icon(
                     Icons.remove,
                     size: 14,
-                    color: canShrink 
+                    color: canShrink
                         ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                        : Theme.of(
+                            context,
+                          ).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                   ),
                 ),
                 const SizedBox(width: 2),
@@ -426,12 +468,12 @@ class _ScheduleViewState extends State<ScheduleView> {
               GestureDetector(
                 onTap: () => widget.onToggleComplete(task),
                 child: Icon(
-                  task.completedAt != null 
-                      ? Icons.check_circle 
+                  task.completedAt != null
+                      ? Icons.check_circle
                       : Icons.circle_outlined,
                   size: 16,
-                  color: task.completedAt != null 
-                      ? Theme.of(context).colorScheme.onSurfaceVariant 
+                  color: task.completedAt != null
+                      ? Theme.of(context).colorScheme.onSurfaceVariant
                       : Theme.of(context).colorScheme.primary,
                 ),
               ),
@@ -448,11 +490,11 @@ class _ScheduleViewState extends State<ScheduleView> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    decoration: task.completedAt != null 
-                        ? TextDecoration.lineThrough 
+                    decoration: task.completedAt != null
+                        ? TextDecoration.lineThrough
                         : null,
-                    color: task.completedAt != null 
-                        ? Theme.of(context).colorScheme.onSurfaceVariant 
+                    color: task.completedAt != null
+                        ? Theme.of(context).colorScheme.onSurfaceVariant
                         : Theme.of(context).colorScheme.onSurface,
                   ),
                   maxLines: 1,
@@ -465,8 +507,8 @@ class _ScheduleViewState extends State<ScheduleView> {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w400,
-                    color: task.completedAt != null 
-                        ? Theme.of(context).colorScheme.onSurfaceVariant 
+                    color: task.completedAt != null
+                        ? Theme.of(context).colorScheme.onSurfaceVariant
                         : Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
@@ -530,7 +572,9 @@ class _ScheduleViewState extends State<ScheduleView> {
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
@@ -542,7 +586,9 @@ class _ScheduleViewState extends State<ScheduleView> {
             Icon(
               Icons.drag_handle,
               size: 18,
-              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -551,7 +597,9 @@ class _ScheduleViewState extends State<ScheduleView> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -564,8 +612,8 @@ class _ScheduleViewState extends State<ScheduleView> {
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: task.completedAt != null 
-              ? Theme.of(context).colorScheme.surfaceContainerHighest 
+          color: task.completedAt != null
+              ? Theme.of(context).colorScheme.surfaceContainerHighest
               : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
@@ -578,12 +626,12 @@ class _ScheduleViewState extends State<ScheduleView> {
             GestureDetector(
               onTap: () => widget.onToggleComplete(task),
               child: Icon(
-                task.completedAt != null 
-                    ? Icons.check_circle 
+                task.completedAt != null
+                    ? Icons.check_circle
                     : Icons.circle_outlined,
                 size: 18,
-                color: task.completedAt != null 
-                    ? Theme.of(context).colorScheme.onSurfaceVariant 
+                color: task.completedAt != null
+                    ? Theme.of(context).colorScheme.onSurfaceVariant
                     : Theme.of(context).colorScheme.primary,
               ),
             ),
@@ -600,11 +648,11 @@ class _ScheduleViewState extends State<ScheduleView> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  decoration: task.completedAt != null 
-                      ? TextDecoration.lineThrough 
+                  decoration: task.completedAt != null
+                      ? TextDecoration.lineThrough
                       : null,
-                  color: task.completedAt != null 
-                      ? Theme.of(context).colorScheme.onSurfaceVariant 
+                  color: task.completedAt != null
+                      ? Theme.of(context).colorScheme.onSurfaceVariant
                       : Theme.of(context).colorScheme.onSurface,
                 ),
                 maxLines: 2,
@@ -627,10 +675,7 @@ class _ScheduleViewState extends State<ScheduleView> {
       top: linePosition,
       left: 0,
       right: 0,
-      child: Container(
-        height: 2,
-        color: Theme.of(context).colorScheme.primary,
-      ),
+      child: Container(height: 2, color: Theme.of(context).colorScheme.primary),
     );
   }
 }
@@ -656,7 +701,9 @@ class _HoverButtonState extends State<_HoverButton> {
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      cursor: widget.enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      cursor: widget.enabled
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(

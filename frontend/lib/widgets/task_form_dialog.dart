@@ -61,9 +61,7 @@ class TaskFormDialogState extends State<TaskFormDialog> {
     _labelsController = TextEditingController(
       text: task?.labels.join(', ') ?? '',
     );
-    _recurrenceController = TextEditingController(
-      text: task?.recurrence ?? '',
-    );
+    _recurrenceController = TextEditingController(text: task?.recurrence ?? '');
     _selectedProjectId = task?.projectId ?? widget.selectedProject?.id;
     if (task != null) {
       if (task.dueDatetime != null) {
@@ -183,7 +181,9 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                             firstDate: DateTime.now().subtract(
                               const Duration(days: 365),
                             ),
-                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 365),
+                            ),
                           );
                           if (date != null) {
                             setState(() {
@@ -271,9 +271,14 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                                 onPressed: () async {
                                   final date = await showDatePicker(
                                     context: context,
-                                    initialDate: _selectedStartDate ?? DateTime.now(),
-                                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                    initialDate:
+                                        _selectedStartDate ?? DateTime.now(),
+                                    firstDate: DateTime.now().subtract(
+                                      const Duration(days: 365),
+                                    ),
+                                    lastDate: DateTime.now().add(
+                                      const Duration(days: 365),
+                                    ),
                                   );
                                   if (date != null) {
                                     setState(() {
@@ -282,7 +287,11 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                                   }
                                 },
                                 child: Text(
-                                  _selectedStartDate?.toLocal().toString().split(' ')[0] ?? 'Date',
+                                  _selectedStartDate
+                                          ?.toLocal()
+                                          .toString()
+                                          .split(' ')[0] ??
+                                      'Date',
                                   style: const TextStyle(fontSize: 12),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -298,13 +307,18 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                                 onPressed: () async {
                                   final time = await showTimePicker(
                                     context: context,
-                                    initialTime: _selectedStartTime ?? TimeOfDay.now(),
-                                    builder: (BuildContext context, Widget? child) {
-                                      return MediaQuery(
-                                        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-                                        child: child!,
-                                      );
-                                    },
+                                    initialTime:
+                                        _selectedStartTime ?? TimeOfDay.now(),
+                                    builder:
+                                        (BuildContext context, Widget? child) {
+                                          return MediaQuery(
+                                            data: MediaQuery.of(context)
+                                                .copyWith(
+                                                  alwaysUse24HourFormat: true,
+                                                ),
+                                            child: child!,
+                                          );
+                                        },
                                   );
                                   if (time != null) {
                                     setState(() {
@@ -341,9 +355,14 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                                 onPressed: () async {
                                   final date = await showDatePicker(
                                     context: context,
-                                    initialDate: _selectedEndDate ?? DateTime.now(),
-                                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                    initialDate:
+                                        _selectedEndDate ?? DateTime.now(),
+                                    firstDate: DateTime.now().subtract(
+                                      const Duration(days: 365),
+                                    ),
+                                    lastDate: DateTime.now().add(
+                                      const Duration(days: 365),
+                                    ),
                                   );
                                   if (date != null) {
                                     setState(() {
@@ -352,7 +371,10 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                                   }
                                 },
                                 child: Text(
-                                  _selectedEndDate?.toLocal().toString().split(' ')[0] ?? 'Date',
+                                  _selectedEndDate?.toLocal().toString().split(
+                                        ' ',
+                                      )[0] ??
+                                      'Date',
                                   style: const TextStyle(fontSize: 12),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -368,13 +390,18 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                                 onPressed: () async {
                                   final time = await showTimePicker(
                                     context: context,
-                                    initialTime: _selectedEndTime ?? TimeOfDay.now(),
-                                    builder: (BuildContext context, Widget? child) {
-                                      return MediaQuery(
-                                        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-                                        child: child!,
-                                      );
-                                    },
+                                    initialTime:
+                                        _selectedEndTime ?? TimeOfDay.now(),
+                                    builder:
+                                        (BuildContext context, Widget? child) {
+                                          return MediaQuery(
+                                            data: MediaQuery.of(context)
+                                                .copyWith(
+                                                  alwaysUse24HourFormat: true,
+                                                ),
+                                            child: child!,
+                                          );
+                                        },
                                   );
                                   if (time != null) {
                                     setState(() {
@@ -521,7 +548,9 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                   );
                 }
 
-                final tasksForProject = await _db.getTasksByProject(_selectedProjectId!);
+                final tasksForProject = await _db.getTasksByProject(
+                  _selectedProjectId!,
+                );
                 final newOrder =
                     (tasksForProject.isNotEmpty
                         ? tasksForProject

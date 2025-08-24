@@ -37,8 +37,9 @@ class TaskState {
     );
   }
 
-  List<Task> get nonCompletedTasks => tasks.where((task) => task.completedAt == null).toList();
-  
+  List<Task> get nonCompletedTasks =>
+      tasks.where((task) => task.completedAt == null).toList();
+
   List<Task> get completedTasks {
     final completed = tasks.where((task) => task.completedAt != null).toList();
     completed.sort((a, b) => b.completedAt!.compareTo(a.completedAt!));
@@ -47,7 +48,8 @@ class TaskState {
 
   String get title {
     return switch (currentView) {
-      ProjectViewSelection(project: final project) => 'Tasks for ${project.name}',
+      ProjectViewSelection(project: final project) =>
+        'Tasks for ${project.name}',
       CustomViewSelection(customView: final customView) => customView.name,
       null => 'Tasks',
     };
@@ -76,9 +78,11 @@ class TaskNotifier extends StateNotifier<TaskState> {
 
     try {
       final tasks = await switch (viewSelection) {
-        ProjectViewSelection(project: final proj) when proj.id != null => 
+        ProjectViewSelection(project: final proj) when proj.id != null =>
           _db.getTasksByProject(proj.id!),
-        ProjectViewSelection() => Future.value(<Task>[]), // Handle case where project has no id
+        ProjectViewSelection() => Future.value(
+          <Task>[],
+        ), // Handle case where project has no id
         CustomViewSelection(customView: final view) => switch (view.type) {
           BuiltInViewType.today => _db.getTodayTasks(),
           BuiltInViewType.upcoming => _db.getUpcomingTasks(),
@@ -86,7 +90,7 @@ class TaskNotifier extends StateNotifier<TaskState> {
         },
         null => Future.value(<Task>[]),
       };
-      
+
       state = state.copyWith(tasks: tasks, isLoading: false);
     } catch (e) {
       state = state.copyWith(
@@ -151,7 +155,7 @@ class TaskNotifier extends StateNotifier<TaskState> {
     final currentView = state.currentView;
     if (currentView is! ProjectViewSelection) return;
     final nonCompleted = state.nonCompletedTasks;
-    
+
     if (oldIndex >= nonCompleted.length || newIndex > nonCompleted.length) {
       return;
     }
@@ -162,7 +166,7 @@ class TaskNotifier extends StateNotifier<TaskState> {
 
     try {
       state = state.copyWith(error: null);
-      
+
       // Update UI immediately
       final task = nonCompleted.removeAt(oldIndex);
       nonCompleted.insert(newIndex, task);
@@ -203,7 +207,9 @@ class TaskNotifier extends StateNotifier<TaskState> {
     final projects = await _db.allProjects;
     return projects.firstWhere(
       (p) => p.name == 'Inbox',
-      orElse: () => projects.isNotEmpty ? projects.first : throw Exception('No projects found'),
+      orElse: () => projects.isNotEmpty
+          ? projects.first
+          : throw Exception('No projects found'),
     );
   }
 

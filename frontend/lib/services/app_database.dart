@@ -159,29 +159,29 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) async {
-          await m.createAll();
-        },
-        onUpgrade: (m, from, to) async {
-          if (from < 3) {
-            // await m.createTable(notes);
-            // await m.addColumn(notes, notes.audioId);
-            // await m.addColumn(notes, notes.createdAt);
-            // await m.addColumn(notes, notes.updatedAt);
-          }
-          if (from == 3) {
-            // Migration from 3 to .dart, id is now auto-increment
-          }
-          if (from == 4) {
-            // Migration from 4 to 5, createdAt and updatedAt are now nullable
-          }
-        },
-      );
+    onCreate: (m) async {
+      await m.createAll();
+    },
+    onUpgrade: (m, from, to) async {
+      if (from < 3) {
+        // await m.createTable(notes);
+        // await m.addColumn(notes, notes.audioId);
+        // await m.addColumn(notes, notes.createdAt);
+        // await m.addColumn(notes, notes.updatedAt);
+      }
+      if (from == 3) {
+        // Migration from 3 to .dart, id is now auto-increment
+      }
+      if (from == 4) {
+        // Migration from 4 to 5, createdAt and updatedAt are now nullable
+      }
+    },
+  );
 
   // Project methods
-  Future<List<project_model.Project>> get allProjects =>
-      (select(projects)..orderBy([(p) => OrderingTerm(expression: p.order)]))
-          .get();
+  Future<List<project_model.Project>> get allProjects => (select(
+    projects,
+  )..orderBy([(p) => OrderingTerm(expression: p.order)])).get();
 
   ProjectsCompanion _projectToCompanion(project_model.Project project) {
     return ProjectsCompanion(
@@ -196,8 +196,9 @@ class AppDatabase extends _$AppDatabase {
       into(projects).insert(_projectToCompanion(project));
 
   Future<void> updateProject(project_model.Project project) =>
-      (update(projects)..where((p) => p.id.equals(project.id!)))
-          .write(_projectToCompanion(project));
+      (update(projects)..where((p) => p.id.equals(project.id!))).write(
+        _projectToCompanion(project),
+      );
 
   Future<void> deleteProject(int id) =>
       (delete(projects)..where((p) => p.id.equals(id))).go();

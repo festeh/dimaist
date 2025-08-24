@@ -25,10 +25,12 @@ class DueWidget extends StatelessWidget {
     }
 
     String formattedDate;
-    final isToday = effectiveDate.year == today.year &&
+    final isToday =
+        effectiveDate.year == today.year &&
         effectiveDate.month == today.month &&
         effectiveDate.day == today.day;
-    final isTomorrow = effectiveDate.year == tomorrow.year &&
+    final isTomorrow =
+        effectiveDate.year == tomorrow.year &&
         effectiveDate.month == tomorrow.month &&
         effectiveDate.day == tomorrow.day;
 
@@ -59,13 +61,17 @@ class DueWidget extends StatelessWidget {
         Icon(
           Icons.calendar_today,
           size: 16,
-          color: isMissed ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
+          color: isMissed
+              ? Theme.of(context).colorScheme.error
+              : Theme.of(context).colorScheme.primary,
         ),
         const SizedBox(width: 4),
         Text(
           formattedDate,
           style: TextStyle(
-            color: isMissed ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
+            color: isMissed
+                ? Theme.of(context).colorScheme.error
+                : Theme.of(context).colorScheme.primary,
           ),
         ),
       ],

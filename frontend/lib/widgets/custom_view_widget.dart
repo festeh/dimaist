@@ -7,7 +7,7 @@ enum BuiltInViewType {
   next('Next', Icons.arrow_forward);
 
   const BuiltInViewType(this.displayName, this.icon);
-  
+
   final String displayName;
   final IconData icon;
 }
@@ -22,8 +22,7 @@ class CustomView {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is CustomView && other.type == type;
+      identical(this, other) || other is CustomView && other.type == type;
 
   @override
   int get hashCode => type.hashCode;
@@ -76,9 +75,10 @@ class CustomViewWidget extends StatelessWidget {
                     child: Text(
                       view.name,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            fontWeight:
-                                isSelected ? FontWeight.bold : FontWeight.normal,
-                          ),
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
                     ),
                   ),
                 ],

@@ -59,7 +59,9 @@ class AddProjectDialogState extends State<AddProjectDialog> {
                       SizedBox(width: 10),
                       Text(
                         colorName,
-                        style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                     ],
                   ),
@@ -92,10 +94,11 @@ class AddProjectDialogState extends State<AddProjectDialog> {
               final scaffoldMessenger = ScaffoldMessenger.of(context);
               try {
                 final projects = await _db.allProjects;
-                final newOrder = (projects.isNotEmpty
+                final newOrder =
+                    (projects.isNotEmpty
                         ? projects
-                            .map((p) => p.order)
-                            .reduce((a, b) => a > b ? a : b)
+                              .map((p) => p.order)
+                              .reduce((a, b) => a > b ? a : b)
                         : 0) +
                     1;
                 final project = Project(

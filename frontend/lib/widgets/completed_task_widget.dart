@@ -20,9 +20,7 @@ class CompletedTaskWidget extends StatelessWidget {
     return Card(
       elevation: 2.0,
       margin: const EdgeInsets.symmetric(vertical: 4.0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: () => onEdit(task),
         borderRadius: BorderRadius.circular(12),
@@ -35,9 +33,9 @@ class CompletedTaskWidget extends StatelessWidget {
           title: Text(
             task.description,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  decoration: TextDecoration.lineThrough,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              decoration: TextDecoration.lineThrough,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           trailing: IconButton(
             icon: const Icon(Icons.delete_outline),

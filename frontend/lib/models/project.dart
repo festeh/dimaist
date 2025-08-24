@@ -21,12 +21,7 @@ class Project {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'order': order,
-      'color': color,
-    };
+    return {'id': id, 'name': name, 'order': order, 'color': color};
   }
 
   Project copyWith({

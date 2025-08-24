@@ -25,7 +25,7 @@ class _LongPressFabState extends State<LongPressFab>
   void _showMenu() {
     // Add haptic feedback for better UX on mobile
     HapticFeedback.mediumImpact();
-    
+
     final RenderBox button = context.findRenderObject() as RenderBox;
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
@@ -83,7 +83,7 @@ class _LongPressFabState extends State<LongPressFab>
       }
 
       if (_selectedValue != newSelection) {
-        HapticFeedback.lightImpact();  // Light feedback when selection changes
+        HapticFeedback.lightImpact(); // Light feedback when selection changes
         setState(() {
           _selectedValue = newSelection;
         });
@@ -105,10 +105,7 @@ class _LongPressFabState extends State<LongPressFab>
   }
 
   void _showRecordingDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => const RecordingDialog(),
-    );
+    showDialog(context: context, builder: (context) => const RecordingDialog());
   }
 
   @override
@@ -122,7 +119,7 @@ class _LongPressFabState extends State<LongPressFab>
       },
       onLongPressEnd: (_) {
         if (_selectedValue != null) {
-          HapticFeedback.mediumImpact();  // Feedback on selection
+          HapticFeedback.mediumImpact(); // Feedback on selection
           if (_selectedValue == 'Voice AI') {
             _showRecordingDialog();
           } else {
@@ -142,7 +139,8 @@ class _LongPressFabState extends State<LongPressFab>
       },
       child: FloatingActionButton(
         onPressed: widget.onPressed,
-        tooltip: null,  // Remove tooltip to prevent interference with long press on Android
+        tooltip:
+            null, // Remove tooltip to prevent interference with long press on Android
         child: const Icon(Icons.add),
       ),
     );

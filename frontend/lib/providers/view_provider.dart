@@ -10,12 +10,12 @@ sealed class ViewSelection {
 class CustomViewSelection extends ViewSelection {
   final CustomView customView;
   const CustomViewSelection(this.customView);
-  
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is CustomViewSelection && other.customView.name == customView.name;
-  
+
   @override
   int get hashCode => customView.name.hashCode;
 }
@@ -23,12 +23,12 @@ class CustomViewSelection extends ViewSelection {
 class ProjectViewSelection extends ViewSelection {
   final Project project;
   const ProjectViewSelection(this.project);
-  
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is ProjectViewSelection && other.project.id == project.id;
-  
+
   @override
   int get hashCode => project.id.hashCode;
 }
@@ -36,13 +36,12 @@ class ProjectViewSelection extends ViewSelection {
 class ViewState {
   final ViewSelection currentSelection;
 
-  const ViewState({
-    ViewSelection? currentSelection,
-  }) : currentSelection = currentSelection ?? const CustomViewSelection(CustomView(BuiltInViewType.today));
+  const ViewState({ViewSelection? currentSelection})
+    : currentSelection =
+          currentSelection ??
+          const CustomViewSelection(CustomView(BuiltInViewType.today));
 
-  ViewState copyWith({
-    ViewSelection? currentSelection,
-  }) {
+  ViewState copyWith({ViewSelection? currentSelection}) {
     return ViewState(
       currentSelection: currentSelection ?? this.currentSelection,
     );
@@ -50,13 +49,13 @@ class ViewState {
 
   bool get hasCustomViewSelected => currentSelection is CustomViewSelection;
   bool get hasProjectSelected => currentSelection is ProjectViewSelection;
-  
-  CustomView? get currentCustomView => currentSelection is CustomViewSelection 
-      ? (currentSelection as CustomViewSelection).customView 
+
+  CustomView? get currentCustomView => currentSelection is CustomViewSelection
+      ? (currentSelection as CustomViewSelection).customView
       : null;
-      
-  Project? get currentProject => currentSelection is ProjectViewSelection 
-      ? (currentSelection as ProjectViewSelection).project 
+
+  Project? get currentProject => currentSelection is ProjectViewSelection
+      ? (currentSelection as ProjectViewSelection).project
       : null;
 }
 
@@ -66,7 +65,7 @@ class ViewNotifier extends StateNotifier<ViewState> {
   Project? getCurrentProject(List<Project> projects) {
     final project = state.currentProject;
     if (project == null) return null;
-    
+
     try {
       return projects.firstWhere((p) => p.id == project.id);
     } catch (e) {
@@ -86,22 +85,16 @@ class ViewNotifier extends StateNotifier<ViewState> {
       (v) => v.name == viewName,
       orElse: () => CustomViewWidget.customViews.first,
     );
-    state = state.copyWith(
-      currentSelection: CustomViewSelection(customView),
-    );
+    state = state.copyWith(currentSelection: CustomViewSelection(customView));
   }
 
   void selectProject(Project project) {
-    state = state.copyWith(
-      currentSelection: ProjectViewSelection(project),
-    );
+    state = state.copyWith(currentSelection: ProjectViewSelection(project));
   }
 
   void resetToToday() {
     const todayView = CustomView(BuiltInViewType.today);
-    state = state.copyWith(
-      currentSelection: CustomViewSelection(todayView),
-    );
+    state = state.copyWith(currentSelection: CustomViewSelection(todayView));
   }
 
   // Handle when a project is deleted
