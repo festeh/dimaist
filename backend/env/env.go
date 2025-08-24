@@ -7,6 +7,7 @@ import (
 
 type Env struct {
 	ElevenLabsAPIKey string
+	AsrUrl           string
 	LogLevel         string
 	LogFormat        string
 	DatabaseURL      string
@@ -27,6 +28,12 @@ func New() (*Env, error) {
 		return nil, fmt.Errorf("ELEVENLABS_API_KEY environment variable is required")
 	}
 	env.ElevenLabsAPIKey = elevenLabsAPIKey
+	
+	asrURL := os.Getenv("ASR_URL")
+	if asrURL == "" {
+		return nil, fmt.Errorf("ASR_URL environment variable is required")
+	}
+	env.AsrUrl = asrURL
 	
 	// Optional environment variables with defaults
 	env.LogLevel = getEnvOrDefault("LOG_LEVEL", "info")

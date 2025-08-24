@@ -1,16 +1,74 @@
 package main
 
 import (
-	"encoding/base64"
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"time"
 
-	"github.com/dima-b/go-task-backend/compression"
-	"github.com/dima-b/go-task-backend/database"
 	"github.com/dima-b/go-task-backend/logger"
-	"github.com/dima-b/go-task-backend/transcription"
 )
+
+type AsrResponse struct {
+	Text string `json:"text"`
+}
+
+// TranscribeWAV transcribes WAV audio data using external ASR service
+func TranscribeWAV(wavData []byte, asrUrl string) (*AsrResponse, error) {
+
+	// Create multipart form data
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	// Add audio file
+	fileWriter, err := writer.CreateFormFile("audio", "audio.wav")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create form file: %v", err)
+	}
+
+	_, err = fileWriter.Write(wavData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write audio data: %v", err)
+	}
+
+	err = writer.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed to close multipart writer: %v", err)
+	}
+
+	// Create request to external ASR service
+	req, err := http.NewRequest("POST", asrUrl, &buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ASR request: %v", err)
+	}
+
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// Make request to ASR service
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call ASR API: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("ASR API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	// Parse ASR response
+	var asrResponse AsrResponse
+	err = json.NewDecoder(resp.Body).Decode(&asrResponse)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode ASR response: %v", err)
+	}
+
+	return &asrResponse, nil
+}
 
 type AudioTranscriptionRequest struct {
 	PCMData []byte `json:"pcm_data"`
@@ -18,40 +76,6 @@ type AudioTranscriptionRequest struct {
 
 func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Transcribing audio").Send()
-
-	// Check if it's multipart form data (frontend) or JSON (CLI via backend)
-	contentType := r.Header.Get("Content-Type")
-
-	if contentType == "application/json" {
-		// Handle JSON request (for backward compatibility)
-		var req AudioTranscriptionRequest
-		err := json.NewDecoder(r.Body).Decode(&req)
-		if err != nil {
-			logger.Error("Failed to decode audio transcription request").Err(err).Send()
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		if len(req.PCMData) == 0 {
-			logger.Error("No PCM data provided").Send()
-			http.Error(w, "pcm_data is required", http.StatusBadRequest)
-			return
-		}
-
-		// Use shared transcription function for PCM
-		result, err := transcription.TranscribePCM(req.PCMData, appEnv.ElevenLabsAPIKey)
-		if err != nil {
-			logger.Error("Failed to transcribe audio").Err(err).Send()
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		logger.Info("Successfully transcribed audio").Str("text", result.Text).Send()
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(result)
-		return
-	}
 
 	// Handle multipart form data (frontend)
 	err := r.ParseMultipartForm(32 << 20) // 32MB max
@@ -84,38 +108,7 @@ func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Compress the audio data
-	compressedData, err := compression.CompressAudio(wavData)
-	if err != nil {
-		logger.Error("Failed to compress audio").Err(err).Send()
-		http.Error(w, "Failed to compress audio", http.StatusInternalServerError)
-		return
-	}
-
-	// Encode compressed audio to base64
-	base64Data := base64.StdEncoding.EncodeToString(compressedData)
-
-	// Save base64 encoded audio to database
-	audio := database.Audio{
-		Data: base64Data,
-	}
-
-	dbResult := database.DB.Create(&audio)
-	if dbResult.Error != nil {
-		logger.Error("Failed to save audio to database").Err(dbResult.Error).Send()
-		http.Error(w, "Failed to save audio", http.StatusInternalServerError)
-		return
-	}
-
-	logger.Info("Successfully saved compressed audio to database").
-		Uint("audio_id", audio.ID).
-		Int("original_size", len(wavData)).
-		Int("compressed_size", len(compressedData)).
-		Int("base64_size", len(base64Data)).
-		Send()
-
-	// Use shared transcription function for WAV
-	result, err := transcription.TranscribeWAV(wavData, appEnv.ElevenLabsAPIKey)
+	result, err := TranscribeWAV(wavData, appEnv.AsrUrl)
 	if err != nil {
 		logger.Error("Failed to transcribe audio").Err(err).Send()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -126,15 +119,9 @@ func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 
 	// Return just the transcription result
 	logger.Info("Successfully transcribed audio").
-		Uint("audio_id", audio.ID).
-		Str("transcribed_text", result.Text).
+		Str("text", result.Text).
 		Send()
 
-	response := map[string]interface{}{
-		"content":  result.Text,
-		"audio_id": audio.ID,
-	}
-
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(result)
 }
