@@ -5,6 +5,7 @@ class LeftBar extends StatefulWidget {
   final String? selectedView;
   final Function(String) onCustomViewSelected;
   final VoidCallback onAddProject;
+  final VoidCallback onOpenSettings;
   final Widget projectList;
 
   const LeftBar({
@@ -12,6 +13,7 @@ class LeftBar extends StatefulWidget {
     required this.selectedView,
     required this.onCustomViewSelected,
     required this.onAddProject,
+    required this.onOpenSettings,
     required this.projectList,
   });
 
@@ -35,6 +37,7 @@ class _LeftBarState extends State<LeftBar> {
           selectedView: widget.selectedView,
           onCustomViewSelected: widget.onCustomViewSelected,
           onAddProject: widget.onAddProject,
+          onOpenSettings: widget.onOpenSettings,
           projectList: widget.projectList,
         ),
       ),

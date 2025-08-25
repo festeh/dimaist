@@ -5,6 +5,7 @@ class TasksTab extends StatelessWidget {
   final String? selectedView;
   final Function(String) onCustomViewSelected;
   final VoidCallback onAddProject;
+  final VoidCallback onOpenSettings;
   final Widget projectList;
 
   const TasksTab({
@@ -12,6 +13,7 @@ class TasksTab extends StatelessWidget {
     required this.selectedView,
     required this.onCustomViewSelected,
     required this.onAddProject,
+    required this.onOpenSettings,
     required this.projectList,
   });
 
@@ -28,13 +30,20 @@ class TasksTab extends StatelessWidget {
         const Divider(),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Align(
-            alignment: Alignment.center,
-            child: IconButton(
-              icon: const Icon(Icons.add_circle_outline),
-              onPressed: onAddProject,
-              tooltip: 'Add Project',
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline),
+                onPressed: onAddProject,
+                tooltip: 'Add Project',
+              ),
+              IconButton(
+                icon: const Icon(Icons.settings),
+                onPressed: onOpenSettings,
+                tooltip: 'Settings',
+              ),
+            ],
           ),
         ),
       ],
