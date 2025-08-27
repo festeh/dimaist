@@ -230,8 +230,9 @@ class ApiService {
     String text,
     String model,
     Function(String) onChunk,
-    Function() onDone,
-  ) async {
+    Function() onDone, {
+    Function(String)? onStatus,
+  }) async {
     _logger.info('Sending text AI streaming request...', {'text': text, 'model': model});
     
     final client = http.Client();
@@ -252,22 +253,60 @@ class ApiService {
         await for (final chunk in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
           if (chunk.startsWith('data: ')) {
             final data = chunk.substring(6);
-            if (data.trim() == '[DONE]') {
-              onDone();
-              break;
-            }
+            if (data.trim().isEmpty) continue;
+            
             try {
-              final jsonData = json.decode(data);
-              final content = jsonData['content'] ?? jsonData['delta'] ?? '';
-              if (content.isNotEmpty) {
-                onChunk(content);
+              final eventData = json.decode(data);
+              final event = eventData['event'] as String?;
+              final eventPayload = eventData['data'];
+              
+              _logger.fine('Received SSE event: $event with data: $eventPayload');
+              
+              switch (event) {
+                case 'thinking':
+                  // Show progress messages
+                  if (onStatus != null && eventPayload is Map<String, dynamic>) {
+                    final message = eventPayload['message'] as String?;
+                    if (message != null) {
+                      onStatus(message);
+                    }
+                  }
+                  break;
+                case 'final_response':
+                  // This contains the actual response text
+                  if (eventPayload is Map<String, dynamic>) {
+                    final responseText = eventPayload['response'] as String?;
+                    if (responseText != null && responseText.isNotEmpty) {
+                      onChunk(responseText);
+                    }
+                  }
+                  onDone();
+                  return; // Exit the stream processing
+                case 'error':
+                  // Handle error events
+                  if (eventPayload is Map<String, dynamic>) {
+                    final errorMsg = eventPayload['error'] as String? ?? 'Unknown error';
+                    onChunk('Error: $errorMsg');
+                  }
+                  onDone();
+                  return;
+                case 'tool_call':
+                case 'tool_result':
+                  // These are intermediate events, we could show them as progress
+                  // For now, just log them
+                  break;
+                default:
+                  _logger.fine('Unknown SSE event type: $event');
               }
             } catch (e) {
               // Skip non-JSON lines or malformed data
-              _logger.fine('Skipping non-JSON SSE data: $data');
+              _logger.fine('Skipping malformed SSE data: $data, error: $e');
             }
           }
         }
+        
+        // If we reach here without getting a final_response, call onDone anyway
+        onDone();
       } else {
         _logger.warning('Failed to send text AI streaming request: ${response.statusCode}');
         throw Exception('Failed to send text AI streaming request');

@@ -15,6 +15,7 @@ class _TextAiDialogState extends ConsumerState<TextAiDialog> {
   final TextEditingController _textController = TextEditingController();
   bool _isProcessing = false;
   String? _response;
+  String? _statusMessage;
 
   @override
   void dispose() {
@@ -28,6 +29,7 @@ class _TextAiDialogState extends ConsumerState<TextAiDialog> {
     setState(() {
       _isProcessing = true;
       _response = '';
+      _statusMessage = 'Initializing...';
     });
 
     try {
@@ -43,6 +45,12 @@ class _TextAiDialogState extends ConsumerState<TextAiDialog> {
         () {
           setState(() {
             _isProcessing = false;
+            _statusMessage = null;
+          });
+        },
+        onStatus: (status) {
+          setState(() {
+            _statusMessage = status;
           });
         },
       );
@@ -51,6 +59,7 @@ class _TextAiDialogState extends ConsumerState<TextAiDialog> {
       setState(() {
         _response = 'Error: Failed to get AI response';
         _isProcessing = false;
+        _statusMessage = null;
       });
     }
   }
@@ -75,6 +84,28 @@ class _TextAiDialogState extends ConsumerState<TextAiDialog> {
               onChanged: (value) => setState(() {}),
             ),
             const SizedBox(height: 16),
+            if (_isProcessing && _statusMessage != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withAlpha(25),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(_statusMessage!)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             if (_response != null && _response!.isNotEmpty) ...[
               const Align(
                 alignment: Alignment.centerLeft,
