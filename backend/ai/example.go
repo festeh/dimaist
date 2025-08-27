@@ -67,7 +67,13 @@ Always be helpful and provide clear responses.`
 		},
 	}
 
-	return NewAgent(apiKey, context, initialPrompt, tools)
+	// Use a default endpoint for the example - this should be replaced with actual endpoint
+	endpoint := os.Getenv("AI_ENDPOINT")
+	if endpoint == "" {
+		endpoint = "https://openrouter.ai/api/v1/chat/completions" // fallback
+	}
+	
+	return NewAgent(apiKey, endpoint, context, initialPrompt, tools)
 }
 
 func createTaskTool(args map[string]interface{}) (string, error) {

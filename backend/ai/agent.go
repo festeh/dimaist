@@ -1,14 +1,15 @@
 package ai
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
 	"github.com/dima-b/go-task-backend/logger"
-	"github.com/revrost/go-openrouter"
 )
 
 type Tool struct {
@@ -19,11 +20,13 @@ type Tool struct {
 }
 
 type Agent struct {
-	client        *openrouter.Client
+	apiKey        string
+	endpoint      string
 	context       string
 	tools         []Tool
 	initialPrompt string
 	model         string
+	client        *http.Client
 }
 
 type Message struct {
@@ -36,15 +39,36 @@ type ToolCall struct {
 	Arguments map[string]interface{} `json:"arguments"`
 }
 
-func NewAgent(apiKey, context, initialPrompt string, tools []Tool) *Agent {
-	client := openrouter.NewClient(apiKey)
+// OpenAI-compatible API structures
+type ChatCompletionRequest struct {
+	Model       string                   `json:"model"`
+	Messages    []ChatCompletionMessage  `json:"messages"`
+	MaxTokens   int                      `json:"max_tokens,omitempty"`
+	Temperature float64                  `json:"temperature,omitempty"`
+}
 
+type ChatCompletionMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type ChatCompletionResponse struct {
+	Choices []ChatCompletionChoice `json:"choices"`
+}
+
+type ChatCompletionChoice struct {
+	Message ChatCompletionMessage `json:"message"`
+}
+
+func NewAgent(apiKey, endpoint, context, initialPrompt string, tools []Tool) *Agent {
 	return &Agent{
-		client:        client,
+		apiKey:        apiKey,
+		endpoint:      endpoint,
 		context:       context,
 		tools:         tools,
 		initialPrompt: initialPrompt,
 		model:         "google/gemini-2.0-flash-001",
+		client:        &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
@@ -284,59 +308,68 @@ Instructions:
 }
 
 func (a *Agent) callModel(messages []Message) (string, error) {
-	request := openrouter.ChatCompletionRequest{
-		Model:       a.model,
-		MaxTokens:   10000,
-		Temperature: 0.1,
-	}
-
-	for _, msg := range messages {
-		request.Messages = append(request.Messages, openrouter.ChatCompletionMessage{
-			Role:    msg.Role,
-			Content: openrouter.Content{Text: msg.Content},
-		})
-	}
-
-	response, err := a.client.CreateChatCompletion(context.Background(), request)
-	if err != nil {
-		return "", err
-	}
-
-	if len(response.Choices) == 0 {
-		return "", fmt.Errorf("no choices in response")
-	}
-
-	return response.Choices[0].Message.Content.Text, nil
+	return a.callModelWithTimeout(context.Background(), messages)
 }
 
 func (a *Agent) callModelWithTimeout(ctx context.Context, messages []Message) (string, error) {
-	request := openrouter.ChatCompletionRequest{
-		Model:       a.model,
+	// Strip "chutes/" prefix from model name
+	model := a.model
+	if strings.HasPrefix(model, "chutes/") {
+		model = strings.TrimPrefix(model, "chutes/")
+	}
+
+	request := ChatCompletionRequest{
+		Model:       model,
 		MaxTokens:   10000,
 		Temperature: 0.1,
 	}
 
 	for _, msg := range messages {
-		request.Messages = append(request.Messages, openrouter.ChatCompletionMessage{
+		request.Messages = append(request.Messages, ChatCompletionMessage{
 			Role:    msg.Role,
-			Content: openrouter.Content{Text: msg.Content},
+			Content: msg.Content,
 		})
 	}
 
-	// Create a timeout context for this specific request
-	timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
-	defer cancel()
-
-	response, err := a.client.CreateChatCompletion(timeoutCtx, request)
+	// Marshal request to JSON
+	requestBody, err := json.Marshal(request)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", a.endpoint, bytes.NewBuffer(requestBody))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+a.apiKey)
+
+	// Make the request
+	httpResp, err := a.client.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("HTTP request failed: %w", err)
+	}
+	defer httpResp.Body.Close()
+
+	// Check status code
+	if httpResp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("API request failed with status %d", httpResp.StatusCode)
+	}
+
+	// Parse response
+	var response ChatCompletionResponse
+	if err := json.NewDecoder(httpResp.Body).Decode(&response); err != nil {
+		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	if len(response.Choices) == 0 {
 		return "", fmt.Errorf("no choices in response")
 	}
 
-	return response.Choices[0].Message.Content.Text, nil
+	return response.Choices[0].Message.Content, nil
 }
 
 func (a *Agent) parseToolCall(response string) (ToolCall, bool) {

@@ -197,7 +197,8 @@ func createAIAgent(systemPrompt string, model string) *ai.Agent {
 	
 	// Create agent using environment configuration
 	agent := ai.NewAgent(
-		appEnv.AIToken,     // API key is now the AI_TOKEN
+		appEnv.AIToken,     // API key
+		appEnv.AIEndpoint,  // Custom AI endpoint
 		"", // context - we'll override in buildSystemPrompt
 		systemPrompt, // initial prompt contains our full system prompt
 		tools,
