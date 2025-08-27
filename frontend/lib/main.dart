@@ -6,6 +6,7 @@ import 'config/app_theme.dart';
 import 'config/app_constants.dart';
 import 'services/logging_service.dart';
 import 'services/tray_service.dart';
+import 'services/settings_service.dart';
 import 'providers/project_provider.dart';
 import 'widgets/app_scaffold.dart';
 
@@ -13,6 +14,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   LoggingService.setup();
+  await SettingsService.instance.init();
 
   // Only initialize tray service on desktop platforms
   if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {

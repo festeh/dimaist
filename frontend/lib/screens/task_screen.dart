@@ -13,6 +13,7 @@ import '../models/project.dart';
 import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
 import 'package:dimaist/widgets/long_press_fab.dart';
+import '../widgets/text_ai_dialog.dart';
 
 class TaskScreen extends ConsumerStatefulWidget {
   final Project? project;
@@ -365,8 +366,13 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
       floatingActionButton: LongPressFab(
         onPressed: _showAddTaskDialog,
         onMenuItemSelected: (value) {
-          // ignore: avoid_print
-          LoggingService.logger.fine('Reorder callback: $value');
+          LoggingService.logger.fine('Menu item selected: $value');
+          if (value == 'Text AI') {
+            showDialog(
+              context: context, 
+              builder: (context) => const TextAiDialog(),
+            );
+          }
         },
       ),
     );

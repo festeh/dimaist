@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 import '../repositories/providers.dart';
+import '../services/settings_service.dart';
 
 class RecordingDialog extends ConsumerStatefulWidget {
   const RecordingDialog({super.key});
@@ -85,7 +86,8 @@ class _RecordingDialogState extends ConsumerState<RecordingDialog>
       try {
         final file = File(_audioPath!);
         final bytes = await file.readAsBytes();
-        await ref.read(apiServiceProvider).sendAudio(bytes);
+        final model = SettingsService.instance.aiModel.value;
+        await ref.read(apiServiceProvider).sendAudio(bytes, model);
       } catch (e) {
         LoggingService.logger.severe('Error sending audio: $e');
       } finally {

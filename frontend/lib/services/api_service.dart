@@ -226,7 +226,61 @@ class ApiService {
     }
   }
 
-  Future<void> sendAudio(List<int> audioBytes) async {
+  Future<void> sendTextAIStream(
+    String text,
+    String model,
+    Function(String) onChunk,
+    Function() onDone,
+  ) async {
+    _logger.info('Sending text AI streaming request...', {'text': text, 'model': model});
+    
+    final client = http.Client();
+    try {
+      final request = http.Request('POST', Uri.parse('$baseUrl/ai/text'));
+      request.headers['Content-Type'] = 'application/json';
+      request.headers['Accept'] = 'text/event-stream';
+      request.body = json.encode({
+        'text': text,
+        'model': model,
+      });
+
+      final response = await client.send(request);
+      
+      if (response.statusCode == 200) {
+        _logger.info('Text AI streaming request successful.');
+        
+        await for (final chunk in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
+          if (chunk.startsWith('data: ')) {
+            final data = chunk.substring(6);
+            if (data.trim() == '[DONE]') {
+              onDone();
+              break;
+            }
+            try {
+              final jsonData = json.decode(data);
+              final content = jsonData['content'] ?? jsonData['delta'] ?? '';
+              if (content.isNotEmpty) {
+                onChunk(content);
+              }
+            } catch (e) {
+              // Skip non-JSON lines or malformed data
+              _logger.fine('Skipping non-JSON SSE data: $data');
+            }
+          }
+        }
+      } else {
+        _logger.warning('Failed to send text AI streaming request: ${response.statusCode}');
+        throw Exception('Failed to send text AI streaming request');
+      }
+    } catch (e) {
+      _logger.severe('Error sending text AI streaming request: $e');
+      rethrow;
+    } finally {
+      client.close();
+    }
+  }
+
+  Future<void> sendAudio(List<int> audioBytes, String model) async {
     _logger.info('Sending audio...');
     try {
       var request = http.MultipartRequest(
@@ -240,6 +294,7 @@ class ApiService {
           filename: 'audio.wav',
         ),
       );
+      request.fields['model'] = model;
       final response = await request.send();
       if (response.statusCode == 200) {
         _logger.info('Audio sent successfully.');

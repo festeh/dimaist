@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/settings_service.dart';
+import '../models/ai_model.dart';
 
 class SettingsDialog extends StatefulWidget {
   const SettingsDialog({super.key});
@@ -8,14 +10,13 @@ class SettingsDialog extends StatefulWidget {
 }
 
 class _SettingsDialogState extends State<SettingsDialog> {
-  final List<String> _aiModels = [
-    'chutes/deepseek-ai/DeepSeek-R1',
-    'chutes/Qwen/Qwen3-235B-A22B',
-    'chutes/openai/gpt-oss-120b',
-    'deepseek-ai/DeepSeek-V3.1',
-  ];
+  String _selectedModel = AiModel.defaultModel.value;
 
-  String _selectedModel = 'chutes/deepseek-ai/DeepSeek-V3.1';
+  @override
+  void initState() {
+    super.initState();
+    _selectedModel = SettingsService.instance.aiModel.value;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,9 +45,13 @@ class _SettingsDialogState extends State<SettingsDialog> {
                         setState(() {
                           _selectedModel = newValue;
                         });
+                        final model = AiModel.fromString(newValue);
+                        if (model != null) {
+                          SettingsService.instance.setAiModel(model);
+                        }
                       }
                     },
-                    items: _aiModels.map<DropdownMenuItem<String>>((
+                    items: AiModel.allValues.map<DropdownMenuItem<String>>((
                       String value,
                     ) {
                       return DropdownMenuItem<String>(
