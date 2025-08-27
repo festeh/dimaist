@@ -19,9 +19,7 @@ class DesktopLayout extends StatelessWidget {
         child: Row(
           children: [
             leftBarContent,
-            Expanded(
-              child: MainContent(projects: projects),
-            ),
+            Expanded(child: MainContent(projects: projects)),
           ],
         ),
       ),

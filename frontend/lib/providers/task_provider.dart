@@ -11,15 +11,9 @@ class TaskViewData {
   final List<Task> tasks;
   final ViewSelection? currentView;
 
-  const TaskViewData({
-    this.tasks = const [],
-    this.currentView,
-  });
+  const TaskViewData({this.tasks = const [], this.currentView});
 
-  TaskViewData copyWith({
-    List<Task>? tasks,
-    ViewSelection? currentView,
-  }) {
+  TaskViewData copyWith({List<Task>? tasks, ViewSelection? currentView}) {
     return TaskViewData(
       tasks: tasks ?? this.tasks,
       currentView: currentView ?? this.currentView,
@@ -98,9 +92,7 @@ class TaskNotifier extends AsyncNotifier<TaskViewData> {
 
   Future<void> toggleComplete(Task task) async {
     if (task.completedAt != null) {
-      final updatedTask = task.copyWith(
-        completedAt: const ValueWrapper(null),
-      );
+      final updatedTask = task.copyWith(completedAt: const ValueWrapper(null));
       await _repository.updateTask(task.id!, updatedTask);
     } else {
       await _repository.completeTask(task.id!);
@@ -113,7 +105,7 @@ class TaskNotifier extends AsyncNotifier<TaskViewData> {
       final currentData = state.valueOrNull ?? const TaskViewData();
       final currentView = currentData.currentView;
       if (currentView is! ProjectViewSelection) return currentData;
-      
+
       final nonCompleted = currentData.nonCompletedTasks;
       if (oldIndex >= nonCompleted.length || newIndex > nonCompleted.length) {
         return currentData;
@@ -127,11 +119,14 @@ class TaskNotifier extends AsyncNotifier<TaskViewData> {
       final task = nonCompleted.removeAt(oldIndex);
       nonCompleted.insert(newIndex, task);
       final updatedTasks = [...nonCompleted, ...currentData.completedTasks];
-      
+
       // Update order on server
       final allProjectTaskIds = nonCompleted.map((t) => t.id!).toList();
-      await _repository.reorderTasks(currentView.project.id!, allProjectTaskIds);
-      
+      await _repository.reorderTasks(
+        currentView.project.id!,
+        allProjectTaskIds,
+      );
+
       return currentData.copyWith(tasks: updatedTasks);
     });
   }
@@ -148,7 +143,7 @@ class TaskNotifier extends AsyncNotifier<TaskViewData> {
   Future<void> _reloadCurrentTasks() async {
     final currentData = state.valueOrNull;
     if (currentData == null) return;
-    
+
     final currentView = currentData.currentView;
     switch (currentView) {
       case ProjectViewSelection(project: final project):

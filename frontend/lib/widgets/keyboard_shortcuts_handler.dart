@@ -32,8 +32,9 @@ class KeyboardShortcutsHandler extends ConsumerWidget {
               !isShiftPressed &&
               !isMetaPressed) {
             final viewNotifier = ref.read(viewProvider.notifier);
-            
-            if (event.logicalKey == LogicalKeyboardKey.keyN && Platform.isLinux) {
+
+            if (event.logicalKey == LogicalKeyboardKey.keyN &&
+                Platform.isLinux) {
               taskScreenKey?.currentState?.showAddTaskDialog();
               return KeyEventResult.handled;
             }

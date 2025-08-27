@@ -198,9 +198,8 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
 
     return taskAsyncValue.when(
       data: (taskData) => _buildTaskContent(context, taskData, taskNotifier),
-      loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      ),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (error, stack) => Scaffold(
         body: Center(
           child: Column(
@@ -222,7 +221,11 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
     );
   }
 
-  Widget _buildTaskContent(BuildContext context, TaskViewData taskData, TaskNotifier taskNotifier) {
+  Widget _buildTaskContent(
+    BuildContext context,
+    TaskViewData taskData,
+    TaskNotifier taskNotifier,
+  ) {
     final nonCompletedTasks = taskData.nonCompletedTasks;
     final completedTasks = widget.customView?.type == BuiltInViewType.today
         ? <Task>[]
@@ -263,8 +266,8 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: (widget.customView?.type == BuiltInViewType.today &&
-                _isScheduleView)
+      body:
+          (widget.customView?.type == BuiltInViewType.today && _isScheduleView)
           ? (() {
               LoggingService.logger.fine(
                 'Showing ScheduleView - customView: ${widget.customView?.name}, isScheduleView: $_isScheduleView',

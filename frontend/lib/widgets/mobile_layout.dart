@@ -23,12 +23,8 @@ class MobileLayout extends ConsumerWidget {
     return Scaffold(
       key: scaffoldKey,
       appBar: _buildMobileAppBar(context, viewState, scaffoldKey),
-      drawer: Drawer(
-        child: SafeArea(child: leftBarContent),
-      ),
-      body: SafeArea(
-        child: MainContent(projects: projects),
-      ),
+      drawer: Drawer(child: SafeArea(child: leftBarContent)),
+      body: SafeArea(child: MainContent(projects: projects)),
     );
   }
 

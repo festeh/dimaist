@@ -7,10 +7,7 @@ import '../screens/task_screen.dart';
 class MainContent extends ConsumerWidget {
   final List<Project> projects;
 
-  const MainContent({
-    super.key,
-    required this.projects,
-  });
+  const MainContent({super.key, required this.projects});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,8 +29,6 @@ class MainContent extends ConsumerWidget {
       );
     }
 
-    return const Center(
-      child: Text('Select a project or view'),
-    );
+    return const Center(child: Text('Select a project or view'));
   }
 }

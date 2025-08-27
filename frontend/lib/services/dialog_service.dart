@@ -42,10 +42,7 @@ class DialogService {
   }) {
     showDialog(
       context: context,
-      builder: (context) => ErrorDialog(
-        error: error,
-        onSync: onSync ?? () {},
-      ),
+      builder: (context) => ErrorDialog(error: error, onSync: onSync ?? () {}),
     );
   }
 

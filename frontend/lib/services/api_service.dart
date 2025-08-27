@@ -9,16 +9,17 @@ class ApiService {
   final String baseUrl;
   final _logger = LoggingService.logger;
 
-  ApiService({
-    String? baseUrl,
-  })  : baseUrl = baseUrl ?? const String.fromEnvironment(
-          'BASE_URL',
-          defaultValue: 'http://localhost:3000',
-        );
+  ApiService({String? baseUrl})
+    : baseUrl =
+          baseUrl ??
+          const String.fromEnvironment(
+            'BASE_URL',
+            defaultValue: 'http://localhost:3000',
+          );
 
   Future<SyncResponse> fetchSyncData([String? syncToken]) async {
     _logger.info('Fetching sync data...');
-    
+
     Uri uri = Uri.parse('$baseUrl/sync');
     if (syncToken != null) {
       uri = uri.replace(queryParameters: {'sync_token': syncToken});
@@ -31,7 +32,9 @@ class ApiService {
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
-        _logger.fine('ApiService.fetchSyncData: Response body: ${response.body}');
+        _logger.fine(
+          'ApiService.fetchSyncData: Response body: ${response.body}',
+        );
         final data = json.decode(response.body);
         _logger.fine('ApiService.fetchSyncData: Parsed data: $data');
 
@@ -39,7 +42,7 @@ class ApiService {
         _logger.info(
           'Received ${syncResponse.projects.length} projects and ${syncResponse.tasks.length} tasks. New sync token: ${syncResponse.syncToken}',
         );
-        
+
         return syncResponse;
       } else {
         _logger.severe('Failed to fetch sync data: ${response.statusCode}');

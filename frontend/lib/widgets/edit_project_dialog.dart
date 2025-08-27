@@ -104,7 +104,9 @@ class _EditProjectDialogState extends ConsumerState<EditProjectDialog> {
                   color: _selectedColor!,
                   order: widget.project.order,
                 );
-                await ref.read(projectProvider.notifier).updateProject(updatedProject);
+                await ref
+                    .read(projectProvider.notifier)
+                    .updateProject(updatedProject);
                 navigator.pop();
                 widget.onProjectUpdated();
               } catch (e) {

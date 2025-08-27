@@ -49,16 +49,14 @@ class MainScreen extends ConsumerStatefulWidget {
 }
 
 class _MainScreenState extends ConsumerState<MainScreen> {
-
   @override
   Widget build(BuildContext context) {
     final projectAsyncValue = ref.watch(projectProvider);
 
     return projectAsyncValue.when(
       data: (projects) => AppScaffold(projects: projects),
-      loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      ),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (error, stack) => Scaffold(
         body: Center(
           child: Column(

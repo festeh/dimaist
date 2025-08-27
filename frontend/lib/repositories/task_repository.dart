@@ -14,8 +14,8 @@ class TaskRepository implements ITaskRepository {
   TaskRepository({
     required ApiService apiService,
     required AppDatabase database,
-  })  : _apiService = apiService,
-        _database = database;
+  }) : _apiService = apiService,
+       _database = database;
 
   @override
   Future<List<Task>> getTasksByProject(int projectId) async {
@@ -45,13 +45,15 @@ class TaskRepository implements ITaskRepository {
   @override
   Future<Task> createTask(Task task) async {
     LoggingService.logger.info('TaskRepository: Creating task...');
-    
+
     try {
       final createdTask = await _apiService.createTask(task);
-      
+
       // Update local database after successful API call
       await _database.insertTask(createdTask);
-      LoggingService.logger.info('TaskRepository: Task created successfully with ID ${createdTask.id}');
+      LoggingService.logger.info(
+        'TaskRepository: Task created successfully with ID ${createdTask.id}',
+      );
       return createdTask;
     } catch (e) {
       LoggingService.logger.severe('TaskRepository: Error creating task: $e');
@@ -62,15 +64,19 @@ class TaskRepository implements ITaskRepository {
   @override
   Future<void> updateTask(int id, Task task) async {
     LoggingService.logger.info('TaskRepository: Updating task $id...');
-    
+
     try {
       await _apiService.updateTask(id, task);
-      
+
       // Update local database after successful API call
       await _database.updateTask(task);
-      LoggingService.logger.info('TaskRepository: Task $id updated successfully');
+      LoggingService.logger.info(
+        'TaskRepository: Task $id updated successfully',
+      );
     } catch (e) {
-      LoggingService.logger.severe('TaskRepository: Error updating task $id: $e');
+      LoggingService.logger.severe(
+        'TaskRepository: Error updating task $id: $e',
+      );
       rethrow;
     }
   }
@@ -78,15 +84,19 @@ class TaskRepository implements ITaskRepository {
   @override
   Future<void> deleteTask(int id) async {
     LoggingService.logger.info('TaskRepository: Deleting task $id...');
-    
+
     try {
       await _apiService.deleteTask(id);
-      
+
       // Update local database after successful API call
       await _database.deleteTask(id);
-      LoggingService.logger.info('TaskRepository: Task $id deleted successfully');
+      LoggingService.logger.info(
+        'TaskRepository: Task $id deleted successfully',
+      );
     } catch (e) {
-      LoggingService.logger.severe('TaskRepository: Error deleting task $id: $e');
+      LoggingService.logger.severe(
+        'TaskRepository: Error deleting task $id: $e',
+      );
       rethrow;
     }
   }
@@ -94,10 +104,10 @@ class TaskRepository implements ITaskRepository {
   @override
   Future<void> completeTask(int id) async {
     LoggingService.logger.info('TaskRepository: Completing task $id...');
-    
+
     try {
       await _apiService.completeTask(id);
-      
+
       // Update local task completion status
       final task = await _database.getTaskById(id);
       if (task != null) {
@@ -106,23 +116,31 @@ class TaskRepository implements ITaskRepository {
         );
         await _database.updateTask(updatedTask);
       }
-      
-      LoggingService.logger.info('TaskRepository: Task $id completed successfully');
+
+      LoggingService.logger.info(
+        'TaskRepository: Task $id completed successfully',
+      );
     } catch (e) {
-      LoggingService.logger.severe('TaskRepository: Error completing task $id: $e');
+      LoggingService.logger.severe(
+        'TaskRepository: Error completing task $id: $e',
+      );
       rethrow;
     }
   }
 
   @override
   Future<void> reorderTasks(int projectId, List<int> taskIds) async {
-    LoggingService.logger.info('TaskRepository: Reordering tasks for project $projectId...');
-    
+    LoggingService.logger.info(
+      'TaskRepository: Reordering tasks for project $projectId...',
+    );
+
     try {
       // Update local task order first for immediate UI feedback
       final tasks = await _database.getTasksByProject(projectId);
-      final nonCompletedTasks = tasks.where((task) => task.completedAt == null).toList();
-      
+      final nonCompletedTasks = tasks
+          .where((task) => task.completedAt == null)
+          .toList();
+
       for (int i = 0; i < nonCompletedTasks.length; i++) {
         final taskToUpdate = nonCompletedTasks[i];
         if (taskToUpdate.order != i) {
@@ -132,9 +150,13 @@ class TaskRepository implements ITaskRepository {
 
       // Update order on server
       await _apiService.reorderTasks(projectId, taskIds);
-      LoggingService.logger.info('TaskRepository: Tasks for project $projectId reordered successfully');
+      LoggingService.logger.info(
+        'TaskRepository: Tasks for project $projectId reordered successfully',
+      );
     } catch (e) {
-      LoggingService.logger.severe('TaskRepository: Error reordering tasks for project $projectId: $e');
+      LoggingService.logger.severe(
+        'TaskRepository: Error reordering tasks for project $projectId: $e',
+      );
       rethrow;
     }
   }
@@ -142,39 +164,51 @@ class TaskRepository implements ITaskRepository {
   @override
   Future<void> syncTasks() async {
     LoggingService.logger.info('TaskRepository: Syncing tasks...');
-    
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final syncToken = prefs.getString('sync_token');
       final syncResponse = await _apiService.fetchSyncData(syncToken);
-      
+
       // Update database with sync data
-      LoggingService.logger.info('TaskRepository: Upserting ${syncResponse.projects.length} projects...');
+      LoggingService.logger.info(
+        'TaskRepository: Upserting ${syncResponse.projects.length} projects...',
+      );
       for (var project in syncResponse.projects) {
         await _database.upsertProject(project);
       }
 
-      LoggingService.logger.info('TaskRepository: Upserting ${syncResponse.tasks.length} tasks...');
+      LoggingService.logger.info(
+        'TaskRepository: Upserting ${syncResponse.tasks.length} tasks...',
+      );
       for (var task in syncResponse.tasks) {
         await _database.upsertTask(task);
       }
 
       // TODO: Notes sync not implemented in frontend database yet
-      LoggingService.logger.info('TaskRepository: Notes sync skipped - ${syncResponse.notes.length} notes received');
+      LoggingService.logger.info(
+        'TaskRepository: Notes sync skipped - ${syncResponse.notes.length} notes received',
+      );
 
       // Handle deleted items
-      LoggingService.logger.info('TaskRepository: Deleting ${syncResponse.deletedProjectIds.length} projects...');
+      LoggingService.logger.info(
+        'TaskRepository: Deleting ${syncResponse.deletedProjectIds.length} projects...',
+      );
       for (var projectId in syncResponse.deletedProjectIds) {
         await _database.deleteProject(projectId);
       }
 
-      LoggingService.logger.info('TaskRepository: Deleting ${syncResponse.deletedTaskIds.length} tasks...');
+      LoggingService.logger.info(
+        'TaskRepository: Deleting ${syncResponse.deletedTaskIds.length} tasks...',
+      );
       for (var taskId in syncResponse.deletedTaskIds) {
         await _database.deleteTask(taskId);
       }
 
       // TODO: Note deletions not implemented yet
-      LoggingService.logger.info('TaskRepository: Note deletions skipped - ${syncResponse.deletedNoteIds.length} note deletions received');
+      LoggingService.logger.info(
+        'TaskRepository: Note deletions skipped - ${syncResponse.deletedNoteIds.length} note deletions received',
+      );
 
       // Save new sync token
       await prefs.setString('sync_token', syncResponse.syncToken);
@@ -189,15 +223,15 @@ class TaskRepository implements ITaskRepository {
   Future<Project?> getDefaultProjectForToday() async {
     final projects = await _database.allProjects;
     final defaultProject = projects.where((p) => p.name == 'Inbox');
-    
+
     if (defaultProject.isNotEmpty) {
       return defaultProject.first;
     }
-    
+
     if (projects.isNotEmpty) {
       return projects.first;
     }
-    
+
     throw Exception('No projects found');
   }
 }

@@ -16,10 +16,7 @@ import '../screens/task_screen.dart';
 class AppScaffold extends ConsumerStatefulWidget {
   final List<Project> projects;
 
-  const AppScaffold({
-    super.key,
-    required this.projects,
-  });
+  const AppScaffold({super.key, required this.projects});
 
   @override
   ConsumerState<AppScaffold> createState() => _AppScaffoldState();
@@ -70,7 +67,9 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
     ViewNotifier viewNotifier,
     bool isMobile,
   ) {
-    final selectedProjectIndex = viewNotifier.getSelectedProjectIndex(widget.projects);
+    final selectedProjectIndex = viewNotifier.getSelectedProjectIndex(
+      widget.projects,
+    );
 
     return LeftBar(
       selectedView: viewState.currentCustomView?.name,
@@ -106,7 +105,9 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         },
         onReorder: (oldIndex, newIndex) async {
           try {
-            await ref.read(projectProvider.notifier).reorderProjects(oldIndex, newIndex);
+            await ref
+                .read(projectProvider.notifier)
+                .reorderProjects(oldIndex, newIndex);
           } catch (e) {
             if (mounted) {
               DialogService.showErrorDialog(
@@ -116,7 +117,8 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
             }
           }
         },
-        onEdit: (project) => DialogService.showEditProjectDialog(context, ref, project),
+        onEdit: (project) =>
+            DialogService.showEditProjectDialog(context, ref, project),
         onDelete: (id) => DialogService.deleteProject(context, ref, id),
       ),
     );

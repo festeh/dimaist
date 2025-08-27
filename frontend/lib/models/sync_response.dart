@@ -37,12 +37,12 @@ class SyncResponse {
         .map((n) => Note.fromJson(n as Map<String, dynamic>))
         .toList();
 
-    final deletedProjectIds = (json['deleted_project_ids'] as List?)
-        ?.cast<int>() ?? [];
-    final deletedTaskIds = (json['deleted_task_ids'] as List?)
-        ?.cast<int>() ?? [];
-    final deletedNoteIds = (json['deleted_note_ids'] as List?)
-        ?.cast<int>() ?? [];
+    final deletedProjectIds =
+        (json['deleted_project_ids'] as List?)?.cast<int>() ?? [];
+    final deletedTaskIds =
+        (json['deleted_task_ids'] as List?)?.cast<int>() ?? [];
+    final deletedNoteIds =
+        (json['deleted_note_ids'] as List?)?.cast<int>() ?? [];
 
     return SyncResponse(
       projects: projects,

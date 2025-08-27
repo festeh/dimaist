@@ -91,10 +91,9 @@ class AddProjectDialogState extends ConsumerState<AddProjectDialog> {
               final navigator = Navigator.of(context);
               final scaffoldMessenger = ScaffoldMessenger.of(context);
               try {
-                await ref.read(projectProvider.notifier).addProject(
-                  _nameController.text,
-                  _selectedColor!,
-                );
+                await ref
+                    .read(projectProvider.notifier)
+                    .addProject(_nameController.text, _selectedColor!);
                 navigator.pop();
                 widget.onProjectAdded();
               } catch (e) {
