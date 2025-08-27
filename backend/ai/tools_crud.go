@@ -224,7 +224,10 @@ func createTaskCRUDTool(args map[string]interface{}) (string, error) {
 
 	// Set order
 	var maxOrder int
-	database.DB.Model(&database.Task{}).Select("COALESCE(MAX(order), 0)").Where("project_id = ? AND deleted_at IS NULL", task.ProjectID).Scan(&maxOrder)
+	orderResult := database.DB.Model(&database.Task{}).Select("COALESCE(MAX(\"order\"), 0)").Where("project_id = ? AND deleted_at IS NULL", task.ProjectID).Scan(&maxOrder)
+	if orderResult.Error != nil {
+		return "", fmt.Errorf("failed to get max order: %w", orderResult.Error)
+	}
 	task.Order = maxOrder + 1
 
 	// Create the task
