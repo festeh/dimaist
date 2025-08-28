@@ -21,7 +21,7 @@ class KeyboardShortcutsHandler extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Focus(
-      autofocus: true,
+      autofocus: false,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
           final isControlPressed = HardwareKeyboard.instance.isControlPressed;

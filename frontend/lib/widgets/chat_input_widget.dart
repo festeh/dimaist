@@ -76,6 +76,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
         ),
       ),
       child: SafeArea(
+        top: false,
         child: Row(
           children: [
             // Add button

@@ -5,7 +5,7 @@ import '../providers/view_provider.dart';
 import '../config/app_constants.dart';
 import 'main_content.dart';
 
-class MobileLayout extends ConsumerWidget {
+class MobileLayout extends ConsumerStatefulWidget {
   final List<Project> projects;
   final Widget leftBarContent;
 
@@ -16,15 +16,22 @@ class MobileLayout extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MobileLayout> createState() => _MobileLayoutState();
+}
+
+class _MobileLayoutState extends ConsumerState<MobileLayout> {
+  final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  Widget build(BuildContext context) {
     final viewState = ref.watch(viewProvider);
-    final scaffoldKey = GlobalKey<ScaffoldState>();
 
     return Scaffold(
       key: scaffoldKey,
+      resizeToAvoidBottomInset: false,
       appBar: _buildMobileAppBar(context, viewState, scaffoldKey),
-      drawer: Drawer(child: SafeArea(child: leftBarContent)),
-      body: SafeArea(child: MainContent(projects: projects)),
+      drawer: Drawer(child: SafeArea(child: widget.leftBarContent)),
+      body: MainContent(projects: widget.projects),
     );
   }
 
