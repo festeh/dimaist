@@ -20,16 +20,9 @@ class DueWidget extends StatelessWidget {
       // so they're not marked as missed during the day
       final date = task.dueDate!;
       effectiveDate = DateTime(date.year, date.month, date.day, 23, 59, 59);
-      LoggingService.logger.fine(
-        'Task "${task.description}" has date-only due: ${task.dueDate}, '
-        'adjusted to end of day: $effectiveDate'
-      );
     } else if (task.dueDatetime != null) {
       // For datetime tasks, use exact time
       effectiveDate = task.dueDatetime;
-      LoggingService.logger.fine(
-        'Task "${task.description}" has specific due time: $effectiveDate'
-      );
     }
 
     if (effectiveDate == null) {
@@ -67,10 +60,6 @@ class DueWidget extends StatelessWidget {
     }
 
     final isMissed = effectiveDate.isBefore(now);
-    LoggingService.logger.fine(
-      'Task "${task.description}" missed check: '
-      'effectiveDate=$effectiveDate, now=$now, isMissed=$isMissed'
-    );
 
     return Row(
       children: [

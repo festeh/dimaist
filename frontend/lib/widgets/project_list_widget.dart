@@ -27,64 +27,73 @@ class ProjectList extends StatelessWidget {
       onReorder: onReorder,
       children: List.generate(projects.length, (index) {
         final project = projects[index];
-        return ReorderableDragStartListener(
-          index: index,
+        return Container(
           key: Key(project.id.toString()),
-          child: Container(
-            decoration: BoxDecoration(
-              color: selectedIndex == index
-                  ? Theme.of(context).highlightColor
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: InkWell(
-              onTap: () => onProjectSelected(index),
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 12.0,
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: getColor(project.color),
-                      radius: 12,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        project.name,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: selectedIndex == index
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
+          decoration: BoxDecoration(
+            color: selectedIndex == index
+                ? Theme.of(context).highlightColor
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: InkWell(
+            onTap: () => onProjectSelected(index),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 12.0,
+              ),
+              child: Row(
+                children: [
+                  ReorderableDragStartListener(
+                    index: index,
+                    child: Opacity(
+                      opacity: 0.6,
+                      child: Icon(
+                        Icons.drag_handle,
+                        size: 20,
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
                       ),
                     ),
-                    PopupMenuButton<String>(
-                      padding: EdgeInsets.zero,
-                      onSelected: (value) {
-                        if (value == 'edit') {
-                          onEdit(project);
-                        } else if (value == 'delete') {
-                          onDelete(project.id!);
-                        }
-                      },
-                      itemBuilder: (BuildContext context) =>
-                          <PopupMenuEntry<String>>[
-                            const PopupMenuItem<String>(
-                              value: 'edit',
-                              child: Text('Edit'),
-                            ),
-                            const PopupMenuItem<String>(
-                              value: 'delete',
-                              child: Text('Delete'),
-                            ),
-                          ],
+                  ),
+                  const SizedBox(width: 12),
+                  CircleAvatar(
+                    backgroundColor: getColor(project.color),
+                    radius: 12,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      project.name,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: selectedIndex == index
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                  PopupMenuButton<String>(
+                    padding: EdgeInsets.zero,
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        onEdit(project);
+                      } else if (value == 'delete') {
+                        onDelete(project.id!);
+                      }
+                    },
+                    itemBuilder: (BuildContext context) =>
+                        <PopupMenuEntry<String>>[
+                          const PopupMenuItem<String>(
+                            value: 'edit',
+                            child: Text('Edit'),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Text('Delete'),
+                          ),
+                        ],
+                  ),
+                ],
               ),
             ),
           ),

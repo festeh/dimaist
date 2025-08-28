@@ -39,9 +39,14 @@ jobs:
       run: |
         ssh root@${{ secrets.HOST }} "mkdir -p ${{ env.DEPLOY_PATH }}"
     
+    - name: Stop existing service
+      run: |
+        ssh root@${{ secrets.HOST }} "systemctl stop ${{ env.APP_NAME }} || true"
+    
     - name: Deploy binary to remote host
       run: |
-        scp backend/${{ env.APP_NAME }} root@${{ secrets.HOST }}:${{ env.DEPLOY_PATH }}/
+        scp backend/${{ env.APP_NAME }} root@${{ secrets.HOST }}:${{ env.DEPLOY_PATH }}/${{ env.APP_NAME }}.new
+        ssh root@${{ secrets.HOST }} "mv ${{ env.DEPLOY_PATH }}/${{ env.APP_NAME }}.new ${{ env.DEPLOY_PATH }}/${{ env.APP_NAME }}"
     
     - name: Deploy systemd service file
       run: |
@@ -55,6 +60,6 @@ jobs:
         scp .env root@${{ secrets.HOST }}:${{ env.DEPLOY_PATH }}/.env
         rm .env
     
-    - name: Enable and restart systemd service
+    - name: Enable and start systemd service
       run: |
-        ssh root@${{ secrets.HOST }} "systemctl daemon-reload && systemctl enable ${{ env.APP_NAME }} && systemctl restart ${{ env.APP_NAME }}"
+        ssh root@${{ secrets.HOST }} "systemctl daemon-reload && systemctl enable ${{ env.APP_NAME }} && systemctl start ${{ env.APP_NAME }}"
