@@ -1,13 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"time"
 
+	"github.com/dima-b/go-task-backend/ai"
 	"github.com/dima-b/go-task-backend/logger"
 )
 
@@ -94,31 +94,20 @@ func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("Successfully transcribed audio, redirecting to AI text handler").Str("text", result.Text).Str("model", model).Send()
 
-	// Create a new request for the AI text handler
-	textRequest := TextRequest{
-		Text:  result.Text,
-		Model: model,
-	}
+	// Setup SSE headers by default
+	setupSSEHeaders(w)
 
-	// Marshal the request to JSON
-	requestBody, err := json.Marshal(textRequest)
-	if err != nil {
-		logger.Error("Failed to marshal text request").Err(err).Send()
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	// Create SSE writer
+	sseWriter := ai.NewSSEWriter(w)
+
+	// Send transcription event
+	if err := sseWriter.Send("transcription", map[string]string{
+		"text": result.Text,
+	}); err != nil {
+		logger.Error("Failed to send transcription SSE event").Err(err).Send()
 		return
 	}
 
-	// Create a new HTTP request with the transcribed text
-	newReq, err := http.NewRequestWithContext(r.Context(), "POST", "/ai/text", bytes.NewReader(requestBody))
-	if err != nil {
-		logger.Error("Failed to create new request").Err(err).Send()
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	// Copy relevant headers
-	newReq.Header.Set("Content-Type", "application/json")
-
-	// Forward to the AI text handler
-	handleAIText(w, newReq)
+	// Call the AI text handler directly with existing SSE writer
+	handleAITextWithWriter(sseWriter, result.Text, model)
 }

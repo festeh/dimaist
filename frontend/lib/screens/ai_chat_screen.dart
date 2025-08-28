@@ -69,7 +69,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
     setState(() {
       _messages.add(ChatMessage(
-        text: '🎤 Voice message',
+        text: '🎤 Transcribing...',
         isUser: true,
         timestamp: DateTime.now(),
       ));
@@ -82,6 +82,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     try {
       final model = SettingsService.instance.aiModel.value;
       String aiResponse = '';
+      bool transcriptionReceived = false;
 
       await ref.read(apiServiceProvider).sendAudioStream(
         audioBytes,
@@ -120,6 +121,20 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           setState(() {
             _statusMessage = status;
           });
+        },
+        onTranscription: (transcribedText) {
+          // Update the user message with the actual transcribed text
+          if (_messages.isNotEmpty && _messages.last.isUser && !transcriptionReceived) {
+            setState(() {
+              _messages.last = ChatMessage(
+                text: transcribedText,
+                isUser: true,
+                timestamp: _messages.last.timestamp,
+              );
+              transcriptionReceived = true;
+            });
+            _scrollToBottom();
+          }
         },
       );
     } catch (e) {

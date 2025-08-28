@@ -13,6 +13,14 @@ import (
 	"github.com/dima-b/go-task-backend/logger"
 )
 
+func setupSSEHeaders(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Cache-Control")
+}
+
 type TextRequest struct {
 	Text  string `json:"text"`
 	Model string `json:"model,omitempty"` // Optional AI model, defaults to DefaultAIModel
@@ -42,14 +50,17 @@ func handleAIText(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Setup SSE headers
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Cache-Control")
+	setupSSEHeaders(w)
 
 	// Create SSE writer
 	sseWriter := ai.NewSSEWriter(w)
+
+	// Call the shared handler
+	handleAITextWithWriter(sseWriter, req.Text, model)
+}
+
+func handleAITextWithWriter(sseWriter ai.SSEWriter, text string, model string) {
+	logger.Info("Handling AI text with writer").Str("text", text).Str("model", model).Send()
 
 	// Send initial thinking event
 	if err := sseWriter.Send("thinking", map[string]string{
@@ -100,11 +111,11 @@ func handleAIText(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create context with timeout for the entire request (5 minutes max)
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	// Execute agent with SSE streaming
-	_, err = agent.ExecuteWithSSE(req.Text, sseWriter, ctx)
+	_, err = agent.ExecuteWithSSE(text, sseWriter, ctx)
 	if err != nil {
 		logger.Error("Agent execution failed").Err(err).Send()
 		// Error events are already sent by the agent, so we don't need to send another one

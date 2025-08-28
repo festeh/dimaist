@@ -359,6 +359,7 @@ class ApiService {
     Function(String) onChunk,
     Function() onDone, {
     Function(String)? onStatus,
+    Function(String)? onTranscription,
   }) async {
     _logger.info('Sending audio streaming request...', {'model': model});
     
@@ -396,6 +397,15 @@ class ApiService {
               _logger.fine('Received SSE event: $event with data: $eventPayload');
               
               switch (event) {
+                case 'transcription':
+                  // Handle transcription event
+                  if (onTranscription != null && eventPayload is Map<String, dynamic>) {
+                    final transcribedText = eventPayload['text'] as String?;
+                    if (transcribedText != null) {
+                      onTranscription(transcribedText);
+                    }
+                  }
+                  break;
                 case 'thinking':
                   // Show progress messages
                   if (onStatus != null && eventPayload is Map<String, dynamic>) {
