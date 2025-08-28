@@ -21,21 +21,21 @@ func CreateCRUDTools() []Tool {
 			},
 			Function: respondTool,
 		},
-		
+
 		// Task CRUD operations
 		{
 			Name:        "create_task",
 			Description: "Create a new task",
 			Parameters: map[string]interface{}{
-				"description":     "string (required) - Task description",
-				"project_id":      "number (optional) - Project ID to assign task to",
-				"due_date":        "string (optional) - Due date in YYYY-MM-DD format",
-				"due_datetime":    "string (optional) - Due datetime in RFC3339 format",
-				"start_datetime":  "string (optional) - Start datetime in RFC3339 format",
-				"end_datetime":    "string (optional) - End datetime in RFC3339 format",
-				"labels":          "array of strings (optional) - Task labels",
-				"reminders":       "array of strings (optional) - Reminder times in RFC3339 format",
-				"recurrence":      "string (optional) - Recurrence pattern",
+				"description":    "string (required) - Task description",
+				"project_id":     "number (optional) - Project ID to assign task to",
+				"due_date":       "string (optional) - Due date in YYYY-MM-DD format",
+				"due_datetime":   "string (optional) - Due datetime in RFC3339 format",
+				"start_datetime": "string (optional) - Start datetime in RFC3339 format",
+				"end_datetime":   "string (optional) - End datetime in RFC3339 format",
+				"labels":         "array of strings (optional) - Task labels",
+				"reminders":      "array of strings (optional) - Reminder times in RFC3339 format",
+				"recurrence":     "string (optional) - Recurrence pattern",
 			},
 			Function: createTaskCRUDTool,
 		},
@@ -43,16 +43,16 @@ func CreateCRUDTools() []Tool {
 			Name:        "update_task",
 			Description: "Update an existing task",
 			Parameters: map[string]interface{}{
-				"task_id":         "number (required) - ID of the task to update",
-				"description":     "string (optional) - New task description",
-				"project_id":      "number (optional) - New project ID",
-				"due_date":        "string (optional) - New due date in YYYY-MM-DD format",
-				"due_datetime":    "string (optional) - New due datetime in RFC3339 format",
-				"start_datetime":  "string (optional) - New start datetime in RFC3339 format",
-				"end_datetime":    "string (optional) - New end datetime in RFC3339 format",
-				"labels":          "array of strings (optional) - New task labels",
-				"reminders":       "array of strings (optional) - New reminder times in RFC3339 format",
-				"recurrence":      "string (optional) - New recurrence pattern",
+				"task_id":        "number (required) - ID of the task to update",
+				"description":    "string (optional) - New task description",
+				"project_id":     "number (optional) - New project ID",
+				"due_date":       "string (optional) - New due date in YYYY-MM-DD format",
+				"due_datetime":   "string (optional) - New due datetime in RFC3339 format",
+				"start_datetime": "string (optional) - New start datetime in RFC3339 format",
+				"end_datetime":   "string (optional) - New end datetime in RFC3339 format",
+				"labels":         "array of strings (optional) - New task labels",
+				"reminders":      "array of strings (optional) - New reminder times in RFC3339 format",
+				"recurrence":     "string (optional) - New recurrence pattern",
 			},
 			Function: updateTaskCRUDTool,
 		},
@@ -82,7 +82,7 @@ func CreateCRUDTools() []Tool {
 			},
 			Function: listTasksCRUDTool,
 		},
-		
+
 		// Project CRUD operations
 		{
 			Name:        "create_project",
@@ -114,8 +114,8 @@ func CreateCRUDTools() []Tool {
 		{
 			Name:        "list_projects",
 			Description: "List all projects",
-			Parameters: map[string]interface{}{},
-			Function:   listProjectsCRUDTool,
+			Parameters:  map[string]interface{}{},
+			Function:    listProjectsCRUDTool,
 		},
 	}
 }
@@ -457,21 +457,21 @@ func listTasksCRUDTool(args map[string]interface{}) (string, error) {
 
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("Found %d tasks:\n", len(tasks)))
-	
+
 	for _, task := range tasks {
 		projectName := "No Project"
 		if task.Project != nil {
 			projectName = task.Project.Name
 		}
-		
+
 		status := "Pending"
 		if task.CompletedAt != nil {
 			status = "Completed"
 		}
 
-		result.WriteString(fmt.Sprintf("- ID: %d, Description: %s, Project: %s, Status: %s", 
+		result.WriteString(fmt.Sprintf("- ID: %d, Description: %s, Project: %s, Status: %s",
 			task.ID, task.Description, projectName, status))
-		
+
 		if task.DueDate != nil {
 			result.WriteString(fmt.Sprintf(", Due Date: %s", task.DueDate.Format("2006-01-02")))
 		}
@@ -583,7 +583,7 @@ func listProjectsCRUDTool(args map[string]interface{}) (string, error) {
 
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("Found %d projects:\n", len(projects)))
-	
+
 	for _, project := range projects {
 		activeTasks := 0
 		for _, task := range project.Tasks {
@@ -591,7 +591,7 @@ func listProjectsCRUDTool(args map[string]interface{}) (string, error) {
 				activeTasks++
 			}
 		}
-		result.WriteString(fmt.Sprintf("- ID: %d, Name: %s, Color: %s, Active Tasks: %d, Total Tasks: %d\n", 
+		result.WriteString(fmt.Sprintf("- ID: %d, Name: %s, Color: %s, Active Tasks: %d, Total Tasks: %d\n",
 			project.ID, project.Name, project.Color, activeTasks, len(project.Tasks)))
 	}
 

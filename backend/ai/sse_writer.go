@@ -27,7 +27,7 @@ func NewSSEWriter(w http.ResponseWriter) SSEWriter {
 		// If flusher is not available, we'll still work but without flushing
 		flusher = nil
 	}
-	
+
 	return &sseWriter{
 		writer:  w,
 		flusher: flusher,
@@ -39,21 +39,21 @@ func (s *sseWriter) Send(event string, data interface{}) error {
 		Event: event,
 		Data:  data,
 	}
-	
+
 	eventData, err := json.Marshal(sseEvent)
 	if err != nil {
 		return fmt.Errorf("failed to marshal SSE event: %w", err)
 	}
-	
+
 	// Write SSE format: data: {json}\n\n
 	_, err = fmt.Fprintf(s.writer, "data: %s\n\n", eventData)
 	if err != nil {
 		return fmt.Errorf("failed to write SSE event: %w", err)
 	}
-	
+
 	// Flush immediately to ensure client receives the event
 	s.Flush()
-	
+
 	return nil
 }
 

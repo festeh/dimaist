@@ -118,7 +118,7 @@ func loadRecentTasks(limit int) ([]database.Task, error) {
 		Order("updated_at DESC").
 		Limit(limit).
 		Find(&tasks)
-	
+
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -134,7 +134,7 @@ func loadRecentProjects(limit int) ([]database.Project, error) {
 		Order("updated_at DESC").
 		Limit(limit).
 		Find(&projects)
-	
+
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -156,11 +156,11 @@ func buildSystemPrompt(tasks []database.Task, projects []database.Project) (stri
 
 	var toolsDesc strings.Builder
 	toolsDesc.WriteString("Available tools:\n")
-	
+
 	tools := ai.CreateCRUDTools()
 	for _, tool := range tools {
 		toolsDesc.WriteString(fmt.Sprintf("- %s: %s\n", tool.Name, tool.Description))
-		
+
 		// Add parameter descriptions
 		for param, desc := range tool.Parameters {
 			toolsDesc.WriteString(fmt.Sprintf("  * %s: %s\n", param, desc))
@@ -190,26 +190,25 @@ Examples of proper responses:
 - To answer a question: TOOL_CALL: {"name": "respond", "arguments": {"text": "You have 5 tasks due today."}}
 - To create a task: TOOL_CALL: {"name": "create_task", "arguments": {"description": "Review budget report", "due_date": "2024-01-15"}}
 
-Remember: You cannot respond directly. Always use tools, especially the 'respond' tool for final answers.`, 
+Remember: You cannot respond directly. Always use tools, especially the 'respond' tool for final answers.`,
 		time.Now().Format("2006-01-02 15:04:05 MST"), tasksJSON, projectsJSON, toolsDesc.String()), nil
 }
 
 func createAIAgent(systemPrompt string, model string) *ai.Agent {
 	tools := ai.CreateCRUDTools()
-	
+
 	// Create agent using environment configuration
 	agent := ai.NewAgent(
-		appEnv.AIToken,     // API key
-		appEnv.AIEndpoint,  // Custom AI endpoint
-		"", // context - we'll override in buildSystemPrompt
-		systemPrompt, // initial prompt contains our full system prompt
+		appEnv.AIToken,    // API key
+		appEnv.AIEndpoint, // Custom AI endpoint
+		"",                // context - we'll override in buildSystemPrompt
+		systemPrompt,      // initial prompt contains our full system prompt
 		tools,
 	)
-	
+
 	// Configure the agent to use the specified model
 	agent.SetModel(model)
 	agent.SetContext(systemPrompt)
-	
+
 	return agent
 }
-

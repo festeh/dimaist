@@ -17,7 +17,7 @@ func InitLogger(logLevel, logFormat string) {
 	// Set log level from parameter, default to info
 	logLevel = strings.ToLower(logLevel)
 	var level zerolog.Level
-	
+
 	switch logLevel {
 	case "debug":
 		level = zerolog.DebugLevel

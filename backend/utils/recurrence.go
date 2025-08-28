@@ -27,7 +27,7 @@ func ValidateTaskRecurrence(recurrence string, dueDate, dueDatetime *time.Time) 
 		if dueDate == nil && dueDatetime == nil {
 			return fmt.Errorf("recurring task must have either due_date or due_datetime")
 		}
-		
+
 		return ValidateRecurrence(recurrence)
 	}
 	return nil
@@ -153,4 +153,3 @@ func findNextYearlyDate(from time.Time, day int, month time.Month) time.Time {
 	// Next year
 	return time.Date(year+1, month, day, from.Hour(), from.Minute(), from.Second(), from.Nanosecond(), from.Location())
 }
-

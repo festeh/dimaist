@@ -89,7 +89,6 @@ func main() {
 	// Reordering routes (separate to avoid conflicts)
 	r.Put("/projects-reorder", reorderProjects)
 
-
 	// AI routes
 	r.Route("/ai", func(r chi.Router) {
 		r.Post("/audio", transcribeAudio)
@@ -457,12 +456,12 @@ func syncData(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Syncing data").Send()
 
 	syncToken := r.URL.Query().Get("sync_token")
-	
+
 	var projects []database.Project
 	var tasks []database.Task
 	var deletedProjectIds []uint
 	var deletedTaskIds []uint
-	
+
 	// Parse sync token if provided
 	var syncTime time.Time
 	if syncToken != "" {
@@ -475,33 +474,33 @@ func syncData(w http.ResponseWriter, r *http.Request) {
 		}
 		logger.Info("Syncing from timestamp").Time("sync_time", syncTime).Send()
 	}
-	
+
 	// Query active projects modified after sync token
 	projectQuery := database.DB.Preload("Tasks", "deleted_at IS NULL").Where("deleted_at IS NULL")
 	if syncToken != "" {
 		projectQuery = projectQuery.Where("updated_at > ?", syncTime)
 	}
-	
+
 	result := projectQuery.Find(&projects)
 	if result.Error != nil {
 		logger.Error("Failed to retrieve projects").Err(result.Error).Send()
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	// Query active tasks modified after sync token
 	taskQuery := database.DB.Preload("Project").Where("deleted_at IS NULL")
 	if syncToken != "" {
 		taskQuery = taskQuery.Where("updated_at > ?", syncTime)
 	}
-	
+
 	result = taskQuery.Find(&tasks)
 	if result.Error != nil {
 		logger.Error("Failed to retrieve tasks").Err(result.Error).Send()
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	// Query deleted items if sync token is provided
 	if syncToken != "" {
 		// Get deleted project IDs
@@ -515,7 +514,7 @@ func syncData(w http.ResponseWriter, r *http.Request) {
 		for _, p := range deletedProjects {
 			deletedProjectIds = append(deletedProjectIds, p.ID)
 		}
-		
+
 		// Get deleted task IDs
 		var deletedTasks []database.Task
 		result = database.DB.Select("id").Where("deleted_at > ?", syncTime).Find(&deletedTasks)
@@ -528,10 +527,10 @@ func syncData(w http.ResponseWriter, r *http.Request) {
 			deletedTaskIds = append(deletedTaskIds, t.ID)
 		}
 	}
-	
+
 	// Generate new sync token (current timestamp)
 	newSyncToken := time.Now().Format(time.RFC3339)
-	
+
 	response := SyncResponse{
 		Projects:          projects,
 		Tasks:             tasks,
@@ -539,7 +538,7 @@ func syncData(w http.ResponseWriter, r *http.Request) {
 		DeletedTaskIds:    deletedTaskIds,
 		SyncToken:         newSyncToken,
 	}
-	
+
 	logger.Info("Successfully synced data").
 		Int("projects", len(projects)).
 		Int("tasks", len(tasks)).
@@ -547,8 +546,7 @@ func syncData(w http.ResponseWriter, r *http.Request) {
 		Int("deleted_tasks", len(deletedTaskIds)).
 		Str("new_sync_token", newSyncToken).
 		Send()
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
-

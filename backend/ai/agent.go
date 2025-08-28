@@ -41,10 +41,10 @@ type ToolCall struct {
 
 // OpenAI-compatible API structures
 type ChatCompletionRequest struct {
-	Model       string                   `json:"model"`
-	Messages    []ChatCompletionMessage  `json:"messages"`
-	MaxTokens   int                      `json:"max_tokens,omitempty"`
-	Temperature float64                  `json:"temperature,omitempty"`
+	Model       string                  `json:"model"`
+	Messages    []ChatCompletionMessage `json:"messages"`
+	MaxTokens   int                     `json:"max_tokens,omitempty"`
+	Temperature float64                 `json:"temperature,omitempty"`
 }
 
 type ChatCompletionMessage struct {
@@ -127,7 +127,7 @@ func (a *Agent) ExecuteWithSSE(userInput string, sseWriter SSEWriter, ctx contex
 		toolCall, hasToolCall := a.parseToolCall(response)
 		if !hasToolCall {
 			logger.Warn("No tool call found, prompting AI to use tools").Send()
-			
+
 			messages = append(messages, Message{
 				Role:    "assistant",
 				Content: response,
@@ -174,7 +174,7 @@ func (a *Agent) ExecuteWithSSE(userInput string, sseWriter SSEWriter, ctx contex
 		toolResult, err := a.executeTool(toolCall)
 		if err != nil {
 			logger.Error("Tool execution failed").Str("tool", toolCall.Name).Err(err).Send()
-			
+
 			// Send error event
 			if err := sseWriter.Send("error", map[string]string{
 				"error": fmt.Sprintf("Tool execution failed: %v", err),

@@ -59,16 +59,15 @@ type Task struct {
 }
 
 type Project struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	Name      string    `gorm:"not null" json:"name"`
-	Color     string    `gorm:"default:'gray'" json:"color"`
-	Order     int       `gorm:"default:0" json:"order"`
-	Tasks     []Task    `gorm:"foreignKey:ProjectID" json:"tasks"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uint       `gorm:"primaryKey" json:"id"`
+	Name      string     `gorm:"not null" json:"name"`
+	Color     string     `gorm:"default:'gray'" json:"color"`
+	Order     int        `gorm:"default:0" json:"order"`
+	Tasks     []Task     `gorm:"foreignKey:ProjectID" json:"tasks"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
 	DeletedAt *time.Time `gorm:"index" json:"deleted_at,omitempty"`
 }
-
 
 type Audio struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`

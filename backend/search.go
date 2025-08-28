@@ -36,10 +36,10 @@ func findItems(w http.ResponseWriter, r *http.Request) {
 	// Search tasks
 	var tasks []database.Task
 	taskResult := database.DB.Preload("Project").
-		Where("LOWER(description) LIKE LOWER(?) OR array_to_string(labels, ',') ILIKE ?", 
+		Where("LOWER(description) LIKE LOWER(?) OR array_to_string(labels, ',') ILIKE ?",
 			"%"+query+"%", "%"+query+"%").
 		Find(&tasks)
-	
+
 	if taskResult.Error != nil {
 		logger.Error("Failed to search tasks").Err(taskResult.Error).Send()
 		http.Error(w, taskResult.Error.Error(), http.StatusInternalServerError)
@@ -62,7 +62,7 @@ func findItems(w http.ResponseWriter, r *http.Request) {
 	// Search projects
 	var projects []database.Project
 	projectResult := database.DB.Where("LOWER(name) LIKE LOWER(?)", "%"+query+"%").Find(&projects)
-	
+
 	if projectResult.Error != nil {
 		logger.Error("Failed to search projects").Err(projectResult.Error).Send()
 		http.Error(w, projectResult.Error.Error(), http.StatusInternalServerError)
@@ -76,7 +76,6 @@ func findItems(w http.ResponseWriter, r *http.Request) {
 			Title: project.Name,
 		})
 	}
-
 
 	response := FindResponse{
 		Results: results,

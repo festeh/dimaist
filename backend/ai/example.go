@@ -72,7 +72,7 @@ Always be helpful and provide clear responses.`
 	if endpoint == "" {
 		endpoint = "https://openrouter.ai/api/v1/chat/completions" // fallback
 	}
-	
+
 	return NewAgent(apiKey, endpoint, context, initialPrompt, tools)
 }
 
@@ -134,15 +134,15 @@ func listTasksTool(args map[string]interface{}) (string, error) {
 		if task.Project != nil {
 			projectName = task.Project.Name
 		}
-		
+
 		status := "Pending"
 		if task.CompletedAt != nil {
 			status = "Completed"
 		}
 
-		response += fmt.Sprintf("- ID: %d, Description: %s, Project: %s, Status: %s", 
+		response += fmt.Sprintf("- ID: %d, Description: %s, Project: %s, Status: %s",
 			task.ID, task.Description, projectName, status)
-		
+
 		if task.DueDate != nil {
 			response += fmt.Sprintf(", Due: %s", task.DueDate.Format("2006-01-02"))
 		}
@@ -188,7 +188,7 @@ func listProjectsTool(args map[string]interface{}) (string, error) {
 	response := fmt.Sprintf("Found %d projects:\n", len(projects))
 	for _, project := range projects {
 		taskCount := len(project.Tasks)
-		response += fmt.Sprintf("- ID: %d, Name: %s, Tasks: %d\n", 
+		response += fmt.Sprintf("- ID: %d, Name: %s, Tasks: %d\n",
 			project.ID, project.Name, taskCount)
 	}
 
@@ -200,7 +200,7 @@ func completeTaskTool(args map[string]interface{}) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("task_id is required")
 	}
-	
+
 	taskID := uint(taskIDFloat)
 
 	var task database.Task
@@ -229,7 +229,7 @@ func ExampleUsage() {
 	}
 
 	agent := CreateExampleAgent()
-	
+
 	examples := []string{
 		"Create a new project called 'Website Redesign'",
 		"List all projects",
@@ -241,13 +241,13 @@ func ExampleUsage() {
 
 	for _, example := range examples {
 		fmt.Printf("\n=== User: %s ===\n", example)
-		
+
 		response, err := agent.Execute(example)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			continue
 		}
-		
+
 		fmt.Printf("Agent: %s\n", response)
 	}
 }

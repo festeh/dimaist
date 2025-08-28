@@ -12,10 +12,10 @@ import (
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		
+
 		// Create a response wrapper to capture status code
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-		
+
 		// Log the incoming request
 		logger.Info("HTTP request started").
 			Str("method", r.Method).
@@ -23,10 +23,10 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 			Str("remote_addr", r.RemoteAddr).
 			Str("user_agent", r.UserAgent()).
 			Send()
-		
+
 		// Process request
 		next.ServeHTTP(ww, r)
-		
+
 		// Log the completed request
 		duration := time.Since(start)
 		logger.Info("HTTP request completed").
