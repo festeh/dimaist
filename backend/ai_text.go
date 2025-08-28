@@ -170,11 +170,18 @@ func buildSystemPrompt(tasks []database.Task, projects []database.Project) (stri
 
 	tools := ai.CreateCRUDTools()
 	for _, tool := range tools {
-		toolsDesc.WriteString(fmt.Sprintf("- %s: %s\n", tool.Name, tool.Description))
+		toolsDesc.WriteString(fmt.Sprintf("- %s: %s\n", tool.Function.Name, tool.Function.Description))
 
 		// Add parameter descriptions
-		for param, desc := range tool.Parameters {
-			toolsDesc.WriteString(fmt.Sprintf("  * %s: %s\n", param, desc))
+		for param, prop := range tool.Function.Parameters.Properties {
+			requiredText := ""
+			for _, req := range tool.Function.Parameters.Required {
+				if req == param {
+					requiredText = " (required)"
+					break
+				}
+			}
+			toolsDesc.WriteString(fmt.Sprintf("  * %s: %s%s - %s\n", param, prop.Type, requiredText, prop.Description))
 		}
 		toolsDesc.WriteString("\n")
 	}
@@ -183,12 +190,10 @@ func buildSystemPrompt(tasks []database.Task, projects []database.Project) (stri
 You help users manage their tasks and projects efficiently.
 
 IMPORTANT RULES:
-1. You MUST ALWAYS call a tool to perform any action or provide a response
-2. You CANNOT respond directly to the user - you must use the 'respond' tool for ALL final answers
-3. When you want to send a message to the user, you MUST use the 'respond' tool with the text parameter
-4. All tool calls must use the format: TOOL_CALL: {"name": "tool_name", "arguments": {"arg1": "value1"}}
-5. ALL TASK/PROJECT DATA IS ALREADY PROVIDED BELOW - you do not need to use tools to retrieve or list existing tasks, projects, or other information
-6. Use the provided current system state to answer questions about existing data directly
+1. You can use the available tools to perform actions or provide responses
+2. Use the 'respond' tool to send final answers to the user
+3. ALL TASK/PROJECT DATA IS ALREADY PROVIDED BELOW - you do not need to use tools to retrieve or list existing tasks, projects, or other information
+4. Use the provided current system state to answer questions about existing data directly
 
 Current Local Time: %s
 
@@ -200,10 +205,10 @@ Projects: %s
 %s
 
 Examples of proper responses:
-- To answer a question: TOOL_CALL: {"name": "respond", "arguments": {"text": "You have 5 tasks due today."}}
-- To create a task: TOOL_CALL: {"name": "create_task", "arguments": {"description": "Review budget report", "due_date": "2024-01-15"}}
+- To answer a question: Use the respond tool with your answer
+- To create a task: Use the create_task tool with the task details
 
-Remember: You cannot respond directly. Always use tools, especially the 'respond' tool for final answers.`,
+The tools will be called automatically based on your function calls.`,
 		time.Now().Format("2006-01-02 15:04:05 MST"), tasksJSON, projectsJSON, toolsDesc.String()), nil
 }
 

@@ -26,44 +26,77 @@ Always be helpful and provide clear responses.`
 
 	tools := []Tool{
 		{
-			Name:        "create_task",
-			Description: "Create a new task with description and optional project ID",
-			Parameters: map[string]interface{}{
-				"description": "string",
-				"project_id":  "number (optional)",
-				"due_date":    "string (optional, format: YYYY-MM-DD)",
+			Type: "function",
+			Function: ToolFunc{
+				Name:        "create_task",
+				Description: "Create a new task with description and optional project ID",
+				Parameters: ToolParameters{
+					Type: "object",
+					Properties: map[string]ToolParameterProperty{
+						"description": {Type: "string", Description: "Task description"},
+						"project_id":  {Type: "number", Description: "Project ID (optional)"},
+						"due_date":    {Type: "string", Description: "Due date in YYYY-MM-DD format (optional)"},
+					},
+					Required: []string{"description"},
+				},
 			},
-			Function: createTaskTool,
+			Handler: createTaskTool,
 		},
 		{
-			Name:        "list_tasks",
-			Description: "List all tasks or tasks for a specific project",
-			Parameters: map[string]interface{}{
-				"project_id": "number (optional)",
+			Type: "function",
+			Function: ToolFunc{
+				Name:        "list_tasks",
+				Description: "List all tasks or tasks for a specific project",
+				Parameters: ToolParameters{
+					Type: "object",
+					Properties: map[string]ToolParameterProperty{
+						"project_id": {Type: "number", Description: "Project ID (optional)"},
+					},
+				},
 			},
-			Function: listTasksTool,
+			Handler: listTasksTool,
 		},
 		{
-			Name:        "create_project",
-			Description: "Create a new project with name",
-			Parameters: map[string]interface{}{
-				"name": "string",
+			Type: "function",
+			Function: ToolFunc{
+				Name:        "create_project",
+				Description: "Create a new project with name",
+				Parameters: ToolParameters{
+					Type: "object",
+					Properties: map[string]ToolParameterProperty{
+						"name": {Type: "string", Description: "Project name"},
+					},
+					Required: []string{"name"},
+				},
 			},
-			Function: createProjectTool,
+			Handler: createProjectTool,
 		},
 		{
-			Name:        "list_projects",
-			Description: "List all projects",
-			Parameters:  map[string]interface{}{},
-			Function:    listProjectsTool,
+			Type: "function",
+			Function: ToolFunc{
+				Name:        "list_projects",
+				Description: "List all projects",
+				Parameters: ToolParameters{
+					Type:       "object",
+					Properties: map[string]ToolParameterProperty{},
+				},
+			},
+			Handler: listProjectsTool,
 		},
 		{
-			Name:        "complete_task",
-			Description: "Mark a task as completed",
-			Parameters: map[string]interface{}{
-				"task_id": "number",
+			Type: "function",
+			Function: ToolFunc{
+				Name:        "complete_task",
+				Description: "Mark a task as completed",
+				Parameters: ToolParameters{
+					Type: "object",
+					Properties: map[string]ToolParameterProperty{
+						"task_id": {Type: "number", Description: "Task ID"},
+					},
+					Required: []string{"task_id"},
+				},
 			},
-			Function: completeTaskTool,
+			Handler: completeTaskTool,
 		},
 	}
 

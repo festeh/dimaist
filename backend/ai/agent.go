@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -13,10 +14,27 @@ import (
 )
 
 type Tool struct {
+	Type     string     `json:"type"`
+	Function ToolFunc   `json:"function"`
+	Handler  func(args map[string]interface{}) (string, error) `json:"-"`
+}
+
+type ToolFunc struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
-	Parameters  map[string]interface{} `json:"parameters"`
-	Function    func(args map[string]interface{}) (string, error)
+	Parameters  ToolParameters         `json:"parameters"`
+}
+
+type ToolParameters struct {
+	Type       string                            `json:"type"`
+	Properties map[string]ToolParameterProperty `json:"properties"`
+	Required   []string                          `json:"required,omitempty"`
+}
+
+type ToolParameterProperty struct {
+	Type        string   `json:"type"`
+	Description string   `json:"description,omitempty"`
+	Enum        []string `json:"enum,omitempty"`
 }
 
 type Agent struct {
@@ -35,8 +53,14 @@ type Message struct {
 }
 
 type ToolCall struct {
-	Name      string                 `json:"name"`
-	Arguments map[string]interface{} `json:"arguments"`
+	ID       string                 `json:"id"`
+	Type     string                 `json:"type"`
+	Function ToolCallFunction       `json:"function"`
+}
+
+type ToolCallFunction struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
 }
 
 // OpenAI-compatible API structures
@@ -45,11 +69,15 @@ type ChatCompletionRequest struct {
 	Messages    []ChatCompletionMessage `json:"messages"`
 	MaxTokens   int                     `json:"max_tokens,omitempty"`
 	Temperature float64                 `json:"temperature,omitempty"`
+	Tools       []Tool                  `json:"tools,omitempty"`
+	ToolChoice  interface{}             `json:"tool_choice,omitempty"`
 }
 
 type ChatCompletionMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string     `json:"role"`
+	Content    string     `json:"content,omitempty"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
 }
 
 type ChatCompletionResponse struct {
@@ -57,7 +85,8 @@ type ChatCompletionResponse struct {
 }
 
 type ChatCompletionChoice struct {
-	Message ChatCompletionMessage `json:"message"`
+	Message      ChatCompletionMessage `json:"message"`
+	FinishReason string                `json:"finish_reason,omitempty"`
 }
 
 func NewAgent(apiKey, endpoint, context, initialPrompt string, tools []Tool) *Agent {
@@ -79,7 +108,7 @@ func (a *Agent) ExecuteWithSSE(userInput string, sseWriter SSEWriter, ctx contex
 		Str("model", a.model).
 		Send()
 
-	messages := []Message{
+	messages := []ChatCompletionMessage{
 		{
 			Role:    "system",
 			Content: a.buildSystemPrompt(),
@@ -122,46 +151,51 @@ func (a *Agent) ExecuteWithSSE(userInput string, sseWriter SSEWriter, ctx contex
 			return "", fmt.Errorf("model call failed: %w", err)
 		}
 
-		logger.Info("Model response received").Str("response", response).Send()
+		logger.Info("Model response received").Send()
 
-		toolCall, hasToolCall := a.parseToolCall(response)
-		if !hasToolCall {
-			logger.Warn("No tool call found, prompting AI to use tools").Send()
-
-			messages = append(messages, Message{
-				Role:    "assistant",
-				Content: response,
-			})
-			messages = append(messages, Message{
-				Role:    "user",
-				Content: "You must call a tool. If you want to respond to the user, use the 'respond' tool with your message.",
-			})
-			continue
+		if !a.hasToolCalls(response) {
+			// No tool calls, return the response content
+			logger.Info("No tool calls found, returning response").Send()
+			responseText := response.Choices[0].Message.Content
+			if err := sseWriter.Send("final_response", map[string]string{
+				"response": responseText,
+			}); err != nil {
+				logger.Error("Failed to send final_response event").Err(err).Send()
+				return "", err
+			}
+			return responseText, nil
 		}
 
-		logger.Info("Tool call detected").Str("tool", toolCall.Name).Send()
+		// Process tool calls
+		messages = append(messages, response.Choices[0].Message)
 
-		// Send tool call event
-		if err := sseWriter.Send("tool_call", map[string]interface{}{
-			"tool":      toolCall.Name,
-			"arguments": toolCall.Arguments,
-		}); err != nil {
-			logger.Error("Failed to send tool_call event").Err(err).Send()
-			return "", err
-		}
+		for _, toolCall := range response.Choices[0].Message.ToolCalls {
+			logger.Info("Tool call detected").Str("tool", toolCall.Function.Name).Send()
 
-		// Check for respond tool (final response)
-		if toolCall.Name == "respond" {
-			if text, ok := toolCall.Arguments["text"].(string); ok {
-				if err := sseWriter.Send("final_response", map[string]string{
-					"response": text,
-				}); err != nil {
-					logger.Error("Failed to send final_response event").Err(err).Send()
-					return "", err
+			// Send tool call event
+			if err := sseWriter.Send("tool_call", map[string]interface{}{
+				"tool":      toolCall.Function.Name,
+				"arguments": toolCall.Function.Arguments,
+			}); err != nil {
+				logger.Error("Failed to send tool_call event").Err(err).Send()
+				return "", err
+			}
+
+			// Check for respond tool (final response)
+			if toolCall.Function.Name == "respond" {
+				var args map[string]interface{}
+				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err == nil {
+					if text, ok := args["text"].(string); ok {
+						if err := sseWriter.Send("final_response", map[string]string{
+							"response": text,
+						}); err != nil {
+							logger.Error("Failed to send final_response event").Err(err).Send()
+							return "", err
+						}
+						logger.Info("Agent execution completed with respond tool").Send()
+						return text, nil
+					}
 				}
-				logger.Info("Agent execution completed with respond tool").Send()
-				return text, nil
-			} else {
 				if err := sseWriter.Send("final_response", map[string]string{
 					"response": "Invalid response format",
 				}); err != nil {
@@ -169,51 +203,45 @@ func (a *Agent) ExecuteWithSSE(userInput string, sseWriter SSEWriter, ctx contex
 				}
 				return "Invalid response format", nil
 			}
-		}
 
-		toolResult, err := a.executeTool(toolCall)
-		if err != nil {
-			logger.Error("Tool execution failed").Str("tool", toolCall.Name).Err(err).Send()
+			toolResult, err := a.executeTool(toolCall)
+			if err != nil {
+				logger.Error("Tool execution failed").Str("tool", toolCall.Function.Name).Err(err).Send()
 
-			// Send error event
-			if err := sseWriter.Send("error", map[string]string{
-				"error": fmt.Sprintf("Tool execution failed: %v", err),
+				// Send error event
+				if err := sseWriter.Send("error", map[string]string{
+					"error": fmt.Sprintf("Tool execution failed: %v", err),
+				}); err != nil {
+					logger.Error("Failed to send error event").Err(err).Send()
+					return "", err
+				}
+
+				// Add error to conversation for recovery
+				messages = append(messages, ChatCompletionMessage{
+					Role:       "tool",
+					Content:    fmt.Sprintf("Error: %v", err),
+					ToolCallID: toolCall.ID,
+				})
+				continue
+			}
+
+			// Send tool result event
+			if err := sseWriter.Send("tool_result", map[string]string{
+				"result": toolResult,
 			}); err != nil {
-				logger.Error("Failed to send error event").Err(err).Send()
+				logger.Error("Failed to send tool_result event").Err(err).Send()
 				return "", err
 			}
 
-			// Add error to conversation for recovery
-			messages = append(messages, Message{
-				Role:    "assistant",
-				Content: response,
+			// Add tool result to conversation
+			messages = append(messages, ChatCompletionMessage{
+				Role:       "tool",
+				Content:    toolResult,
+				ToolCallID: toolCall.ID,
 			})
-			messages = append(messages, Message{
-				Role:    "user",
-				Content: fmt.Sprintf("Tool execution failed with error: %v. Please try a different approach.", err),
-			})
-			continue
+
+			logger.Info("Tool executed successfully").Str("tool", toolCall.Function.Name).Str("result", toolResult).Send()
 		}
-
-		// Send tool result event
-		if err := sseWriter.Send("tool_result", map[string]string{
-			"result": toolResult,
-		}); err != nil {
-			logger.Error("Failed to send tool_result event").Err(err).Send()
-			return "", err
-		}
-
-		messages = append(messages, Message{
-			Role:    "assistant",
-			Content: response,
-		})
-
-		messages = append(messages, Message{
-			Role:    "user",
-			Content: fmt.Sprintf("Tool result: %s", toolResult),
-		})
-
-		logger.Info("Tool executed successfully").Str("tool", toolCall.Name).Str("result", toolResult).Send()
 	}
 
 	// Max iterations reached
@@ -231,7 +259,7 @@ func (a *Agent) Execute(userInput string) (string, error) {
 		Str("model", a.model).
 		Send()
 
-	messages := []Message{
+	messages := []ChatCompletionMessage{
 		{
 			Role:    "system",
 			Content: a.buildSystemPrompt(),
@@ -252,66 +280,65 @@ func (a *Agent) Execute(userInput string) (string, error) {
 			return "", fmt.Errorf("model call failed: %w", err)
 		}
 
-		logger.Info("Model response received").Str("response", response).Send()
+		logger.Info("Model response received").Send()
 
-		toolCall, hasToolCall := a.parseToolCall(response)
-		if !hasToolCall {
+		if !a.hasToolCalls(response) {
 			logger.Info("No tool call found, returning response").Send()
-			return response, nil
+			return response.Choices[0].Message.Content, nil
 		}
 
-		logger.Info("Tool call detected").Str("tool", toolCall.Name).Send()
+		// Process tool calls
+		messages = append(messages, response.Choices[0].Message)
 
-		toolResult, err := a.executeTool(toolCall)
-		if err != nil {
-			logger.Error("Tool execution failed").Str("tool", toolCall.Name).Err(err).Send()
-			return "", fmt.Errorf("tool execution failed: %w", err)
+		for _, toolCall := range response.Choices[0].Message.ToolCalls {
+			logger.Info("Tool call detected").Str("tool", toolCall.Function.Name).Send()
+
+			// Check for respond tool (final response)
+			if toolCall.Function.Name == "respond" {
+				var args map[string]interface{}
+				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err == nil {
+					if text, ok := args["text"].(string); ok {
+						return text, nil
+					}
+				}
+				return "Invalid response format", nil
+			}
+
+			toolResult, err := a.executeTool(toolCall)
+			if err != nil {
+				logger.Error("Tool execution failed").Str("tool", toolCall.Function.Name).Err(err).Send()
+				return "", fmt.Errorf("tool execution failed: %w", err)
+			}
+
+			// Add tool result to conversation
+			messages = append(messages, ChatCompletionMessage{
+				Role:       "tool",
+				Content:    toolResult,
+				ToolCallID: toolCall.ID,
+			})
+
+			logger.Info("Tool executed successfully").Str("tool", toolCall.Function.Name).Str("result", toolResult).Send()
 		}
-
-		messages = append(messages, Message{
-			Role:    "assistant",
-			Content: response,
-		})
-
-		messages = append(messages, Message{
-			Role:    "user",
-			Content: fmt.Sprintf("Tool result: %s", toolResult),
-		})
-
-		logger.Info("Tool executed successfully").Str("tool", toolCall.Name).Str("result", toolResult).Send()
 	}
 
 	return "", fmt.Errorf("maximum iterations reached without final response")
 }
 
 func (a *Agent) buildSystemPrompt() string {
-	var toolsDesc strings.Builder
-	toolsDesc.WriteString("Available tools:\n")
-
-	for _, tool := range a.tools {
-		toolsDesc.WriteString(fmt.Sprintf("- %s: %s\n", tool.Name, tool.Description))
-	}
-
-	toolsDesc.WriteString("\nTo use a tool, respond with: TOOL_CALL: {\"name\": \"tool_name\", \"arguments\": {\"arg1\": \"value1\"}}\n")
-
 	return fmt.Sprintf(`%s
 
 Context: %s
 
-%s
-
 Instructions:
 - Use the available tools to complete tasks
-- Always respond with either a tool call or a final answer
-- If you need to use a tool, format your response as specified above
-- Provide clear and helpful responses`, a.initialPrompt, a.context, toolsDesc.String())
+- Provide clear and helpful responses`, a.initialPrompt, a.context)
 }
 
-func (a *Agent) callModel(messages []Message) (string, error) {
+func (a *Agent) callModel(messages []ChatCompletionMessage) (*ChatCompletionResponse, error) {
 	return a.callModelWithTimeout(context.Background(), messages)
 }
 
-func (a *Agent) callModelWithTimeout(ctx context.Context, messages []Message) (string, error) {
+func (a *Agent) callModelWithTimeout(ctx context.Context, messages []ChatCompletionMessage) (*ChatCompletionResponse, error) {
 	// Strip "chutes/" prefix from model name
 	model := a.model
 	if strings.HasPrefix(model, "chutes/") {
@@ -322,33 +349,36 @@ func (a *Agent) callModelWithTimeout(ctx context.Context, messages []Message) (s
 		Model:       model,
 		MaxTokens:   10000,
 		Temperature: 0.1,
-	}
-
-	for _, msg := range messages {
-		request.Messages = append(request.Messages, ChatCompletionMessage{
-			Role:    msg.Role,
-			Content: msg.Content,
-		})
+		Messages:    messages,
+		Tools:       a.tools,
+		ToolChoice:  "auto",
 	}
 
 	// Marshal request to JSON
 	requestBody, err := json.Marshal(request)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
+	// Debug: Log the request being sent
+	logger.Info("Sending request to LLM").
+		Str("endpoint", a.endpoint).
+		Str("model", request.Model).
+		Int("tools_count", len(request.Tools)).
+		Send()
+
 	// Execute with retry logic
-	return a.executeWithRetry(ctx, requestBody)
+	return a.executeWithRetryStructured(ctx, requestBody)
 }
 
-func (a *Agent) executeWithRetry(ctx context.Context, requestBody []byte) (string, error) {
+func (a *Agent) executeWithRetryStructured(ctx context.Context, requestBody []byte) (*ChatCompletionResponse, error) {
 	const maxRetries = 3
 	const baseDelay = time.Second
 
 	var lastErr error
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		result, err := a.executeSingleRequest(ctx, requestBody)
+		result, err := a.executeSingleRequestStructured(ctx, requestBody)
 		if err == nil {
 			return result, nil
 		}
@@ -368,18 +398,18 @@ func (a *Agent) executeWithRetry(ctx context.Context, requestBody []byte) (strin
 
 		// Wait before retrying with exponential backoff
 		if err := a.waitForRetry(ctx, attempt, baseDelay); err != nil {
-			return "", err
+			return nil, err
 		}
 	}
 
-	return "", fmt.Errorf("request failed after %d attempts: %w", maxRetries, lastErr)
+	return nil, fmt.Errorf("request failed after %d attempts: %w", maxRetries, lastErr)
 }
 
-func (a *Agent) executeSingleRequest(ctx context.Context, requestBody []byte) (string, error) {
+func (a *Agent) executeSingleRequestStructured(ctx context.Context, requestBody []byte) (*ChatCompletionResponse, error) {
 	// Create HTTP request
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", a.endpoint, bytes.NewBuffer(requestBody))
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Set headers
@@ -389,26 +419,36 @@ func (a *Agent) executeSingleRequest(ctx context.Context, requestBody []byte) (s
 	// Make the request
 	httpResp, err := a.client.Do(httpReq)
 	if err != nil {
-		return "", fmt.Errorf("HTTP request failed: %w", err)
+		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
 	defer httpResp.Body.Close()
 
 	// Check status code
 	if httpResp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("API request failed with status %d", httpResp.StatusCode)
+		// Read response body for better error information
+		var responseBody []byte
+		if httpResp.Body != nil {
+			responseBody, _ = io.ReadAll(httpResp.Body)
+		}
+		logger.Error("API request failed").
+			Int("status_code", httpResp.StatusCode).
+			Str("response_body", string(responseBody)).
+			Str("endpoint", a.endpoint).
+			Send()
+		return nil, fmt.Errorf("API request failed with status %d: %s", httpResp.StatusCode, string(responseBody))
 	}
 
 	// Parse response
 	var response ChatCompletionResponse
 	if err := json.NewDecoder(httpResp.Body).Decode(&response); err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	if len(response.Choices) == 0 {
-		return "", fmt.Errorf("no choices in response")
+		return nil, fmt.Errorf("no choices in response")
 	}
 
-	return response.Choices[0].Message.Content, nil
+	return &response, nil
 }
 
 func (a *Agent) shouldRetry(err error) bool {
@@ -447,42 +487,26 @@ func (a *Agent) waitForRetry(ctx context.Context, attempt int, baseDelay time.Du
 	}
 }
 
-func (a *Agent) parseToolCall(response string) (ToolCall, bool) {
-	const toolCallPrefix = "TOOL_CALL: "
-
-	if !strings.Contains(response, toolCallPrefix) {
-		return ToolCall{}, false
+func (a *Agent) hasToolCalls(response *ChatCompletionResponse) bool {
+	if len(response.Choices) == 0 {
+		return false
 	}
-
-	start := strings.Index(response, toolCallPrefix)
-	if start == -1 {
-		return ToolCall{}, false
-	}
-
-	jsonStr := response[start+len(toolCallPrefix):]
-
-	lines := strings.Split(jsonStr, "\n")
-	if len(lines) > 0 {
-		jsonStr = lines[0]
-	}
-
-	var toolCall ToolCall
-	if err := json.Unmarshal([]byte(jsonStr), &toolCall); err != nil {
-		logger.Error("Failed to parse tool call").Str("json", jsonStr).Err(err).Send()
-		return ToolCall{}, false
-	}
-
-	return toolCall, true
+	return len(response.Choices[0].Message.ToolCalls) > 0
 }
 
 func (a *Agent) executeTool(toolCall ToolCall) (string, error) {
 	for _, tool := range a.tools {
-		if tool.Name == toolCall.Name {
-			return tool.Function(toolCall.Arguments)
+		if tool.Function.Name == toolCall.Function.Name {
+			// Parse arguments from JSON string
+			var args map[string]interface{}
+			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
+				return "", fmt.Errorf("failed to parse tool arguments: %w", err)
+			}
+			return tool.Handler(args)
 		}
 	}
 
-	return "", fmt.Errorf("tool not found: %s", toolCall.Name)
+	return "", fmt.Errorf("tool not found: %s", toolCall.Function.Name)
 }
 
 func (a *Agent) AddTool(tool Tool) {
@@ -495,4 +519,31 @@ func (a *Agent) SetModel(model string) {
 
 func (a *Agent) SetContext(context string) {
 	a.context = context
+}
+
+// ExecuteOneStep executes just one step of the conversation and returns the tool calls
+// This is useful for testing to see what tools the LLM would call without executing them
+func (a *Agent) ExecuteOneStep(userInput string) ([]ToolCall, error) {
+	messages := []ChatCompletionMessage{
+		{
+			Role:    "system",
+			Content: a.buildSystemPrompt(),
+		},
+		{
+			Role:    "user",
+			Content: userInput,
+		},
+	}
+
+	response, err := a.callModel(messages)
+	if err != nil {
+		return nil, fmt.Errorf("model call failed: %w", err)
+	}
+
+	if !a.hasToolCalls(response) {
+		// No tool calls, return empty slice
+		return []ToolCall{}, nil
+	}
+
+	return response.Choices[0].Message.ToolCalls, nil
 }
