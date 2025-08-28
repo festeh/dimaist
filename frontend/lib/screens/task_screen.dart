@@ -13,7 +13,7 @@ import '../models/project.dart';
 import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
 import 'package:dimaist/widgets/long_press_fab.dart';
-import '../widgets/text_ai_dialog.dart';
+import 'ai_chat_screen.dart';
 
 class TaskScreen extends ConsumerStatefulWidget {
   final Project? project;
@@ -368,9 +368,10 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
         onMenuItemSelected: (value) {
           LoggingService.logger.fine('Menu item selected: $value');
           if (value == 'Text AI') {
-            showDialog(
-              context: context, 
-              builder: (context) => const TextAiDialog(),
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const AiChatScreen(),
+              ),
             );
           }
         },

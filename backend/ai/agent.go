@@ -337,6 +337,45 @@ func (a *Agent) callModelWithTimeout(ctx context.Context, messages []Message) (s
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
+	// Execute with retry logic
+	return a.executeWithRetry(ctx, requestBody)
+}
+
+func (a *Agent) executeWithRetry(ctx context.Context, requestBody []byte) (string, error) {
+	const maxRetries = 3
+	const baseDelay = time.Second
+
+	var lastErr error
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		result, err := a.executeSingleRequest(ctx, requestBody)
+		if err == nil {
+			return result, nil
+		}
+
+		lastErr = err
+		logger.Warn("Request attempt failed").Int("attempt", attempt+1).Err(err).Send()
+
+		// Don't retry on last attempt
+		if attempt == maxRetries-1 {
+			break
+		}
+
+		// Check if we should retry based on error type
+		if !a.shouldRetry(err) {
+			break
+		}
+
+		// Wait before retrying with exponential backoff
+		if err := a.waitForRetry(ctx, attempt, baseDelay); err != nil {
+			return "", err
+		}
+	}
+
+	return "", fmt.Errorf("request failed after %d attempts: %w", maxRetries, lastErr)
+}
+
+func (a *Agent) executeSingleRequest(ctx context.Context, requestBody []byte) (string, error) {
 	// Create HTTP request
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", a.endpoint, bytes.NewBuffer(requestBody))
 	if err != nil {
@@ -370,6 +409,42 @@ func (a *Agent) callModelWithTimeout(ctx context.Context, messages []Message) (s
 	}
 
 	return response.Choices[0].Message.Content, nil
+}
+
+func (a *Agent) shouldRetry(err error) bool {
+	errStr := err.Error()
+	
+	// Retry on network errors
+	if strings.Contains(errStr, "HTTP request failed") {
+		return true
+	}
+	
+	// Retry on server errors (5xx), but not client errors (4xx)
+	if strings.Contains(errStr, "API request failed with status") {
+		// Extract status code from error message
+		if strings.Contains(errStr, "status 5") {
+			return true
+		}
+		return false
+	}
+	
+	// Retry on decode errors (could be temporary network issues)
+	if strings.Contains(errStr, "failed to decode response") {
+		return true
+	}
+	
+	return false
+}
+
+func (a *Agent) waitForRetry(ctx context.Context, attempt int, baseDelay time.Duration) error {
+	delay := time.Duration(1<<uint(attempt)) * baseDelay
+	
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(delay):
+		return nil
+	}
 }
 
 func (a *Agent) parseToolCall(response string) (ToolCall, bool) {

@@ -144,7 +144,7 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 	// Set order if not provided
 	if t.Order == 0 {
 		var maxOrder int
-		database.DB.Model(&database.Task{}).Select("COALESCE(MAX(order), 0)").Where("project_id = ? AND deleted_at IS NULL", t.ProjectID).Scan(&maxOrder)
+		database.DB.Model(&database.Task{}).Select("COALESCE(MAX(\"order\"), 0)").Where("project_id = ? AND deleted_at IS NULL", t.ProjectID).Scan(&maxOrder)
 		t.Order = maxOrder + 1
 	}
 
@@ -315,7 +315,7 @@ func createProject(w http.ResponseWriter, r *http.Request) {
 	// Set order if not provided
 	if p.Order == 0 {
 		var maxOrder int
-		database.DB.Model(&database.Project{}).Select("COALESCE(MAX(order), 0)").Where("deleted_at IS NULL").Scan(&maxOrder)
+		database.DB.Model(&database.Project{}).Select("COALESCE(MAX(\"order\"), 0)").Where("deleted_at IS NULL").Scan(&maxOrder)
 		p.Order = maxOrder + 1
 	}
 

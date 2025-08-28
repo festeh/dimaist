@@ -352,4 +352,103 @@ class ApiService {
       rethrow;
     }
   }
+
+  Future<void> sendAudioStream(
+    List<int> audioBytes,
+    String model,
+    Function(String) onChunk,
+    Function() onDone, {
+    Function(String)? onStatus,
+  }) async {
+    _logger.info('Sending audio streaming request...', {'model': model});
+    
+    final client = http.Client();
+    try {
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/ai/audio'),
+      );
+      request.headers['Accept'] = 'text/event-stream';
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'audio',
+          audioBytes,
+          filename: 'audio.wav',
+        ),
+      );
+      request.fields['model'] = model;
+
+      final response = await client.send(request);
+      
+      if (response.statusCode == 200) {
+        _logger.info('Audio streaming request successful.');
+        
+        await for (final chunk in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
+          if (chunk.startsWith('data: ')) {
+            final data = chunk.substring(6);
+            if (data.trim().isEmpty) continue;
+            
+            try {
+              final eventData = json.decode(data);
+              final event = eventData['event'] as String?;
+              final eventPayload = eventData['data'];
+              
+              _logger.fine('Received SSE event: $event with data: $eventPayload');
+              
+              switch (event) {
+                case 'thinking':
+                  // Show progress messages
+                  if (onStatus != null && eventPayload is Map<String, dynamic>) {
+                    final message = eventPayload['message'] as String?;
+                    if (message != null) {
+                      onStatus(message);
+                    }
+                  }
+                  break;
+                case 'final_response':
+                  // This contains the actual response text
+                  if (eventPayload is Map<String, dynamic>) {
+                    final responseText = eventPayload['response'] as String?;
+                    if (responseText != null && responseText.isNotEmpty) {
+                      onChunk(responseText);
+                    }
+                  }
+                  onDone();
+                  return; // Exit the stream processing
+                case 'error':
+                  // Handle error events
+                  if (eventPayload is Map<String, dynamic>) {
+                    final errorMsg = eventPayload['error'] as String? ?? 'Unknown error';
+                    onChunk('Error: $errorMsg');
+                  }
+                  onDone();
+                  return;
+                case 'tool_call':
+                case 'tool_result':
+                  // These are intermediate events, we could show them as progress
+                  // For now, just log them
+                  break;
+                default:
+                  _logger.fine('Unknown SSE event type: $event');
+              }
+            } catch (e) {
+              // Skip non-JSON lines or malformed data
+              _logger.fine('Skipping malformed SSE data: $data, error: $e');
+            }
+          }
+        }
+        
+        // If we reach here without getting a final_response, call onDone anyway
+        onDone();
+      } else {
+        _logger.warning('Failed to send audio streaming request: ${response.statusCode}');
+        throw Exception('Failed to send audio streaming request');
+      }
+    } catch (e) {
+      _logger.severe('Error sending audio streaming request: $e');
+      rethrow;
+    } finally {
+      client.close();
+    }
+  }
 }

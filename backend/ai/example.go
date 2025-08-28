@@ -100,7 +100,7 @@ func createTaskTool(args map[string]interface{}) (string, error) {
 	}
 
 	var maxOrder int
-	database.DB.Model(&database.Task{}).Select("COALESCE(MAX(order), 0)").Where("project_id = ?", task.ProjectID).Scan(&maxOrder)
+	database.DB.Model(&database.Task{}).Select("COALESCE(MAX(\"order\"), 0)").Where("project_id = ?", task.ProjectID).Scan(&maxOrder)
 	task.Order = maxOrder + 1
 
 	result := database.DB.Create(&task)
@@ -163,7 +163,7 @@ func createProjectTool(args map[string]interface{}) (string, error) {
 	}
 
 	var maxOrder int
-	database.DB.Model(&database.Project{}).Select("COALESCE(MAX(order), 0)").Scan(&maxOrder)
+	database.DB.Model(&database.Project{}).Select("COALESCE(MAX(\"order\"), 0)").Scan(&maxOrder)
 	project.Order = maxOrder + 1
 
 	result := database.DB.Create(&project)

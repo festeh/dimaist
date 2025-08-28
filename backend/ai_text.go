@@ -176,10 +176,12 @@ IMPORTANT RULES:
 2. You CANNOT respond directly to the user - you must use the 'respond' tool for ALL final answers
 3. When you want to send a message to the user, you MUST use the 'respond' tool with the text parameter
 4. All tool calls must use the format: TOOL_CALL: {"name": "tool_name", "arguments": {"arg1": "value1"}}
+5. ALL TASK/PROJECT DATA IS ALREADY PROVIDED BELOW - you do not need to use tools to retrieve or list existing tasks, projects, or other information
+6. Use the provided current system state to answer questions about existing data directly
 
 Current Local Time: %s
 
-Current System State (up to 1000 tasks, 100 projects, most recently updated):
+Current System State:
 Tasks: %s
 
 Projects: %s

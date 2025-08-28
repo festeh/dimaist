@@ -2,7 +2,6 @@ package ai
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/dima-b/go-task-backend/database"
@@ -72,16 +71,6 @@ func CreateCRUDTools() []Tool {
 			},
 			Function: completeTaskCRUDTool,
 		},
-		{
-			Name:        "list_tasks",
-			Description: "List tasks with optional filtering",
-			Parameters: map[string]interface{}{
-				"project_id": "number (optional) - Filter by project ID",
-				"completed":  "boolean (optional) - Filter by completion status",
-				"limit":      "number (optional) - Limit number of results",
-			},
-			Function: listTasksCRUDTool,
-		},
 
 		// Project CRUD operations
 		{
@@ -110,12 +99,6 @@ func CreateCRUDTools() []Tool {
 				"project_id": "number (required) - ID of the project to delete",
 			},
 			Function: deleteProjectCRUDTool,
-		},
-		{
-			Name:        "list_projects",
-			Description: "List all projects",
-			Parameters:  map[string]interface{}{},
-			Function:    listProjectsCRUDTool,
 		},
 	}
 }
@@ -421,71 +404,6 @@ func completeTaskCRUDTool(args map[string]interface{}) (string, error) {
 	return fmt.Sprintf("Task %d completed successfully", taskID), nil
 }
 
-func listTasksCRUDTool(args map[string]interface{}) (string, error) {
-	query := database.DB.Preload("Project").Where("deleted_at IS NULL")
-
-	// Optional project filter
-	if projectIDFloat, ok := args["project_id"].(float64); ok {
-		projectID := uint(projectIDFloat)
-		query = query.Where("project_id = ?", projectID)
-	}
-
-	// Optional completion filter
-	if completed, ok := args["completed"].(bool); ok {
-		if completed {
-			query = query.Where("completed_at IS NOT NULL")
-		} else {
-			query = query.Where("completed_at IS NULL")
-		}
-	}
-
-	// Optional limit
-	limit := 50 // Default limit
-	if limitFloat, ok := args["limit"].(float64); ok {
-		limit = int(limitFloat)
-	}
-	query = query.Order("order ASC").Limit(limit)
-
-	var tasks []database.Task
-	if err := query.Find(&tasks).Error; err != nil {
-		return "", fmt.Errorf("failed to list tasks: %w", err)
-	}
-
-	if len(tasks) == 0 {
-		return "No tasks found", nil
-	}
-
-	var result strings.Builder
-	result.WriteString(fmt.Sprintf("Found %d tasks:\n", len(tasks)))
-
-	for _, task := range tasks {
-		projectName := "No Project"
-		if task.Project != nil {
-			projectName = task.Project.Name
-		}
-
-		status := "Pending"
-		if task.CompletedAt != nil {
-			status = "Completed"
-		}
-
-		result.WriteString(fmt.Sprintf("- ID: %d, Description: %s, Project: %s, Status: %s",
-			task.ID, task.Description, projectName, status))
-
-		if task.DueDate != nil {
-			result.WriteString(fmt.Sprintf(", Due Date: %s", task.DueDate.Format("2006-01-02")))
-		}
-		if task.DueDatetime != nil {
-			result.WriteString(fmt.Sprintf(", Due DateTime: %s", task.DueDatetime.Format(time.RFC3339)))
-		}
-		if len(task.Labels) > 0 {
-			result.WriteString(fmt.Sprintf(", Labels: %s", strings.Join(task.Labels, ", ")))
-		}
-		result.WriteString("\n")
-	}
-
-	return result.String(), nil
-}
 
 // Project CRUD Tools
 func createProjectCRUDTool(args map[string]interface{}) (string, error) {
@@ -506,7 +424,7 @@ func createProjectCRUDTool(args map[string]interface{}) (string, error) {
 
 	// Set order
 	var maxOrder int
-	database.DB.Model(&database.Project{}).Select("COALESCE(MAX(order), 0)").Where("deleted_at IS NULL").Scan(&maxOrder)
+	database.DB.Model(&database.Project{}).Select("COALESCE(MAX(\"order\"), 0)").Where("deleted_at IS NULL").Scan(&maxOrder)
 	project.Order = maxOrder + 1
 
 	if err := database.DB.Create(&project).Error; err != nil {
@@ -571,29 +489,3 @@ func deleteProjectCRUDTool(args map[string]interface{}) (string, error) {
 	return fmt.Sprintf("Project %d deleted successfully", projectID), nil
 }
 
-func listProjectsCRUDTool(args map[string]interface{}) (string, error) {
-	var projects []database.Project
-	if err := database.DB.Preload("Tasks", "deleted_at IS NULL").Where("deleted_at IS NULL").Order("order ASC").Find(&projects).Error; err != nil {
-		return "", fmt.Errorf("failed to list projects: %w", err)
-	}
-
-	if len(projects) == 0 {
-		return "No projects found", nil
-	}
-
-	var result strings.Builder
-	result.WriteString(fmt.Sprintf("Found %d projects:\n", len(projects)))
-
-	for _, project := range projects {
-		activeTasks := 0
-		for _, task := range project.Tasks {
-			if task.CompletedAt == nil {
-				activeTasks++
-			}
-		}
-		result.WriteString(fmt.Sprintf("- ID: %d, Name: %s, Color: %s, Active Tasks: %d, Total Tasks: %d\n",
-			project.ID, project.Name, project.Color, activeTasks, len(project.Tasks)))
-	}
-
-	return result.String(), nil
-}

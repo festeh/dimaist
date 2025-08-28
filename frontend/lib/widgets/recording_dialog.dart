@@ -8,6 +8,7 @@ import 'package:record/record.dart';
 import '../repositories/providers.dart';
 import '../services/settings_service.dart';
 import '../providers/task_provider.dart';
+import '../screens/ai_chat_screen.dart';
 
 class RecordingDialog extends ConsumerStatefulWidget {
   const RecordingDialog({super.key});
@@ -83,25 +84,18 @@ class _RecordingDialogState extends ConsumerState<RecordingDialog>
       _isProcessing = true;
       _audioPath = path;
     });
-    if (_audioPath != null) {
-      try {
-        final file = File(_audioPath!);
-        final bytes = await file.readAsBytes();
-        final model = SettingsService.instance.aiModel.value;
-        await ref.read(apiServiceProvider).sendAudio(bytes, model);
-      } catch (e) {
-        LoggingService.logger.severe('Error sending audio: $e');
-      } finally {
-        // Trigger sync after AI flow completes
-        try {
-          await ref.read(taskProvider.notifier).syncData();
-        } catch (e) {
-          LoggingService.logger.warning('Failed to sync after audio AI: $e');
-        }
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
-      }
+    
+    if (_audioPath != null && mounted) {
+      final file = File(_audioPath!);
+      final bytes = await file.readAsBytes();
+      
+      // Navigate to chat screen and pass the audio data
+      Navigator.of(context).pop(); // Close recording dialog
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => AiChatScreen(initialAudioBytes: bytes),
+        ),
+      );
     } else {
       if (mounted) {
         Navigator.of(context).pop();
