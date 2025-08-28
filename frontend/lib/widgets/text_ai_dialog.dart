@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../repositories/providers.dart';
 import '../services/settings_service.dart';
 import '../services/logging_service.dart';
+import '../providers/task_provider.dart';
 
 class TextAiDialog extends ConsumerStatefulWidget {
   const TextAiDialog({super.key});
@@ -42,11 +43,17 @@ class _TextAiDialogState extends ConsumerState<TextAiDialog> {
             _response = (_response ?? '') + chunk;
           });
         },
-        () {
+        () async {
           setState(() {
             _isProcessing = false;
             _statusMessage = null;
           });
+          // Trigger sync after AI flow completes
+          try {
+            await ref.read(taskProvider.notifier).syncData();
+          } catch (e) {
+            LoggingService.logger.warning('Failed to sync after text AI: $e');
+          }
         },
         onStatus: (status) {
           setState(() {

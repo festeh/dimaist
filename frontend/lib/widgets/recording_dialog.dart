@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 import '../repositories/providers.dart';
 import '../services/settings_service.dart';
+import '../providers/task_provider.dart';
 
 class RecordingDialog extends ConsumerStatefulWidget {
   const RecordingDialog({super.key});
@@ -91,6 +92,12 @@ class _RecordingDialogState extends ConsumerState<RecordingDialog>
       } catch (e) {
         LoggingService.logger.severe('Error sending audio: $e');
       } finally {
+        // Trigger sync after AI flow completes
+        try {
+          await ref.read(taskProvider.notifier).syncData();
+        } catch (e) {
+          LoggingService.logger.warning('Failed to sync after audio AI: $e');
+        }
         if (mounted) {
           Navigator.of(context).pop();
         }
