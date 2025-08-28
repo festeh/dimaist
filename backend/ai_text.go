@@ -177,6 +177,8 @@ IMPORTANT RULES:
 3. When you want to send a message to the user, you MUST use the 'respond' tool with the text parameter
 4. All tool calls must use the format: TOOL_CALL: {"name": "tool_name", "arguments": {"arg1": "value1"}}
 
+Current Local Time: %s
+
 Current System State (up to 1000 tasks, 100 projects, most recently updated):
 Tasks: %s
 
@@ -189,7 +191,7 @@ Examples of proper responses:
 - To create a task: TOOL_CALL: {"name": "create_task", "arguments": {"description": "Review budget report", "due_date": "2024-01-15"}}
 
 Remember: You cannot respond directly. Always use tools, especially the 'respond' tool for final answers.`, 
-		tasksJSON, projectsJSON, toolsDesc.String()), nil
+		time.Now().Format("2006-01-02 15:04:05 MST"), tasksJSON, projectsJSON, toolsDesc.String()), nil
 }
 
 func createAIAgent(systemPrompt string, model string) *ai.Agent {
