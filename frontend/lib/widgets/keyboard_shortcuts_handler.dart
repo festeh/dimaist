@@ -35,40 +35,40 @@ class KeyboardShortcutsHandler extends ConsumerWidget {
               !isMetaPressed) {
             final viewNotifier = ref.read(viewProvider.notifier);
 
-            if (event.logicalKey == LogicalKeyboardKey.keyN &&
-                Platform.isLinux) {
-              taskScreenKey?.currentState?.showAddTaskDialog();
-              return KeyEventResult.handled;
-            }
-            if (event.logicalKey == LogicalKeyboardKey.keyA &&
-                Platform.isLinux) {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const AiChatScreen()),
-              );
-              return KeyEventResult.handled;
-            }
-            if (event.logicalKey == LogicalKeyboardKey.keyV &&
-                Platform.isLinux) {
-              showDialog(
-                context: context,
-                builder: (context) => const RecordingDialog(),
-              );
-              return KeyEventResult.handled;
-            }
-            if (event.logicalKey == LogicalKeyboardKey.keyT) {
-              viewNotifier.selectCustomView(BuiltInViewType.today.displayName);
-              return KeyEventResult.handled;
-            }
-            if (event.logicalKey == LogicalKeyboardKey.keyU) {
-              viewNotifier.selectCustomView(
-                BuiltInViewType.upcoming.displayName,
-              );
-              return KeyEventResult.handled;
-            }
-            if (event.logicalKey == LogicalKeyboardKey.keyE) {
-              viewNotifier.selectCustomView(BuiltInViewType.next.displayName);
-              return KeyEventResult.handled;
-            }
+            // if (event.logicalKey == LogicalKeyboardKey.keyN &&
+            //     Platform.isLinux) {
+            //   taskScreenKey?.currentState?.showAddTaskDialog();
+            //   return KeyEventResult.handled;
+            // }
+            // if (event.logicalKey == LogicalKeyboardKey.keyA &&
+            //     Platform.isLinux) {
+            //   Navigator.of(context).push(
+            //     MaterialPageRoute(builder: (context) => const AiChatScreen()),
+            //   );
+            //   return KeyEventResult.handled;
+            // }
+            // if (event.logicalKey == LogicalKeyboardKey.keyV &&
+            //     Platform.isLinux) {
+            //   showDialog(
+            //     context: context,
+            //     builder: (context) => const RecordingDialog(),
+            //   );
+            //   return KeyEventResult.handled;
+            // }
+            // if (event.logicalKey == LogicalKeyboardKey.keyT) {
+            //   viewNotifier.selectCustomView(BuiltInViewType.today.displayName);
+            //   return KeyEventResult.handled;
+            // }
+            // if (event.logicalKey == LogicalKeyboardKey.keyU) {
+            //   viewNotifier.selectCustomView(
+            //     BuiltInViewType.upcoming.displayName,
+            //   );
+            //   return KeyEventResult.handled;
+            // }
+            // if (event.logicalKey == LogicalKeyboardKey.keyE) {
+            //   viewNotifier.selectCustomView(BuiltInViewType.next.displayName);
+            //   return KeyEventResult.handled;
+            // }
           }
         }
         return KeyEventResult.ignored;
