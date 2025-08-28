@@ -14,21 +14,21 @@ import (
 )
 
 type Tool struct {
-	Type     string     `json:"type"`
-	Function ToolFunc   `json:"function"`
+	Type     string                                            `json:"type"`
+	Function ToolFunc                                          `json:"function"`
 	Handler  func(args map[string]interface{}) (string, error) `json:"-"`
 }
 
 type ToolFunc struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Parameters  ToolParameters         `json:"parameters"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Parameters  ToolParameters `json:"parameters"`
 }
 
 type ToolParameters struct {
-	Type       string                            `json:"type"`
+	Type       string                           `json:"type"`
 	Properties map[string]ToolParameterProperty `json:"properties"`
-	Required   []string                          `json:"required,omitempty"`
+	Required   []string                         `json:"required,omitempty"`
 }
 
 type ToolParameterProperty struct {
@@ -53,9 +53,9 @@ type Message struct {
 }
 
 type ToolCall struct {
-	ID       string                 `json:"id"`
-	Type     string                 `json:"type"`
-	Function ToolCallFunction       `json:"function"`
+	ID       string           `json:"id"`
+	Type     string           `json:"type"`
+	Function ToolCallFunction `json:"function"`
 }
 
 type ToolCallFunction struct {
@@ -453,12 +453,12 @@ func (a *Agent) executeSingleRequestStructured(ctx context.Context, requestBody 
 
 func (a *Agent) shouldRetry(err error) bool {
 	errStr := err.Error()
-	
+
 	// Retry on network errors
 	if strings.Contains(errStr, "HTTP request failed") {
 		return true
 	}
-	
+
 	// Retry on server errors (5xx), but not client errors (4xx)
 	if strings.Contains(errStr, "API request failed with status") {
 		// Extract status code from error message
@@ -467,18 +467,18 @@ func (a *Agent) shouldRetry(err error) bool {
 		}
 		return false
 	}
-	
+
 	// Retry on decode errors (could be temporary network issues)
 	if strings.Contains(errStr, "failed to decode response") {
 		return true
 	}
-	
+
 	return false
 }
 
 func (a *Agent) waitForRetry(ctx context.Context, attempt int, baseDelay time.Duration) error {
 	delay := time.Duration(1<<uint(attempt)) * baseDelay
-	
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()

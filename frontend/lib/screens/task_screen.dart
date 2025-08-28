@@ -292,13 +292,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _showAddTaskDialog,
-            tooltip: 'Add Task',
-          ),
-        ],
+        actions: [],
       ),
       body: Column(
         children: [
@@ -407,6 +401,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
           ),
           ChatInputWidget(
             onSendMessage: _handleAiMessage,
+            onAddPressed: _showAddTaskDialog,
             isProcessing: _isAiProcessing,
           ),
         ],

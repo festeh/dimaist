@@ -4,12 +4,14 @@ import '../widgets/recording_dialog.dart';
 class ChatInputWidget extends StatefulWidget {
   final Function(String) onSendMessage;
   final VoidCallback? onVoicePressed;
+  final VoidCallback? onAddPressed;
   final bool isProcessing;
 
   const ChatInputWidget({
     super.key,
     required this.onSendMessage,
     this.onVoicePressed,
+    this.onAddPressed,
     this.isProcessing = false,
   });
 
@@ -76,6 +78,33 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
       child: SafeArea(
         child: Row(
           children: [
+            // Add button
+            if (widget.onAddPressed != null) ...[
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: widget.isProcessing ? null : widget.onAddPressed,
+                  borderRadius: BorderRadius.circular(24),
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Icon(
+                      Icons.add,
+                      color: widget.isProcessing 
+                          ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)
+                          : Theme.of(context).colorScheme.primary,
+                      size: 24,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16), // Space between add and voice
+            ],
+            
             // Voice button
             Material(
               color: Colors.transparent,

@@ -544,7 +544,6 @@ func completeTaskCRUDTool(args map[string]interface{}) (string, error) {
 	return fmt.Sprintf("Task %d completed successfully", taskID), nil
 }
 
-
 // Project CRUD Tools
 func createProjectCRUDTool(args map[string]interface{}) (string, error) {
 	name, ok := args["name"].(string)
@@ -628,4 +627,3 @@ func deleteProjectCRUDTool(args map[string]interface{}) (string, error) {
 
 	return fmt.Sprintf("Project %d deleted successfully", projectID), nil
 }
-

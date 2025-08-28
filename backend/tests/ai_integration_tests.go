@@ -31,10 +31,10 @@ type MockProject struct {
 
 // Test scenarios
 type TestScenario struct {
-	Name           string
-	UserInput      string
-	ExpectedTools  []string // List of tool names that should be called
-	Description    string
+	Name          string
+	UserInput     string
+	ExpectedTools []string // List of tool names that should be called
+	Description   string
 }
 
 func createMockData() ([]MockTask, []MockProject) {
@@ -118,7 +118,7 @@ func buildMockSystemPrompt(tasks []MockTask, projects []MockProject) string {
 
 	now := time.Now()
 	today := now.Format("2006-01-02")
-	
+
 	tools := ai.CreateCRUDTools()
 	var toolsDesc strings.Builder
 	toolsDesc.WriteString("Available tools:\n")
@@ -180,13 +180,12 @@ func createRealAgent(systemPrompt string) *ai.Agent {
 
 	tools := ai.CreateCRUDTools()
 	agent := ai.NewAgent(apiKey, endpoint, "", systemPrompt, tools)
-	
+
 	// Set model that works with chutes.ai
 	agent.SetModel("deepseek-ai/DeepSeek-V3.1")
-	
+
 	return agent
 }
-
 
 func runIntegrationTests() {
 	fmt.Println("🧪 Starting AI Tool Integration Tests")
@@ -198,7 +197,7 @@ func runIntegrationTests() {
 
 	// Build system prompt
 	systemPrompt := buildMockSystemPrompt(tasks, projects)
-	
+
 	// Create real agent
 	agent := createRealAgent(systemPrompt)
 	if agent == nil {
@@ -272,22 +271,22 @@ func runIntegrationTests() {
 		fmt.Printf("\n🔍 Test %d: %s\n", i+1, scenario.Name)
 		fmt.Printf("   Input: %s\n", scenario.UserInput)
 		fmt.Printf("   Expected tools: %v\n", scenario.ExpectedTools)
-		
+
 		// Call real LLM using ExecuteOneStep to get tool calls
 		toolCalls, err := agent.ExecuteOneStep(scenario.UserInput)
 		if err != nil {
 			fmt.Printf("   ❌ FAIL - Agent execution failed: %v\n", err)
 			continue
 		}
-		
+
 		// Extract tool names from calls
 		actualTools := make([]string, len(toolCalls))
 		for j, call := range toolCalls {
 			actualTools[j] = call.Function.Name
 		}
-		
+
 		fmt.Printf("   Actual tools: %v\n", actualTools)
-		
+
 		// Check if expected tools match
 		success := true
 		if len(actualTools) != len(scenario.ExpectedTools) {
@@ -300,11 +299,11 @@ func runIntegrationTests() {
 				}
 			}
 		}
-		
+
 		if success {
 			fmt.Printf("   ✅ PASS - Correct tools called\n")
 			passed++
-			
+
 			// Show tool details
 			for _, call := range toolCalls {
 				fmt.Printf("      Tool: %s\n", call.Function.Name)
@@ -315,12 +314,12 @@ func runIntegrationTests() {
 		} else {
 			fmt.Printf("   ❌ FAIL - Expected %v, got %v\n", scenario.ExpectedTools, actualTools)
 		}
-		
+
 		fmt.Printf("   Description: %s\n", scenario.Description)
 	}
 
 	fmt.Printf("\n📊 Test Results: %d/%d tests passed (%.1f%%)\n", passed, total, float64(passed)/float64(total)*100)
-	
+
 	if passed == total {
 		fmt.Println("🎉 All integration tests passed!")
 	} else {
