@@ -19,8 +19,9 @@ class ChatMessage {
 
 class AiChatScreen extends ConsumerStatefulWidget {
   final List<int>? initialAudioBytes;
-  
-  const AiChatScreen({super.key, this.initialAudioBytes});
+  final String? initialMessage;
+
+  const AiChatScreen({super.key, this.initialAudioBytes, this.initialMessage});
 
   @override
   ConsumerState<AiChatScreen> createState() => _AiChatScreenState();
@@ -36,11 +37,18 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   @override
   void initState() {
     super.initState();
-    
+
     // If we have initial audio bytes, process them immediately
     if (widget.initialAudioBytes != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _processAudioMessage(widget.initialAudioBytes!);
+      });
+    }
+
+    // If we have initial text message, process it immediately
+    if (widget.initialMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _processTextMessage(widget.initialMessage!);
       });
     }
   }
@@ -68,11 +76,13 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     if (_isProcessing) return;
 
     setState(() {
-      _messages.add(ChatMessage(
-        text: '🎤 Transcribing...',
-        isUser: true,
-        timestamp: DateTime.now(),
-      ));
+      _messages.add(
+        ChatMessage(
+          text: '🎤 Transcribing...',
+          isUser: true,
+          timestamp: DateTime.now(),
+        ),
+      );
       _isProcessing = true;
       _statusMessage = 'Transcribing audio...';
     });
@@ -84,72 +94,88 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       String aiResponse = '';
       bool transcriptionReceived = false;
 
-      await ref.read(apiServiceProvider).sendAudioStream(
-        audioBytes,
-        model,
-        (chunk) {
-          setState(() {
-            aiResponse += chunk;
-            if (_messages.isNotEmpty && !_messages.last.isUser) {
-              _messages.last = ChatMessage(
-                text: aiResponse,
-                isUser: false,
-                timestamp: _messages.last.timestamp,
-              );
-            } else {
-              _messages.add(ChatMessage(
-                text: aiResponse,
-                isUser: false,
-                timestamp: DateTime.now(),
-              ));
-            }
-          });
-          _scrollToBottom();
-        },
-        () async {
-          setState(() {
-            _isProcessing = false;
-            _statusMessage = null;
-          });
-          try {
-            await ref.read(taskProvider.notifier).syncData();
-          } catch (e) {
-            LoggingService.logger.warning('Failed to sync after audio AI: $e');
-          }
-        },
-        onStatus: (status) {
-          setState(() {
-            _statusMessage = status;
-          });
-        },
-        onTranscription: (transcribedText) {
-          // Update the user message with the actual transcribed text
-          if (_messages.isNotEmpty && _messages.last.isUser && !transcriptionReceived) {
-            setState(() {
-              _messages.last = ChatMessage(
-                text: transcribedText,
-                isUser: true,
-                timestamp: _messages.last.timestamp,
-              );
-              transcriptionReceived = true;
-            });
-            _scrollToBottom();
-          }
-        },
-      );
+      await ref
+          .read(apiServiceProvider)
+          .sendAudioStream(
+            audioBytes,
+            model,
+            (chunk) {
+              setState(() {
+                aiResponse += chunk;
+                if (_messages.isNotEmpty && !_messages.last.isUser) {
+                  _messages.last = ChatMessage(
+                    text: aiResponse,
+                    isUser: false,
+                    timestamp: _messages.last.timestamp,
+                  );
+                } else {
+                  _messages.add(
+                    ChatMessage(
+                      text: aiResponse,
+                      isUser: false,
+                      timestamp: DateTime.now(),
+                    ),
+                  );
+                }
+              });
+              _scrollToBottom();
+            },
+            () async {
+              setState(() {
+                _isProcessing = false;
+                _statusMessage = null;
+              });
+              try {
+                await ref.read(taskProvider.notifier).syncData();
+              } catch (e) {
+                LoggingService.logger.warning(
+                  'Failed to sync after audio AI: $e',
+                );
+              }
+            },
+            onStatus: (status) {
+              setState(() {
+                _statusMessage = status;
+              });
+            },
+            onTranscription: (transcribedText) {
+              // Update the user message with the actual transcribed text
+              if (_messages.isNotEmpty &&
+                  _messages.last.isUser &&
+                  !transcriptionReceived) {
+                setState(() {
+                  _messages.last = ChatMessage(
+                    text: transcribedText,
+                    isUser: true,
+                    timestamp: _messages.last.timestamp,
+                  );
+                  transcriptionReceived = true;
+                });
+                _scrollToBottom();
+              }
+            },
+          );
     } catch (e) {
       LoggingService.logger.severe('Error processing audio: $e');
       setState(() {
-        _messages.add(ChatMessage(
-          text: 'Error: Failed to process audio',
-          isUser: false,
-          timestamp: DateTime.now(),
-        ));
+        _messages.add(
+          ChatMessage(
+            text: 'Error: Failed to process audio',
+            isUser: false,
+            timestamp: DateTime.now(),
+          ),
+        );
         _isProcessing = false;
         _statusMessage = null;
       });
       _scrollToBottom();
     }
+  }
+
+  Future<void> _processTextMessage(String message) async {
+    // Set the text in the controller and send it
+    _textController.text = message;
+    await _sendMessage();
   }
 
   Future<void> _sendMessage() async {
@@ -159,11 +185,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     _textController.clear();
 
     setState(() {
-      _messages.add(ChatMessage(
-        text: userMessage,
-        isUser: true,
-        timestamp: DateTime.now(),
-      ));
+      _messages.add(
+        ChatMessage(text: userMessage, isUser: true, timestamp: DateTime.now()),
+      );
       _isProcessing = true;
       _statusMessage = 'Initializing...';
     });
@@ -174,53 +198,61 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       final model = SettingsService.instance.aiModel.value;
       String aiResponse = '';
 
-      await ref.read(apiServiceProvider).sendTextAIStream(
-        userMessage,
-        model,
-        (chunk) {
-          setState(() {
-            aiResponse += chunk;
-            if (_messages.isNotEmpty && !_messages.last.isUser) {
-              _messages.last = ChatMessage(
-                text: aiResponse,
-                isUser: false,
-                timestamp: _messages.last.timestamp,
-              );
-            } else {
-              _messages.add(ChatMessage(
-                text: aiResponse,
-                isUser: false,
-                timestamp: DateTime.now(),
-              ));
-            }
-          });
-          _scrollToBottom();
-        },
-        () async {
-          setState(() {
-            _isProcessing = false;
-            _statusMessage = null;
-          });
-          try {
-            await ref.read(taskProvider.notifier).syncData();
-          } catch (e) {
-            LoggingService.logger.warning('Failed to sync after text AI: $e');
-          }
-        },
-        onStatus: (status) {
-          setState(() {
-            _statusMessage = status;
-          });
-        },
-      );
+      await ref
+          .read(apiServiceProvider)
+          .sendTextAIStream(
+            userMessage,
+            model,
+            (chunk) {
+              setState(() {
+                aiResponse += chunk;
+                if (_messages.isNotEmpty && !_messages.last.isUser) {
+                  _messages.last = ChatMessage(
+                    text: aiResponse,
+                    isUser: false,
+                    timestamp: _messages.last.timestamp,
+                  );
+                } else {
+                  _messages.add(
+                    ChatMessage(
+                      text: aiResponse,
+                      isUser: false,
+                      timestamp: DateTime.now(),
+                    ),
+                  );
+                }
+              });
+              _scrollToBottom();
+            },
+            () async {
+              setState(() {
+                _isProcessing = false;
+                _statusMessage = null;
+              });
+              try {
+                await ref.read(taskProvider.notifier).syncData();
+              } catch (e) {
+                LoggingService.logger.warning(
+                  'Failed to sync after text AI: $e',
+                );
+              }
+            },
+            onStatus: (status) {
+              setState(() {
+                _statusMessage = status;
+              });
+            },
+          );
     } catch (e) {
       LoggingService.logger.severe('Error sending AI request: $e');
       setState(() {
-        _messages.add(ChatMessage(
-          text: 'Error: Failed to get AI response',
-          isUser: false,
-          timestamp: DateTime.now(),
-        ));
+        _messages.add(
+          ChatMessage(
+            text: 'Error: Failed to get AI response',
+            isUser: false,
+            timestamp: DateTime.now(),
+          ),
+        );
         _isProcessing = false;
         _statusMessage = null;
       });
@@ -233,7 +265,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: message.isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: [
           if (!message.isUser) ...[
             CircleAvatar(
@@ -276,7 +310,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   }
 
   Widget _buildStatusIndicator() {
-    if (!_isProcessing || _statusMessage == null) return const SizedBox.shrink();
+    if (!_isProcessing || _statusMessage == null)
+      return const SizedBox.shrink();
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -345,7 +380,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                           borderSide: BorderSide.none,
                         ),
                         filled: true,
-                        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        fillColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 12,
@@ -370,7 +407,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
                               ),
                             )
                           : const Icon(Icons.send, color: Colors.white),

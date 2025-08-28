@@ -122,7 +122,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                               SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
                               SizedBox(width: 8),
                               Text('Syncing...'),

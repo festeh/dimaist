@@ -84,11 +84,11 @@ class _RecordingDialogState extends ConsumerState<RecordingDialog>
       _isProcessing = true;
       _audioPath = path;
     });
-    
+
     if (_audioPath != null && mounted) {
       final file = File(_audioPath!);
       final bytes = await file.readAsBytes();
-      
+
       // Navigate to chat screen and pass the audio data
       Navigator.of(context).pop(); // Close recording dialog
       Navigator.of(context).push(

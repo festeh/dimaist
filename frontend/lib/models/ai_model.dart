@@ -5,11 +5,11 @@ enum AiModel {
   deepseekV31('deepseek-ai/DeepSeek-V3.1');
 
   const AiModel(this.value);
-  
+
   final String value;
-  
+
   static AiModel get defaultModel => AiModel.deepseekV31;
-  
+
   static AiModel? fromString(String value) {
     for (AiModel model in AiModel.values) {
       if (model.value == value) {
@@ -18,6 +18,7 @@ enum AiModel {
     }
     return null;
   }
-  
-  static List<String> get allValues => AiModel.values.map((e) => e.value).toList();
+
+  static List<String> get allValues =>
+      AiModel.values.map((e) => e.value).toList();
 }

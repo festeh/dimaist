@@ -233,39 +233,45 @@ class ApiService {
     Function() onDone, {
     Function(String)? onStatus,
   }) async {
-    _logger.info('Sending text AI streaming request...', {'text': text, 'model': model});
-    
+    _logger.info('Sending text AI streaming request...', {
+      'text': text,
+      'model': model,
+    });
+
     final client = http.Client();
     try {
       final request = http.Request('POST', Uri.parse('$baseUrl/ai/text'));
       request.headers['Content-Type'] = 'application/json';
       request.headers['Accept'] = 'text/event-stream';
-      request.body = json.encode({
-        'text': text,
-        'model': model,
-      });
+      request.body = json.encode({'text': text, 'model': model});
 
       final response = await client.send(request);
-      
+
       if (response.statusCode == 200) {
         _logger.info('Text AI streaming request successful.');
-        
-        await for (final chunk in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
+
+        await for (final chunk
+            in response.stream
+                .transform(utf8.decoder)
+                .transform(const LineSplitter())) {
           if (chunk.startsWith('data: ')) {
             final data = chunk.substring(6);
             if (data.trim().isEmpty) continue;
-            
+
             try {
               final eventData = json.decode(data);
               final event = eventData['event'] as String?;
               final eventPayload = eventData['data'];
-              
-              _logger.fine('Received SSE event: $event with data: $eventPayload');
-              
+
+              _logger.fine(
+                'Received SSE event: $event with data: $eventPayload',
+              );
+
               switch (event) {
                 case 'thinking':
                   // Show progress messages
-                  if (onStatus != null && eventPayload is Map<String, dynamic>) {
+                  if (onStatus != null &&
+                      eventPayload is Map<String, dynamic>) {
                     final message = eventPayload['message'] as String?;
                     if (message != null) {
                       onStatus(message);
@@ -285,7 +291,8 @@ class ApiService {
                 case 'error':
                   // Handle error events
                   if (eventPayload is Map<String, dynamic>) {
-                    final errorMsg = eventPayload['error'] as String? ?? 'Unknown error';
+                    final errorMsg =
+                        eventPayload['error'] as String? ?? 'Unknown error';
                     onChunk('Error: $errorMsg');
                   }
                   onDone();
@@ -304,11 +311,13 @@ class ApiService {
             }
           }
         }
-        
+
         // If we reach here without getting a final_response, call onDone anyway
         onDone();
       } else {
-        _logger.warning('Failed to send text AI streaming request: ${response.statusCode}');
+        _logger.warning(
+          'Failed to send text AI streaming request: ${response.statusCode}',
+        );
         throw Exception('Failed to send text AI streaming request');
       }
     } catch (e) {
@@ -362,7 +371,7 @@ class ApiService {
     Function(String)? onTranscription,
   }) async {
     _logger.info('Sending audio streaming request...', {'model': model});
-    
+
     final client = http.Client();
     try {
       var request = http.MultipartRequest(
@@ -380,26 +389,32 @@ class ApiService {
       request.fields['model'] = model;
 
       final response = await client.send(request);
-      
+
       if (response.statusCode == 200) {
         _logger.info('Audio streaming request successful.');
-        
-        await for (final chunk in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
+
+        await for (final chunk
+            in response.stream
+                .transform(utf8.decoder)
+                .transform(const LineSplitter())) {
           if (chunk.startsWith('data: ')) {
             final data = chunk.substring(6);
             if (data.trim().isEmpty) continue;
-            
+
             try {
               final eventData = json.decode(data);
               final event = eventData['event'] as String?;
               final eventPayload = eventData['data'];
-              
-              _logger.fine('Received SSE event: $event with data: $eventPayload');
-              
+
+              _logger.fine(
+                'Received SSE event: $event with data: $eventPayload',
+              );
+
               switch (event) {
                 case 'transcription':
                   // Handle transcription event
-                  if (onTranscription != null && eventPayload is Map<String, dynamic>) {
+                  if (onTranscription != null &&
+                      eventPayload is Map<String, dynamic>) {
                     final transcribedText = eventPayload['text'] as String?;
                     if (transcribedText != null) {
                       onTranscription(transcribedText);
@@ -408,7 +423,8 @@ class ApiService {
                   break;
                 case 'thinking':
                   // Show progress messages
-                  if (onStatus != null && eventPayload is Map<String, dynamic>) {
+                  if (onStatus != null &&
+                      eventPayload is Map<String, dynamic>) {
                     final message = eventPayload['message'] as String?;
                     if (message != null) {
                       onStatus(message);
@@ -428,7 +444,8 @@ class ApiService {
                 case 'error':
                   // Handle error events
                   if (eventPayload is Map<String, dynamic>) {
-                    final errorMsg = eventPayload['error'] as String? ?? 'Unknown error';
+                    final errorMsg =
+                        eventPayload['error'] as String? ?? 'Unknown error';
                     onChunk('Error: $errorMsg');
                   }
                   onDone();
@@ -447,11 +464,13 @@ class ApiService {
             }
           }
         }
-        
+
         // If we reach here without getting a final_response, call onDone anyway
         onDone();
       } else {
-        _logger.warning('Failed to send audio streaming request: ${response.statusCode}');
+        _logger.warning(
+          'Failed to send audio streaming request: ${response.statusCode}',
+        );
         throw Exception('Failed to send audio streaming request');
       }
     } catch (e) {
