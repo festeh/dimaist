@@ -124,8 +124,13 @@ func handleAITextWithWriter(sseWriter ai.SSEWriter, text string, model string) {
 
 func loadRecentTasks(limit int) ([]database.Task, error) {
 	var tasks []database.Task
+	
+	// Get date 30 days ago for filtering completed tasks
+	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
+	
 	result := database.DB.Preload("Project").
 		Where("deleted_at IS NULL").
+		Where("completed_at IS NULL OR completed_at > ?", thirtyDaysAgo).
 		Order("updated_at DESC").
 		Limit(limit).
 		Find(&tasks)
@@ -140,7 +145,11 @@ func loadRecentTasks(limit int) ([]database.Task, error) {
 
 func loadRecentProjects(limit int) ([]database.Project, error) {
 	var projects []database.Project
-	result := database.DB.Preload("Tasks", "deleted_at IS NULL").
+	
+	// Get date 30 days ago for filtering completed tasks
+	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
+	
+	result := database.DB.Preload("Tasks", "deleted_at IS NULL AND (completed_at IS NULL OR completed_at > ?)", thirtyDaysAgo).
 		Where("deleted_at IS NULL").
 		Order("updated_at DESC").
 		Limit(limit).
