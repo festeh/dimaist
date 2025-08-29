@@ -3,7 +3,6 @@ package logger
 import (
 	"os"
 	"strings"
-	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -44,7 +43,7 @@ func InitLogger(logLevel, logFormat string) {
 		// Pretty format for development
 		Logger = zerolog.New(zerolog.ConsoleWriter{
 			Out:        os.Stdout,
-			TimeFormat: time.RFC3339,
+			TimeFormat: "01-02 15:04:05.00",
 		}).
 			Level(level).
 			With().
