@@ -2,7 +2,9 @@ enum AiModel {
   deepseekR1('chutes/deepseek-ai/DeepSeek-R1'),
   qwen3235B('chutes/Qwen/Qwen3-235B-A22B'),
   gptOss120b('chutes/openai/gpt-oss-120b'),
-  deepseekV31('deepseek-ai/DeepSeek-V3.1');
+  gptOss20b('chutes/openai/gpt-oss-20b'),
+  deepseekV31('chutes/deepseek-ai/DeepSeek-V3.1'),
+  glm45('chutes/zai-org/GLM-4.5-FP8');
 
   const AiModel(this.value);
 

@@ -16,6 +16,14 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   String _selectedModel = AiModel.defaultModel.value;
   bool _isSyncing = false;
 
+  String _getCondensedModelName(String fullPath) {
+    final parts = fullPath.split('/');
+    if (parts.length >= 3) {
+      return '${parts.first.substring(0, 1)}/${parts.last}';
+    }
+    return fullPath;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -76,9 +84,24 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: DropdownButton<String>(
+                  child: DropdownButtonFormField<String>(
                     isExpanded: true,
                     value: _selectedModel,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      fillColor: Theme.of(context).colorScheme.surface,
+                      filled: true,
+                    ),
+                    dropdownColor: Theme.of(context).colorScheme.surface,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                     onChanged: (String? newValue) {
                       if (newValue != null) {
                         setState(() {
@@ -95,7 +118,13 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                     ) {
                       return DropdownMenuItem<String>(
                         value: value,
-                        child: Text(value, overflow: TextOverflow.ellipsis),
+                        child: Text(
+                          _getCondensedModelName(value), 
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
                       );
                     }).toList(),
                   ),

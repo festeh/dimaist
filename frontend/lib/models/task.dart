@@ -142,7 +142,7 @@ class Task {
       );
     } catch (e) {
       LoggingService.logger.severe(
-        'Task.fromJson: Error processing task JSON: $e',
+        'Task.fromJson: Error processing task JSON (id: ${json['id']}, description: "${json['description']}"): $e. Raw JSON: $json',
       );
       rethrow;
     }

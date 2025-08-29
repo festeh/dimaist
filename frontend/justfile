@@ -52,6 +52,16 @@ build-phone:
 build-wear:
     @just _run-with-base-url "flutter build apk --flavor wear -t lib/main_wear.dart"
 
+# Build and install phone APK in debug mode
+install-phone:
+    @just _run-with-base-url "flutter build apk --debug --flavor phone -t lib/main.dart"
+    adb install build/app/outputs/flutter-apk/app-phone-debug.apk
+
+# Build and install phone APK in release mode
+install-phone-release:
+    @just build-phone
+    adb install build/app/outputs/flutter-apk/app-phone-release.apk
+
 # Clean build artifacts
 clean:
     flutter clean

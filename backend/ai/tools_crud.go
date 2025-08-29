@@ -263,10 +263,17 @@ func createTaskCRUDTool(args map[string]interface{}) (string, error) {
 		Description: description,
 	}
 
-	// Optional project ID
+	// Optional project ID - if not provided, assign to Inbox
 	if projectIDFloat, ok := args["project_id"].(float64); ok {
 		projectID := uint(projectIDFloat)
 		task.ProjectID = &projectID
+	} else {
+		// Find Inbox project and assign task to it
+		var inboxProject database.Project
+		if err := database.DB.Where("name = ? AND deleted_at IS NULL", "Inbox").First(&inboxProject).Error; err != nil {
+			return "", fmt.Errorf("failed to find Inbox project: %w", err)
+		}
+		task.ProjectID = &inboxProject.ID
 	}
 
 	// Optional due date
