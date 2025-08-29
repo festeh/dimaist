@@ -1,17 +1,15 @@
 import 'dart:async';
-import 'package:dimaist/services/logging_service.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
-import '../repositories/providers.dart';
-import '../services/settings_service.dart';
-import '../providers/task_provider.dart';
 import '../screens/ai_chat_screen.dart';
 
 class RecordingDialog extends ConsumerStatefulWidget {
-  const RecordingDialog({super.key});
+  final Function(List<int>)? onAudioRecorded;
+  
+  const RecordingDialog({super.key, this.onAudioRecorded});
 
   @override
   ConsumerState<RecordingDialog> createState() => _RecordingDialogState();
@@ -89,13 +87,19 @@ class _RecordingDialogState extends ConsumerState<RecordingDialog>
       final file = File(_audioPath!);
       final bytes = await file.readAsBytes();
 
-      // Navigate to chat screen and pass the audio data
       Navigator.of(context).pop(); // Close recording dialog
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => AiChatScreen(initialAudioBytes: bytes),
-        ),
-      );
+      
+      if (widget.onAudioRecorded != null) {
+        // Use callback if provided (for in-chat recording)
+        widget.onAudioRecorded!(bytes);
+      } else {
+        // Navigate to new chat screen (for recording from elsewhere)
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => AiChatScreen(initialAudioBytes: bytes),
+          ),
+        );
+      }
     } else {
       if (mounted) {
         Navigator.of(context).pop();

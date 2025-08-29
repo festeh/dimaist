@@ -101,12 +101,13 @@ Always be helpful and provide clear responses.`
 	}
 
 	// Use a default endpoint for the example - this should be replaced with actual endpoint
-	endpoint := os.Getenv("AI_ENDPOINT")
+	endpoint := os.Getenv("OPENROUTER_ENDPOINT")
 	if endpoint == "" {
 		endpoint = "https://openrouter.ai/api/v1/chat/completions" // fallback
 	}
 
-	return NewAgent(apiKey, endpoint, context, initialPrompt, tools)
+	model := "google/gemini-2.0-flash-001" // default model
+	return NewAgent(apiKey, endpoint, context, initialPrompt, tools, model)
 }
 
 func createTaskTool(args map[string]interface{}) (string, error) {

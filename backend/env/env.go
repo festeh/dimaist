@@ -6,12 +6,14 @@ import (
 )
 
 type Env struct {
-	AsrUrl      string
-	LogLevel    string
-	LogFormat   string
-	DatabaseURL string
-	AIEndpoint  string
-	AIToken     string
+	AsrUrl             string
+	LogLevel           string
+	LogFormat          string
+	DatabaseURL        string
+	ChutesEndpoint     string
+	ChutesToken        string
+	OpenrouterEndpoint string
+	OpenrouterToken    string
 }
 
 func New() (*Env, error) {
@@ -30,17 +32,29 @@ func New() (*Env, error) {
 	}
 	env.AsrUrl = asrURL
 
-	aiEndpoint := os.Getenv("AI_ENDPOINT")
-	if aiEndpoint == "" {
-		return nil, fmt.Errorf("AI_ENDPOINT environment variable is required")
+	chutesEndpoint := os.Getenv("CHUTES_ENDPOINT")
+	if chutesEndpoint == "" {
+		return nil, fmt.Errorf("CHUTES_ENDPOINT environment variable is required")
 	}
-	env.AIEndpoint = aiEndpoint
+	env.ChutesEndpoint = chutesEndpoint
 
-	aiToken := os.Getenv("AI_TOKEN")
-	if aiToken == "" {
-		return nil, fmt.Errorf("AI_TOKEN environment variable is required")
+	chutesToken := os.Getenv("CHUTES_TOKEN")
+	if chutesToken == "" {
+		return nil, fmt.Errorf("CHUTES_TOKEN environment variable is required")
 	}
-	env.AIToken = aiToken
+	env.ChutesToken = chutesToken
+
+	openrouterEndpoint := os.Getenv("OPENROUTER_ENDPOINT")
+	if openrouterEndpoint == "" {
+		return nil, fmt.Errorf("OPENROUTER_ENDPOINT environment variable is required")
+	}
+	env.OpenrouterEndpoint = openrouterEndpoint
+
+	openrouterToken := os.Getenv("OPENROUTER_TOKEN")
+	if openrouterToken == "" {
+		return nil, fmt.Errorf("OPENROUTER_TOKEN environment variable is required")
+	}
+	env.OpenrouterToken = openrouterToken
 
 	// Optional environment variables with defaults
 	env.LogLevel = getEnvOrDefault("LOG_LEVEL", "info")

@@ -89,14 +89,14 @@ type ChatCompletionChoice struct {
 	FinishReason string                `json:"finish_reason,omitempty"`
 }
 
-func NewAgent(apiKey, endpoint, context, initialPrompt string, tools []Tool) *Agent {
+func NewAgent(apiKey, endpoint, context, initialPrompt string, tools []Tool, model string) *Agent {
 	return &Agent{
 		apiKey:        apiKey,
 		endpoint:      endpoint,
 		context:       context,
 		tools:         tools,
 		initialPrompt: initialPrompt,
-		model:         "google/gemini-2.0-flash-001",
+		model:         model,
 		client:        &http.Client{Timeout: 60 * time.Second},
 	}
 }
@@ -339,14 +339,8 @@ func (a *Agent) callModel(messages []ChatCompletionMessage) (*ChatCompletionResp
 }
 
 func (a *Agent) callModelWithTimeout(ctx context.Context, messages []ChatCompletionMessage) (*ChatCompletionResponse, error) {
-	// Strip "chutes/" prefix from model name
-	model := a.model
-	if strings.HasPrefix(model, "chutes/") {
-		model = strings.TrimPrefix(model, "chutes/")
-	}
-
 	request := ChatCompletionRequest{
-		Model:       model,
+		Model:       a.model,
 		MaxTokens:   10000,
 		Temperature: 0.1,
 		Messages:    messages,

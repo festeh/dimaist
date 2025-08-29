@@ -224,18 +224,30 @@ The tools will be called automatically based on your function calls.`,
 func createAIAgent(systemPrompt string, model string) *ai.Agent {
 	tools := ai.CreateCRUDTools()
 
+	// Select endpoint and token based on model prefix
+	var apiKey, endpoint string
+	if strings.HasPrefix(model, "chutes/") {
+		apiKey = appEnv.ChutesToken
+		endpoint = appEnv.ChutesEndpoint
+	} else {
+		apiKey = appEnv.OpenrouterToken
+		endpoint = appEnv.OpenrouterEndpoint
+	}
+	
+	// Trim any prefix (everything before and including the first "/")
+	if slashIndex := strings.Index(model, "/"); slashIndex != -1 {
+		model = model[slashIndex+1:]
+	}
+
 	// Create agent using environment configuration
 	agent := ai.NewAgent(
-		appEnv.AIToken,    // API key
-		appEnv.AIEndpoint, // Custom AI endpoint
-		"",                // context - we'll override in buildSystemPrompt
-		systemPrompt,      // initial prompt contains our full system prompt
+		apiKey,       // API key
+		endpoint,     // Custom AI endpoint
+		systemPrompt, // context
+		systemPrompt, // initial prompt contains our full system prompt
 		tools,
+		model, // model
 	)
-
-	// Configure the agent to use the specified model
-	agent.SetModel(model)
-	agent.SetContext(systemPrompt)
 
 	return agent
 }
