@@ -82,7 +82,8 @@ func HandleAITextWithWriter(sseWriter SSEWriter, messages []ChatCompletionMessag
 		return
 	}
 
-	// Load context with limits
+	// Load context with limits and track timing
+	contextStartTime := time.Now()
 	tasks, err := LoadRecentTasks(1000)
 	if err != nil {
 		logger.Error("Failed to load tasks").Err(err).Send()
@@ -100,6 +101,7 @@ func HandleAITextWithWriter(sseWriter SSEWriter, messages []ChatCompletionMessag
 		})
 		return
 	}
+	contextDuration := time.Since(contextStartTime).Seconds()
 
 	// Build system prompt and prepend to messages
 	systemPrompt, err := buildSystemPrompt(tasks, projects)
@@ -120,9 +122,10 @@ func HandleAITextWithWriter(sseWriter SSEWriter, messages []ChatCompletionMessag
 	// Create agent for message-based execution
 	agent := createAIAgent(model)
 
-	// Send thinking event before starting
-	if err := sseWriter.Send("thinking", map[string]string{
-		"message": "Starting AI agent...",
+	// Send thinking event before starting with context loading duration
+	if err := sseWriter.Send("thinking", map[string]interface{}{
+		"message":  fmt.Sprintf("Context loaded (%.2fs), starting AI agent...", contextDuration),
+		"duration": contextDuration,
 	}); err != nil {
 		logger.Error("Failed to send thinking event").Err(err).Send()
 		return

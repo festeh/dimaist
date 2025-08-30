@@ -7,11 +7,7 @@ import '../services/logging_service.dart';
 import '../providers/task_provider.dart';
 import '../widgets/chat_input_widget.dart';
 
-enum MessageType {
-  normal,
-  toolCall,
-  toolResult,
-}
+enum MessageType { normal, toolCall, toolResult }
 
 class ChatMessage {
   final String text;
@@ -19,6 +15,7 @@ class ChatMessage {
   final DateTime timestamp;
   final MessageType type;
   final Map<String, dynamic>? metadata; // for tool details
+  final double? duration; // duration in seconds
 
   ChatMessage({
     required this.text,
@@ -26,18 +23,30 @@ class ChatMessage {
     required this.timestamp,
     this.type = MessageType.normal,
     this.metadata,
+    this.duration,
   });
 
   // Helper getter for backward compatibility
   bool get isUser => role == 'user';
 
+  // Format duration for display
+  String? get formattedDuration {
+    if (duration == null) return null;
+    if (duration! < 1) {
+      return '${(duration! * 1000).round()}ms';
+    } else if (duration! < 60) {
+      return '${duration!.toStringAsFixed(1)}s';
+    } else {
+      final minutes = (duration! / 60).floor();
+      final seconds = (duration! % 60).round();
+      return '${minutes}m ${seconds}s';
+    }
+  }
+
   // Convert to API format
   Map<String, dynamic> toApiFormat() {
-    final apiMessage = {
-      'role': role,
-      'content': text,
-    };
-    
+    final apiMessage = {'role': role, 'content': text};
+
     // Add tool-specific fields if needed
     if (metadata != null) {
       if (metadata!.containsKey('tool_calls')) {
@@ -47,7 +56,7 @@ class ChatMessage {
         apiMessage['tool_call_id'] = metadata!['tool_call_id'];
       }
     }
-    
+
     return apiMessage;
   }
 }
@@ -136,7 +145,12 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         .toList();
   }
 
-  void _addToolMessage(String text, MessageType type, {Map<String, dynamic>? metadata}) {
+  void _addToolMessage(
+    String text,
+    MessageType type, {
+    Map<String, dynamic>? metadata,
+    double? duration,
+  }) {
     setState(() {
       _messages.add(
         ChatMessage(
@@ -145,6 +159,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           timestamp: DateTime.now(),
           type: type,
           metadata: metadata,
+          duration: duration,
         ),
       );
     });
@@ -175,13 +190,13 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
       // Build messages history for context
       final previousMessages = _buildMessagesFromHistory();
-      
+
       await ref
           .read(apiServiceProvider)
           .sendAudioStream(
             audioBytes,
             model,
-            (chunk) {
+            (chunk, {double? duration}) {
               setState(() {
                 aiResponse += chunk;
                 if (_messages.isNotEmpty && !_messages.last.isUser) {
@@ -189,6 +204,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                     text: aiResponse,
                     role: 'assistant',
                     timestamp: _messages.last.timestamp,
+                    duration: duration,
                   );
                 } else {
                   _messages.add(
@@ -196,6 +212,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                       text: aiResponse,
                       role: 'assistant',
                       timestamp: DateTime.now(),
+                      duration: duration,
                     ),
                   );
                 }
@@ -236,11 +253,19 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 _scrollToBottom();
               }
             },
-            onToolCall: (toolCall) {
-              _addToolMessage(toolCall, MessageType.toolCall);
+            onToolCall: (toolCall, {double? duration}) {
+              _addToolMessage(
+                toolCall,
+                MessageType.toolCall,
+                duration: duration,
+              );
             },
-            onToolResult: (toolResult) {
-              _addToolMessage(toolResult, MessageType.toolResult);
+            onToolResult: (toolResult, {double? duration}) {
+              _addToolMessage(
+                toolResult,
+                MessageType.toolResult,
+                duration: duration,
+              );
             },
             previousMessages: previousMessages,
           );
@@ -287,17 +312,18 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       // Build complete messages array including the new user message
       final messagesHistory = _buildMessagesFromHistory();
       // The new user message is already added to _messages, so we need to include it
-      final allMessages = messagesHistory + [{
-        'role': 'user',
-        'content': message,
-      }];
+      final allMessages =
+          messagesHistory +
+          [
+            {'role': 'user', 'content': message},
+          ];
 
       await ref
           .read(apiServiceProvider)
           .sendTextAIStream(
             allMessages,
             model,
-            (chunk) {
+            (chunk, {double? duration}) {
               setState(() {
                 aiResponse += chunk;
                 if (_messages.isNotEmpty && !_messages.last.isUser) {
@@ -305,6 +331,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                     text: aiResponse,
                     role: 'assistant',
                     timestamp: _messages.last.timestamp,
+                    duration: duration,
                   );
                 } else {
                   _messages.add(
@@ -312,6 +339,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                       text: aiResponse,
                       role: 'assistant',
                       timestamp: DateTime.now(),
+                      duration: duration,
                     ),
                   );
                 }
@@ -336,11 +364,19 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 _statusMessage = status;
               });
             },
-            onToolCall: (toolCall) {
-              _addToolMessage(toolCall, MessageType.toolCall);
+            onToolCall: (toolCall, {double? duration}) {
+              _addToolMessage(
+                toolCall,
+                MessageType.toolCall,
+                duration: duration,
+              );
             },
-            onToolResult: (toolResult) {
-              _addToolMessage(toolResult, MessageType.toolResult);
+            onToolResult: (toolResult, {double? duration}) {
+              _addToolMessage(
+                toolResult,
+                MessageType.toolResult,
+                duration: duration,
+              );
             },
           );
     } catch (e) {
@@ -362,7 +398,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
   Widget _buildMessage(ChatMessage message) {
     // Handle tool call and tool result messages
-    if (message.type == MessageType.toolCall || message.type == MessageType.toolResult) {
+    if (message.type == MessageType.toolCall ||
+        message.type == MessageType.toolResult) {
       return _buildToolMessage(message);
     }
 
@@ -376,26 +413,21 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           children: [
             Flexible(
               child: Container(
-                constraints: const BoxConstraints(maxWidth: 300), // Limit max width
+                constraints: const BoxConstraints(
+                  maxWidth: 300,
+                ), // Limit max width
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.purple[50],
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.purple[200]!,
-                    width: 1.5,
-                  ),
+                  border: Border.all(color: Colors.purple[200]!, width: 1.5),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          Icons.person,
-                          size: 18,
-                          color: Colors.purple[700],
-                        ),
+                        Icon(Icons.person, size: 18, color: Colors.purple[700]),
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
@@ -412,10 +444,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                     const SizedBox(height: 8),
                     SelectableText(
                       message.text,
-                      style: TextStyle(
-                        color: Colors.grey[800],
-                        fontSize: 13,
-                      ),
+                      style: TextStyle(color: Colors.grey[800], fontSize: 13),
                     ),
                   ],
                 ),
@@ -439,25 +468,20 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
               decoration: BoxDecoration(
                 color: Colors.blue[50],
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.blue[200]!,
-                  width: 1.5,
-                ),
+                border: Border.all(color: Colors.blue[200]!, width: 1.5),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(
-                        Icons.smart_toy,
-                        size: 18,
-                        color: Colors.blue[700],
-                      ),
+                      Icon(Icons.smart_toy, size: 18, color: Colors.blue[700]),
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
-                          'Response',
+                          message.formattedDuration != null
+                              ? 'Response (${message.formattedDuration})'
+                              : 'Response',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.blue[700],
@@ -472,10 +496,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                     data: message.text,
                     selectable: true,
                     styleSheet: MarkdownStyleSheet(
-                      p: TextStyle(
-                        color: Colors.grey[800],
-                        fontSize: 13,
-                      ),
+                      p: TextStyle(color: Colors.grey[800], fontSize: 13),
                       h1: TextStyle(
                         color: Colors.grey[800],
                         fontSize: 18,
@@ -530,9 +551,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                         color: Colors.grey[800],
                         fontWeight: FontWeight.bold,
                       ),
-                      tableBody: TextStyle(
-                        color: Colors.grey[800],
-                      ),
+                      tableBody: TextStyle(color: Colors.grey[800]),
                       code: TextStyle(
                         backgroundColor: Colors.grey[200],
                         color: Colors.grey[800],
@@ -555,7 +574,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
   Widget _buildToolMessage(ChatMessage message) {
     final isToolCall = message.type == MessageType.toolCall;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
       child: Row(
@@ -566,14 +585,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isToolCall 
-                    ? Colors.orange[50]
-                    : Colors.green[50],
+                color: isToolCall ? Colors.orange[50] : Colors.green[50],
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isToolCall 
-                      ? Colors.orange[200]!
-                      : Colors.green[200]!,
+                  color: isToolCall ? Colors.orange[200]! : Colors.green[200]!,
                   width: 1.5,
                 ),
               ),
@@ -585,15 +600,23 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                       Icon(
                         isToolCall ? Icons.build : Icons.check_circle_outline,
                         size: 18,
-                        color: isToolCall ? Colors.orange[700] : Colors.green[700],
+                        color: isToolCall
+                            ? Colors.orange[700]
+                            : Colors.green[700],
                       ),
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
-                          isToolCall ? 'Tool Call' : 'Tool Result',
+                          isToolCall
+                              ? (message.formattedDuration != null
+                                    ? 'Tool Call (${message.formattedDuration})'
+                                    : 'Tool Call')
+                              : 'Tool Result',
                           style: TextStyle(
                             fontSize: 14,
-                            color: isToolCall ? Colors.orange[700] : Colors.green[700],
+                            color: isToolCall
+                                ? Colors.orange[700]
+                                : Colors.green[700],
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -649,7 +672,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   Widget build(BuildContext context) {
     final currentModel = SettingsService.instance.aiModel.value;
     final condensedModelName = _getCondensedModelName(currentModel);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: Text('AI Chat ($condensedModelName)'),

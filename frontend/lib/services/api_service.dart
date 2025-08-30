@@ -229,11 +229,11 @@ class ApiService {
   Future<void> sendTextAIStream(
     List<Map<String, dynamic>> messages,
     String model,
-    Function(String) onChunk,
+    Function(String, {double? duration}) onChunk,
     Function() onDone, {
     Function(String)? onStatus,
-    Function(String)? onToolCall,
-    Function(String)? onToolResult,
+    Function(String, {double? duration})? onToolCall,
+    Function(String, {double? duration})? onToolResult,
   }) async {
     _logger.info('Sending text AI streaming request...', {
       'messages_count': messages.length,
@@ -281,11 +281,12 @@ class ApiService {
                   }
                   break;
                 case 'final_response':
-                  // This contains the actual response text
+                  // This contains the actual response text and optional duration
                   if (eventPayload is Map<String, dynamic>) {
                     final responseText = eventPayload['response'] as String?;
+                    final duration = eventPayload['duration'] as double?;
                     if (responseText != null && responseText.isNotEmpty) {
-                      onChunk(responseText);
+                      onChunk(responseText, duration: duration);
                     }
                   }
                   onDone();
@@ -295,25 +296,35 @@ class ApiService {
                   if (eventPayload is Map<String, dynamic>) {
                     final errorMsg =
                         eventPayload['error'] as String? ?? 'Unknown error';
-                    onChunk('Error: $errorMsg');
+                    final duration = eventPayload['duration'] as double?;
+                    onChunk('Error: $errorMsg', duration: duration);
                   }
                   onDone();
                   return;
                 case 'tool_call':
                   // Handle tool call events
-                  if (onToolCall != null && eventPayload is Map<String, dynamic>) {
+                  if (onToolCall != null &&
+                      eventPayload is Map<String, dynamic>) {
                     final tool = eventPayload['tool'] as String? ?? 'unknown';
-                    final arguments = eventPayload['arguments'] as String? ?? '';
+                    final arguments =
+                        eventPayload['arguments'] as String? ?? '';
+                    final duration = eventPayload['duration'] as double?;
                     // Format the tool call with both tool name and arguments
-                    final formattedCall = 'Function: $tool\n${arguments.isNotEmpty ? 'Arguments: $arguments' : 'No arguments'}';
-                    onToolCall(formattedCall);
+                    final formattedCall =
+                        'Function: $tool\n${arguments.isNotEmpty ? 'Arguments: $arguments' : 'No arguments'}';
+                    onToolCall(formattedCall, duration: duration);
                   }
                   break;
                 case 'tool_result':
                   // Handle tool result events
-                  if (onToolResult != null && eventPayload is Map<String, dynamic>) {
+                  if (onToolResult != null &&
+                      eventPayload is Map<String, dynamic>) {
                     final result = eventPayload['result'] as String? ?? '';
-                    onToolResult(result); // Pass full result without prefix
+                    final duration = eventPayload['duration'] as double?;
+                    onToolResult(
+                      result,
+                      duration: duration,
+                    ); // Pass full result with duration
                   }
                   break;
                 default:
@@ -379,12 +390,12 @@ class ApiService {
   Future<void> sendAudioStream(
     List<int> audioBytes,
     String model,
-    Function(String) onChunk,
+    Function(String, {double? duration}) onChunk,
     Function() onDone, {
     Function(String)? onStatus,
     Function(String)? onTranscription,
-    Function(String)? onToolCall,
-    Function(String)? onToolResult,
+    Function(String, {double? duration})? onToolCall,
+    Function(String, {double? duration})? onToolResult,
     List<Map<String, dynamic>>? previousMessages,
   }) async {
     _logger.info('Sending audio streaming request...', {'model': model});
@@ -404,7 +415,7 @@ class ApiService {
         ),
       );
       request.fields['model'] = model;
-      
+
       // Add previous messages if provided
       if (previousMessages != null && previousMessages.isNotEmpty) {
         request.fields['messages'] = json.encode(previousMessages);
@@ -454,11 +465,12 @@ class ApiService {
                   }
                   break;
                 case 'final_response':
-                  // This contains the actual response text
+                  // This contains the actual response text and optional duration
                   if (eventPayload is Map<String, dynamic>) {
                     final responseText = eventPayload['response'] as String?;
+                    final duration = eventPayload['duration'] as double?;
                     if (responseText != null && responseText.isNotEmpty) {
-                      onChunk(responseText);
+                      onChunk(responseText, duration: duration);
                     }
                   }
                   onDone();
@@ -468,25 +480,35 @@ class ApiService {
                   if (eventPayload is Map<String, dynamic>) {
                     final errorMsg =
                         eventPayload['error'] as String? ?? 'Unknown error';
-                    onChunk('Error: $errorMsg');
+                    final duration = eventPayload['duration'] as double?;
+                    onChunk('Error: $errorMsg', duration: duration);
                   }
                   onDone();
                   return;
                 case 'tool_call':
                   // Handle tool call events
-                  if (onToolCall != null && eventPayload is Map<String, dynamic>) {
+                  if (onToolCall != null &&
+                      eventPayload is Map<String, dynamic>) {
                     final tool = eventPayload['tool'] as String? ?? 'unknown';
-                    final arguments = eventPayload['arguments'] as String? ?? '';
+                    final arguments =
+                        eventPayload['arguments'] as String? ?? '';
+                    final duration = eventPayload['duration'] as double?;
                     // Format the tool call with both tool name and arguments
-                    final formattedCall = 'Function: $tool\n${arguments.isNotEmpty ? 'Arguments: $arguments' : 'No arguments'}';
-                    onToolCall(formattedCall);
+                    final formattedCall =
+                        'Function: $tool\n${arguments.isNotEmpty ? 'Arguments: $arguments' : 'No arguments'}';
+                    onToolCall(formattedCall, duration: duration);
                   }
                   break;
                 case 'tool_result':
                   // Handle tool result events
-                  if (onToolResult != null && eventPayload is Map<String, dynamic>) {
+                  if (onToolResult != null &&
+                      eventPayload is Map<String, dynamic>) {
                     final result = eventPayload['result'] as String? ?? '';
-                    onToolResult(result); // Pass full result without prefix
+                    final duration = eventPayload['duration'] as double?;
+                    onToolResult(
+                      result,
+                      duration: duration,
+                    ); // Pass full result with duration
                   }
                   break;
                 default:

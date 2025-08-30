@@ -124,12 +124,16 @@ func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseW
 			return "", err
 		}
 
-		// Call model with timeout
+		// Call model with timeout and track timing
+		modelStartTime := time.Now()
 		response, err := a.callModelWithTimeout(ctx, messages)
+		modelDuration := time.Since(modelStartTime).Seconds()
+		
 		if err != nil {
 			logger.Error("Model call failed").Err(err).Send()
-			if err := sseWriter.Send("error", map[string]string{
+			if err := sseWriter.Send("error", map[string]interface{}{
 				"error": fmt.Sprintf("AI call failed: %v", err),
+				"duration": modelDuration,
 			}); err != nil {
 				logger.Error("Failed to send error event").Err(err).Send()
 			}
@@ -142,8 +146,9 @@ func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseW
 			// No tool calls, return the response content
 			logger.Info("No tool calls found, returning response").Send()
 			responseText := response.Choices[0].Message.Content
-			if err := sseWriter.Send("final_response", map[string]string{
+			if err := sseWriter.Send("final_response", map[string]interface{}{
 				"response": responseText,
+				"duration": modelDuration,
 			}); err != nil {
 				logger.Error("Failed to send final_response event").Err(err).Send()
 				return "", err
@@ -157,10 +162,11 @@ func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseW
 		for _, toolCall := range response.Choices[0].Message.ToolCalls {
 			logger.Info("Tool call detected").Str("tool", toolCall.Function.Name).Send()
 
-			// Send tool call event
+			// Send tool call event with model duration (how long it took to decide to call the tool)
 			if err := sseWriter.Send("tool_call", map[string]interface{}{
 				"tool":      toolCall.Function.Name,
 				"arguments": toolCall.Function.Arguments,
+				"duration":  modelDuration,
 			}); err != nil {
 				logger.Error("Failed to send tool_call event").Err(err).Send()
 				return "", err
@@ -171,8 +177,9 @@ func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseW
 				var args map[string]interface{}
 				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err == nil {
 					if text, ok := args["text"].(string); ok {
-						if err := sseWriter.Send("final_response", map[string]string{
+						if err := sseWriter.Send("final_response", map[string]interface{}{
 							"response": text,
+							"duration": modelDuration,
 						}); err != nil {
 							logger.Error("Failed to send final_response event").Err(err).Send()
 							return "", err
@@ -181,21 +188,26 @@ func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseW
 						return text, nil
 					}
 				}
-				if err := sseWriter.Send("final_response", map[string]string{
+				if err := sseWriter.Send("final_response", map[string]interface{}{
 					"response": "Invalid response format",
+					"duration": modelDuration,
 				}); err != nil {
 					logger.Error("Failed to send final_response event").Err(err).Send()
 				}
 				return "Invalid response format", nil
 			}
 
+			toolStartTime := time.Now()
 			toolResult, err := a.executeTool(toolCall)
+			toolDuration := time.Since(toolStartTime).Seconds()
+			
 			if err != nil {
 				logger.Error("Tool execution failed").Str("tool", toolCall.Function.Name).Err(err).Send()
 
-				// Send error event
-				if err := sseWriter.Send("error", map[string]string{
+				// Send error event with timing
+				if err := sseWriter.Send("error", map[string]interface{}{
 					"error": fmt.Sprintf("Tool execution failed: %v", err),
+					"duration": toolDuration,
 				}); err != nil {
 					logger.Error("Failed to send error event").Err(err).Send()
 					return "", err
@@ -210,8 +222,8 @@ func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseW
 				continue
 			}
 
-			// Send tool result event
-			if err := sseWriter.Send("tool_result", map[string]string{
+			// Send tool result event without duration
+			if err := sseWriter.Send("tool_result", map[string]interface{}{
 				"result": toolResult,
 			}); err != nil {
 				logger.Error("Failed to send tool_result event").Err(err).Send()
