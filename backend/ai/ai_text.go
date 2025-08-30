@@ -1,4 +1,4 @@
-package main
+package ai
 
 import (
 	"context"
@@ -8,12 +8,24 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dima-b/go-task-backend/ai"
 	"github.com/dima-b/go-task-backend/database"
+	"github.com/dima-b/go-task-backend/env"
 	"github.com/dima-b/go-task-backend/logger"
 )
 
-func setupSSEHeaders(w http.ResponseWriter) {
+const (
+	// DefaultAIModel is the default AI model used when none is specified in requests
+	DefaultAIModel = "google/gemini-2.0-flash-001"
+)
+
+var appEnv *env.Env
+
+// SetEnv sets the environment configuration for the ai package
+func SetEnv(e *env.Env) {
+	appEnv = e
+}
+
+func SetupSSEHeaders(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -22,11 +34,11 @@ func setupSSEHeaders(w http.ResponseWriter) {
 }
 
 type TextRequest struct {
-	Messages []ai.ChatCompletionMessage `json:"messages"`
+	Messages []ChatCompletionMessage `json:"messages"`
 	Model    string                      `json:"model,omitempty"` // Optional AI model, defaults to DefaultAIModel
 }
 
-func handleAIText(w http.ResponseWriter, r *http.Request) {
+func HandleAIText(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Handling AI text request").Send()
 
 	// Parse request
@@ -50,16 +62,16 @@ func handleAIText(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Setup SSE headers
-	setupSSEHeaders(w)
+	SetupSSEHeaders(w)
 
 	// Create SSE writer
-	sseWriter := ai.NewSSEWriter(w)
+	sseWriter := NewSSEWriter(w)
 
 	// Call the shared handler
-	handleAITextWithWriter(sseWriter, req.Messages, model)
+	HandleAITextWithWriter(sseWriter, req.Messages, model)
 }
 
-func handleAITextWithWriter(sseWriter ai.SSEWriter, messages []ai.ChatCompletionMessage, model string) {
+func HandleAITextWithWriter(sseWriter SSEWriter, messages []ChatCompletionMessage, model string) {
 	logger.Info("Handling AI text with writer").Int("messages_count", len(messages)).Str("model", model).Send()
 
 	// Send initial thinking event
@@ -71,7 +83,7 @@ func handleAITextWithWriter(sseWriter ai.SSEWriter, messages []ai.ChatCompletion
 	}
 
 	// Load context with limits
-	tasks, err := loadRecentTasks(1000)
+	tasks, err := LoadRecentTasks(1000)
 	if err != nil {
 		logger.Error("Failed to load tasks").Err(err).Send()
 		sseWriter.Send("error", map[string]string{
@@ -80,7 +92,7 @@ func handleAITextWithWriter(sseWriter ai.SSEWriter, messages []ai.ChatCompletion
 		return
 	}
 
-	projects, err := loadRecentProjects(100)
+	projects, err := LoadRecentProjects(100)
 	if err != nil {
 		logger.Error("Failed to load projects").Err(err).Send()
 		sseWriter.Send("error", map[string]string{
@@ -100,7 +112,7 @@ func handleAITextWithWriter(sseWriter ai.SSEWriter, messages []ai.ChatCompletion
 	}
 
 	// Prepend system message to the messages array
-	messagesWithSystem := []ai.ChatCompletionMessage{
+	messagesWithSystem := []ChatCompletionMessage{
 		{Role: "system", Content: systemPrompt},
 	}
 	messagesWithSystem = append(messagesWithSystem, messages...)
@@ -128,7 +140,7 @@ func handleAITextWithWriter(sseWriter ai.SSEWriter, messages []ai.ChatCompletion
 	}
 }
 
-func loadRecentTasks(limit int) ([]database.Task, error) {
+func LoadRecentTasks(limit int) ([]database.Task, error) {
 	var tasks []database.Task
 
 	// Get date 30 days ago for filtering completed tasks
@@ -149,7 +161,7 @@ func loadRecentTasks(limit int) ([]database.Task, error) {
 	return tasks, nil
 }
 
-func loadRecentProjects(limit int) ([]database.Project, error) {
+func LoadRecentProjects(limit int) ([]database.Project, error) {
 	var projects []database.Project
 
 	// Get date 30 days ago for filtering completed tasks
@@ -183,7 +195,7 @@ func buildSystemPrompt(tasks []database.Task, projects []database.Project) (stri
 	var toolsDesc strings.Builder
 	toolsDesc.WriteString("Available tools:\n")
 
-	tools := ai.CreateCRUDTools()
+	tools := CreateCRUDTools()
 	for _, tool := range tools {
 		toolsDesc.WriteString(fmt.Sprintf("- %s: %s\n", tool.Function.Name, tool.Function.Description))
 
@@ -227,8 +239,8 @@ The tools will be called automatically based on your function calls.`,
 		time.Now().Format("2006-01-02 15:04:05 MST"), tasksJSON, projectsJSON, toolsDesc.String()), nil
 }
 
-func createAIAgent(model string) *ai.Agent {
-	tools := ai.CreateCRUDTools()
+func createAIAgent(model string) *Agent {
+	tools := CreateCRUDTools()
 
 	// Select endpoint and token based on model prefix
 	var apiKey, endpoint string
@@ -246,7 +258,7 @@ func createAIAgent(model string) *ai.Agent {
 	}
 
 	// Create agent using environment configuration
-	agent := ai.NewAgent(
+	agent := NewAgent(
 		apiKey,   // API key
 		endpoint, // Custom AI endpoint
 		tools,

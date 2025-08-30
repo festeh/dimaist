@@ -179,10 +179,7 @@ func createRealAgent(systemPrompt string) *ai.Agent {
 	}
 
 	tools := ai.CreateCRUDTools()
-	agent := ai.NewAgent(apiKey, endpoint, systemPrompt, tools, "")
-
-	// Set model that works with chutes.ai
-	agent.SetModel("deepseek-ai/DeepSeek-V3.1")
+	agent := ai.NewAgent(apiKey, endpoint, tools, "deepseek-ai/DeepSeek-V3.1")
 
 	return agent
 }

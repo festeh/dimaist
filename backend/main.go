@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/dima-b/go-task-backend/ai"
 	"github.com/dima-b/go-task-backend/database"
 	"github.com/dima-b/go-task-backend/env"
 	"github.com/dima-b/go-task-backend/logger"
@@ -38,6 +39,9 @@ func main() {
 		fmt.Printf("Error: Failed to initialize environment: %v\n", err)
 		return
 	}
+
+	// Set environment for ai package
+	ai.SetEnv(appEnv)
 
 	// Initialize logger with env config
 	logger.InitLogger(appEnv.LogLevel, appEnv.LogFormat, *verbose)
@@ -98,7 +102,7 @@ func main() {
 	// AI routes
 	r.Route("/ai", func(r chi.Router) {
 		r.Post("/audio", transcribeAudio)
-		r.Post("/text", handleAIText)
+		r.Post("/text", ai.HandleAIText)
 	})
 
 	// Sync route

@@ -34,7 +34,7 @@ func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 	// Get optional model parameter from form
 	model := r.FormValue("model")
 	if model == "" {
-		model = DefaultAIModel
+		model = ai.DefaultAIModel
 	}
 
 	// Get optional previous messages from form
@@ -106,7 +106,7 @@ func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Successfully transcribed audio, redirecting to AI text handler").Str("text", result.Text).Str("model", model).Int("previous_messages", len(previousMessages)).Send()
 
 	// Setup SSE headers by default
-	setupSSEHeaders(w)
+	ai.SetupSSEHeaders(w)
 
 	// Create SSE writer
 	sseWriter := ai.NewSSEWriter(w)
@@ -126,5 +126,5 @@ func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// Call the AI text handler with complete messages array
-	handleAITextWithWriter(sseWriter, messages, model)
+	ai.HandleAITextWithWriter(sseWriter, messages, model)
 }

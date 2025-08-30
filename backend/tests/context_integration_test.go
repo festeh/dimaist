@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dima-b/go-task-backend/ai"
 	"github.com/dima-b/go-task-backend/database"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
@@ -28,11 +29,11 @@ func TestBuildSystemPrompt_WithFilteredTasks(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Load tasks using our filtered function
-	tasks, err := loadRecentTasks(100)
+	tasks, err := ai.LoadRecentTasks(100)
 	assert.NoError(t, err)
 
 	// Load projects
-	projects, err := loadRecentProjects(100)
+	projects, err := ai.LoadRecentProjects(100)
 	assert.NoError(t, err)
 
 	// Build system prompt
