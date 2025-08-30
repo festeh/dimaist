@@ -38,7 +38,8 @@ class AppBarConfig {
       centerTitle: centerTitle ?? this.centerTitle,
       elevation: elevation ?? this.elevation,
       backgroundColor: backgroundColor ?? this.backgroundColor,
-      automaticallyImplyLeading: automaticallyImplyLeading ?? this.automaticallyImplyLeading,
+      automaticallyImplyLeading:
+          automaticallyImplyLeading ?? this.automaticallyImplyLeading,
       bottom: bottom ?? this.bottom,
     );
   }
@@ -46,14 +47,14 @@ class AppBarConfig {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    
+
     return other is AppBarConfig &&
-      other.title == title &&
-      other.centerTitle == centerTitle &&
-      other.elevation == elevation &&
-      other.backgroundColor == backgroundColor &&
-      other.automaticallyImplyLeading == automaticallyImplyLeading &&
-      other.bottom == bottom;
+        other.title == title &&
+        other.centerTitle == centerTitle &&
+        other.elevation == elevation &&
+        other.backgroundColor == backgroundColor &&
+        other.automaticallyImplyLeading == automaticallyImplyLeading &&
+        other.bottom == bottom;
   }
 
   @override

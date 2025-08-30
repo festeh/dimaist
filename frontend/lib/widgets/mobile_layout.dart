@@ -47,10 +47,7 @@ class _MobileLayoutState extends ConsumerState<MobileLayout> {
     );
   }
 
-  AppBar _buildMobileAppBar(
-    BuildContext context,
-    ViewState viewState,
-  ) {
+  AppBar _buildMobileAppBar(BuildContext context, ViewState viewState) {
     // Use app bar config from child if available, otherwise use default
     if (_appBarConfig != null) {
       return AppBar(

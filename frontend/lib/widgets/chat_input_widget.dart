@@ -64,10 +64,9 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
 
   void _showVoiceDialog() {
     showDialog(
-      context: context, 
-      builder: (context) => RecordingDialog(
-        onAudioRecorded: widget.onAudioRecorded,
-      ),
+      context: context,
+      builder: (context) =>
+          RecordingDialog(onAudioRecorded: widget.onAudioRecorded),
     );
   }
 
@@ -99,13 +98,17 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Icon(
                       Icons.add,
-                      color: widget.isProcessing 
-                          ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)
+                      color: widget.isProcessing
+                          ? Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.4)
                           : Theme.of(context).colorScheme.primary,
                       size: 24,
                     ),
@@ -114,7 +117,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
               ),
               const SizedBox(width: 16), // Space between add and voice
             ],
-            
+
             // Voice button
             Material(
               color: Colors.transparent,

@@ -87,7 +87,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     });
   }
 
-
   Future<void> _processAudioMessage(List<int> audioBytes) async {
     if (_isProcessing) return;
 
@@ -314,11 +313,15 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                           color: Theme.of(context).colorScheme.onSurface,
                         ),
                         code: TextStyle(
-                          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
                           color: Theme.of(context).colorScheme.onSurface,
                         ),
                         codeblockDecoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),

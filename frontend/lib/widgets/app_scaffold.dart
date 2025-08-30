@@ -45,9 +45,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
             leftBarContent: leftBarContent,
           );
 
-    return KeyboardShortcutsHandler(
-      child: layout,
-    );
+    return KeyboardShortcutsHandler(child: layout);
   }
 
   Widget _buildLeftBar(

@@ -119,11 +119,12 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                       return DropdownMenuItem<String>(
                         value: value,
                         child: Text(
-                          _getCondensedModelName(value), 
+                          _getCondensedModelName(value),
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                         ),
                       );
                     }).toList(),

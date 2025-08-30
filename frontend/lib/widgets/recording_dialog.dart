@@ -8,7 +8,7 @@ import '../screens/ai_chat_screen.dart';
 
 class RecordingDialog extends ConsumerStatefulWidget {
   final Function(List<int>)? onAudioRecorded;
-  
+
   const RecordingDialog({super.key, this.onAudioRecorded});
 
   @override
@@ -88,7 +88,7 @@ class _RecordingDialogState extends ConsumerState<RecordingDialog>
       final bytes = await file.readAsBytes();
 
       Navigator.of(context).pop(); // Close recording dialog
-      
+
       if (widget.onAudioRecorded != null) {
         // Use callback if provided (for in-chat recording)
         widget.onAudioRecorded!(bytes);

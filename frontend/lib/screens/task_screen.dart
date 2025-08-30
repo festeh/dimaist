@@ -22,8 +22,8 @@ class TaskScreen extends ConsumerStatefulWidget {
   final Function(AppBarConfig?)? onAppBarConfigChanged;
 
   const TaskScreen({
-    super.key, 
-    this.project, 
+    super.key,
+    this.project,
     this.customView,
     this.onAppBarConfigChanged,
   }) : assert(project != null || customView != null);
@@ -42,10 +42,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
+            Text(title, style: Theme.of(context).textTheme.headlineSmall),
             if (widget.customView?.type == BuiltInViewType.today) ...[
               const SizedBox(width: 8),
               IconButton(

@@ -55,7 +55,9 @@ class _DesktopLayoutState extends State<DesktopLayout> {
         leading: _appBarConfig!.leading,
         automaticallyImplyLeading: _appBarConfig!.automaticallyImplyLeading,
         centerTitle: _appBarConfig!.centerTitle,
-        elevation: _appBarConfig!.elevation ?? 1, // Slightly different default for desktop
+        elevation:
+            _appBarConfig!.elevation ??
+            1, // Slightly different default for desktop
         backgroundColor: _appBarConfig!.backgroundColor,
         bottom: _appBarConfig!.bottom,
       );

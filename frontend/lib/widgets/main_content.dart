@@ -10,7 +10,7 @@ class MainContent extends ConsumerWidget {
   final Function(AppBarConfig?)? onAppBarConfigChanged;
 
   const MainContent({
-    super.key, 
+    super.key,
     required this.projects,
     this.onAppBarConfigChanged,
   });
@@ -39,9 +39,7 @@ class MainContent extends ConsumerWidget {
 
     // Clear app bar config when no view is selected
     onAppBarConfigChanged?.call(
-      const AppBarConfig(
-        title: Text('Select a project or view'),
-      ),
+      const AppBarConfig(title: Text('Select a project or view')),
     );
 
     return const Center(child: Text('Select a project or view'));
