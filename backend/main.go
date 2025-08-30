@@ -41,7 +41,7 @@ func main() {
 
 	// Initialize logger with env config
 	logger.InitLogger(appEnv.LogLevel, appEnv.LogFormat, *verbose)
-	
+
 	// Log if verbose mode is enabled
 	if *verbose {
 		logger.Debug("Verbose mode enabled - debug logs will be shown").Send()

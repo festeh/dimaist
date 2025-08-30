@@ -47,7 +47,7 @@ func TestBuildSystemPrompt_WithFilteredTasks(t *testing.T) {
 	assert.NotContains(t, prompt, "Old completed task for prompt test")
 	assert.NotContains(t, prompt, "Deleted task for prompt test")
 
-	// This is a simplified test - the main verification is that the function 
+	// This is a simplified test - the main verification is that the function
 	// runs without error and includes expected content
 }
 
@@ -110,10 +110,10 @@ func createTestTasksForPrompt(db *gorm.DB) error {
 
 func loadRecentProjects(limit int) ([]database.Project, error) {
 	var projects []database.Project
-	
+
 	// Get date 30 days ago for filtering completed tasks
 	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
-	
+
 	result := database.DB.Preload("Tasks", "deleted_at IS NULL AND (completed_at IS NULL OR completed_at > ?)", thirtyDaysAgo).
 		Where("deleted_at IS NULL").
 		Order("updated_at DESC").

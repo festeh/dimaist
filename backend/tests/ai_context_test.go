@@ -14,10 +14,10 @@ import (
 // loadRecentTasks function for testing (copied from ai_text.go)
 func loadRecentTasks(limit int) ([]database.Task, error) {
 	var tasks []database.Task
-	
+
 	// Get date 30 days ago for filtering completed tasks
 	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
-	
+
 	result := database.DB.Preload("Project").
 		Where("deleted_at IS NULL").
 		Where("completed_at IS NULL OR completed_at > ?", thirtyDaysAgo).

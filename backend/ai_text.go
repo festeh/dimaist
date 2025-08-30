@@ -124,10 +124,10 @@ func handleAITextWithWriter(sseWriter ai.SSEWriter, text string, model string) {
 
 func loadRecentTasks(limit int) ([]database.Task, error) {
 	var tasks []database.Task
-	
+
 	// Get date 30 days ago for filtering completed tasks
 	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
-	
+
 	result := database.DB.Preload("Project").
 		Where("deleted_at IS NULL").
 		Where("completed_at IS NULL OR completed_at > ?", thirtyDaysAgo).
@@ -145,10 +145,10 @@ func loadRecentTasks(limit int) ([]database.Task, error) {
 
 func loadRecentProjects(limit int) ([]database.Project, error) {
 	var projects []database.Project
-	
+
 	// Get date 30 days ago for filtering completed tasks
 	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
-	
+
 	result := database.DB.Preload("Tasks", "deleted_at IS NULL AND (completed_at IS NULL OR completed_at > ?)", thirtyDaysAgo).
 		Where("deleted_at IS NULL").
 		Order("updated_at DESC").
@@ -233,7 +233,7 @@ func createAIAgent(systemPrompt string, model string) *ai.Agent {
 		apiKey = appEnv.OpenrouterToken
 		endpoint = appEnv.OpenrouterEndpoint
 	}
-	
+
 	// Trim any prefix (everything before and including the first "/")
 	if slashIndex := strings.Index(model, "/"); slashIndex != -1 {
 		model = model[slashIndex+1:]

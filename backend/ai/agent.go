@@ -322,7 +322,6 @@ func (a *Agent) Execute(userInput string) (string, error) {
 	return "", fmt.Errorf("maximum iterations reached without final response")
 }
 
-
 func (a *Agent) callModel(messages []ChatCompletionMessage) (*ChatCompletionResponse, error) {
 	return a.callModelWithTimeout(context.Background(), messages)
 }
@@ -502,7 +501,6 @@ func (a *Agent) AddTool(tool Tool) {
 func (a *Agent) SetModel(model string) {
 	a.model = model
 }
-
 
 // ExecuteOneStep executes just one step of the conversation and returns the tool calls
 // This is useful for testing to see what tools the LLM would call without executing them
