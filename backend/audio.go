@@ -37,6 +37,17 @@ func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 		model = DefaultAIModel
 	}
 
+	// Get optional previous messages from form
+	var previousMessages []ai.ChatCompletionMessage
+	messagesJson := r.FormValue("messages")
+	if messagesJson != "" {
+		if err := json.Unmarshal([]byte(messagesJson), &previousMessages); err != nil {
+			logger.Error("Failed to parse messages JSON").Err(err).Send()
+			http.Error(w, "Invalid messages format", http.StatusBadRequest)
+			return
+		}
+	}
+
 	// Create streaming pipe to ASR service
 	pipeReader, pipeWriter := io.Pipe()
 	writer := multipart.NewWriter(pipeWriter)
@@ -92,7 +103,7 @@ func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Info("Successfully transcribed audio, redirecting to AI text handler").Str("text", result.Text).Str("model", model).Send()
+	logger.Info("Successfully transcribed audio, redirecting to AI text handler").Str("text", result.Text).Str("model", model).Int("previous_messages", len(previousMessages)).Send()
 
 	// Setup SSE headers by default
 	setupSSEHeaders(w)
@@ -108,6 +119,12 @@ func transcribeAudio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Call the AI text handler directly with existing SSE writer
-	handleAITextWithWriter(sseWriter, result.Text, model)
+	// Build messages array: previous messages + new user message with transcribed text
+	messages := append(previousMessages, ai.ChatCompletionMessage{
+		Role:    "user",
+		Content: result.Text,
+	})
+
+	// Call the AI text handler with complete messages array
+	handleAITextWithWriter(sseWriter, messages, model)
 }

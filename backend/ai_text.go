@@ -22,8 +22,8 @@ func setupSSEHeaders(w http.ResponseWriter) {
 }
 
 type TextRequest struct {
-	Text  string `json:"text"`
-	Model string `json:"model,omitempty"` // Optional AI model, defaults to DefaultAIModel
+	Messages []ai.ChatCompletionMessage `json:"messages"`
+	Model    string                      `json:"model,omitempty"` // Optional AI model, defaults to DefaultAIModel
 }
 
 func handleAIText(w http.ResponseWriter, r *http.Request) {
@@ -37,9 +37,9 @@ func handleAIText(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Text == "" {
-		logger.Error("Empty text in request").Send()
-		http.Error(w, "Text field is required", http.StatusBadRequest)
+	if len(req.Messages) == 0 {
+		logger.Error("Empty messages in request").Send()
+		http.Error(w, "Messages field is required", http.StatusBadRequest)
 		return
 	}
 
@@ -56,11 +56,11 @@ func handleAIText(w http.ResponseWriter, r *http.Request) {
 	sseWriter := ai.NewSSEWriter(w)
 
 	// Call the shared handler
-	handleAITextWithWriter(sseWriter, req.Text, model)
+	handleAITextWithWriter(sseWriter, req.Messages, model)
 }
 
-func handleAITextWithWriter(sseWriter ai.SSEWriter, text string, model string) {
-	logger.Info("Handling AI text with writer").Str("text", text).Str("model", model).Send()
+func handleAITextWithWriter(sseWriter ai.SSEWriter, messages []ai.ChatCompletionMessage, model string) {
+	logger.Info("Handling AI text with writer").Int("messages_count", len(messages)).Str("model", model).Send()
 
 	// Send initial thinking event
 	if err := sseWriter.Send("thinking", map[string]string{
@@ -89,7 +89,7 @@ func handleAITextWithWriter(sseWriter ai.SSEWriter, text string, model string) {
 		return
 	}
 
-	// Build system prompt
+	// Build system prompt and prepend to messages
 	systemPrompt, err := buildSystemPrompt(tasks, projects)
 	if err != nil {
 		logger.Error("Failed to build system prompt").Err(err).Send()
@@ -99,8 +99,14 @@ func handleAITextWithWriter(sseWriter ai.SSEWriter, text string, model string) {
 		return
 	}
 
-	// Create agent with the system prompt and specified model
-	agent := createAIAgent(systemPrompt, model)
+	// Prepend system message to the messages array
+	messagesWithSystem := []ai.ChatCompletionMessage{
+		{Role: "system", Content: systemPrompt},
+	}
+	messagesWithSystem = append(messagesWithSystem, messages...)
+
+	// Create agent for message-based execution
+	agent := createAIAgent(model)
 
 	// Send thinking event before starting
 	if err := sseWriter.Send("thinking", map[string]string{
@@ -114,8 +120,8 @@ func handleAITextWithWriter(sseWriter ai.SSEWriter, text string, model string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	// Execute agent with SSE streaming
-	_, err = agent.ExecuteWithSSE(text, sseWriter, ctx)
+	// Execute agent with messages and SSE streaming
+	_, err = agent.ExecuteWithMessagesAndSSE(messagesWithSystem, sseWriter, ctx)
 	if err != nil {
 		logger.Error("Agent execution failed").Err(err).Send()
 		// Error events are already sent by the agent, so we don't need to send another one
@@ -221,7 +227,7 @@ The tools will be called automatically based on your function calls.`,
 		time.Now().Format("2006-01-02 15:04:05 MST"), tasksJSON, projectsJSON, toolsDesc.String()), nil
 }
 
-func createAIAgent(systemPrompt string, model string) *ai.Agent {
+func createAIAgent(model string) *ai.Agent {
 	tools := ai.CreateCRUDTools()
 
 	// Select endpoint and token based on model prefix
@@ -241,9 +247,8 @@ func createAIAgent(systemPrompt string, model string) *ai.Agent {
 
 	// Create agent using environment configuration
 	agent := ai.NewAgent(
-		apiKey,       // API key
-		endpoint,     // Custom AI endpoint
-		systemPrompt, // initial prompt contains our full system prompt
+		apiKey,   // API key
+		endpoint, // Custom AI endpoint
 		tools,
 		model, // model
 	)

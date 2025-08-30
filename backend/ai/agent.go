@@ -38,12 +38,11 @@ type ToolParameterProperty struct {
 }
 
 type Agent struct {
-	apiKey       string
-	endpoint     string
-	tools        []Tool
-	systemPrompt string
-	model        string
-	client       *http.Client
+	apiKey   string
+	endpoint string
+	tools    []Tool
+	model    string
+	client   *http.Client
 }
 
 type Message struct {
@@ -88,34 +87,22 @@ type ChatCompletionChoice struct {
 	FinishReason string                `json:"finish_reason,omitempty"`
 }
 
-func NewAgent(apiKey, endpoint, systemPrompt string, tools []Tool, model string) *Agent {
+func NewAgent(apiKey, endpoint string, tools []Tool, model string) *Agent {
 	return &Agent{
-		apiKey:       apiKey,
-		endpoint:     endpoint,
-		tools:        tools,
-		systemPrompt: systemPrompt,
-		model:        model,
-		client:       &http.Client{Timeout: 60 * time.Second},
+		apiKey:   apiKey,
+		endpoint: endpoint,
+		tools:    tools,
+		model:    model,
+		client:   &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
-// ExecuteWithSSE runs the agent with SSE streaming support
-func (a *Agent) ExecuteWithSSE(userInput string, sseWriter SSEWriter, ctx context.Context) (string, error) {
-	logger.Info("Starting AI agent execution with SSE").
-		Str("user_input", userInput).
+// ExecuteWithMessagesAndSSE runs the agent with pre-built messages and SSE streaming support
+func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseWriter SSEWriter, ctx context.Context) (string, error) {
+	logger.Info("Starting AI agent execution with messages and SSE").
+		Int("messages_count", len(messages)).
 		Str("model", a.model).
 		Send()
-
-	messages := []ChatCompletionMessage{
-		{
-			Role:    "system",
-			Content: a.systemPrompt,
-		},
-		{
-			Role:    "user",
-			Content: userInput,
-		},
-	}
 
 	maxIterations := 15
 	for i := 0; i < maxIterations; i++ {
@@ -258,10 +245,6 @@ func (a *Agent) Execute(userInput string) (string, error) {
 		Send()
 
 	messages := []ChatCompletionMessage{
-		{
-			Role:    "system",
-			Content: a.systemPrompt,
-		},
 		{
 			Role:    "user",
 			Content: userInput,
@@ -506,10 +489,6 @@ func (a *Agent) SetModel(model string) {
 // This is useful for testing to see what tools the LLM would call without executing them
 func (a *Agent) ExecuteOneStep(userInput string) ([]ToolCall, error) {
 	messages := []ChatCompletionMessage{
-		{
-			Role:    "system",
-			Content: a.systemPrompt,
-		},
 		{
 			Role:    "user",
 			Content: userInput,

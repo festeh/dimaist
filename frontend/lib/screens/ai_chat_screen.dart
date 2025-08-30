@@ -5,19 +5,51 @@ import '../repositories/providers.dart';
 import '../services/settings_service.dart';
 import '../services/logging_service.dart';
 import '../providers/task_provider.dart';
-import '../widgets/recording_dialog.dart';
 import '../widgets/chat_input_widget.dart';
+
+enum MessageType {
+  normal,
+  toolCall,
+  toolResult,
+}
 
 class ChatMessage {
   final String text;
-  final bool isUser;
+  final String role; // 'user', 'assistant', 'system'
   final DateTime timestamp;
+  final MessageType type;
+  final Map<String, dynamic>? metadata; // for tool details
 
   ChatMessage({
     required this.text,
-    required this.isUser,
+    required this.role,
     required this.timestamp,
+    this.type = MessageType.normal,
+    this.metadata,
   });
+
+  // Helper getter for backward compatibility
+  bool get isUser => role == 'user';
+
+  // Convert to API format
+  Map<String, dynamic> toApiFormat() {
+    final apiMessage = {
+      'role': role,
+      'content': text,
+    };
+    
+    // Add tool-specific fields if needed
+    if (metadata != null) {
+      if (metadata!.containsKey('tool_calls')) {
+        apiMessage['tool_calls'] = metadata!['tool_calls'];
+      }
+      if (metadata!.containsKey('tool_call_id')) {
+        apiMessage['tool_call_id'] = metadata!['tool_call_id'];
+      }
+    }
+    
+    return apiMessage;
+  }
 }
 
 class AiChatScreen extends ConsumerStatefulWidget {
@@ -95,6 +127,28 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     });
   }
 
+  List<Map<String, dynamic>> _buildMessagesFromHistory() {
+    return _messages
+        .where((msg) => msg.type == MessageType.normal) // Only include normal messages, skip tool calls/results
+        .map((msg) => msg.toApiFormat())
+        .toList();
+  }
+
+  void _addToolMessage(String text, MessageType type, {Map<String, dynamic>? metadata}) {
+    setState(() {
+      _messages.add(
+        ChatMessage(
+          text: text,
+          role: 'assistant',
+          timestamp: DateTime.now(),
+          type: type,
+          metadata: metadata,
+        ),
+      );
+    });
+    _scrollToBottom();
+  }
+
   Future<void> _processAudioMessage(List<int> audioBytes) async {
     if (_isProcessing) return;
 
@@ -102,7 +156,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       _messages.add(
         ChatMessage(
           text: '🎤 Transcribing...',
-          isUser: true,
+          role: 'user',
           timestamp: DateTime.now(),
         ),
       );
@@ -117,6 +171,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       String aiResponse = '';
       bool transcriptionReceived = false;
 
+      // Build messages history for context
+      final previousMessages = _buildMessagesFromHistory();
+      
       await ref
           .read(apiServiceProvider)
           .sendAudioStream(
@@ -128,14 +185,14 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 if (_messages.isNotEmpty && !_messages.last.isUser) {
                   _messages.last = ChatMessage(
                     text: aiResponse,
-                    isUser: false,
+                    role: 'assistant',
                     timestamp: _messages.last.timestamp,
                   );
                 } else {
                   _messages.add(
                     ChatMessage(
                       text: aiResponse,
-                      isUser: false,
+                      role: 'assistant',
                       timestamp: DateTime.now(),
                     ),
                   );
@@ -169,7 +226,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 setState(() {
                   _messages.last = ChatMessage(
                     text: transcribedText,
-                    isUser: true,
+                    role: 'user',
                     timestamp: _messages.last.timestamp,
                   );
                   transcriptionReceived = true;
@@ -177,6 +234,13 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 _scrollToBottom();
               }
             },
+            onToolCall: (toolCall) {
+              _addToolMessage(toolCall, MessageType.toolCall);
+            },
+            onToolResult: (toolResult) {
+              _addToolMessage(toolResult, MessageType.toolResult);
+            },
+            previousMessages: previousMessages,
           );
     } catch (e) {
       LoggingService.logger.severe('Error processing audio: $e');
@@ -184,7 +248,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         _messages.add(
           ChatMessage(
             text: 'Error: Failed to process audio',
-            isUser: false,
+            role: 'assistant',
             timestamp: DateTime.now(),
           ),
         );
@@ -206,7 +270,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
     setState(() {
       _messages.add(
-        ChatMessage(text: message, isUser: true, timestamp: DateTime.now()),
+        ChatMessage(text: message, role: 'user', timestamp: DateTime.now()),
       );
       _isProcessing = true;
       _statusMessage = 'Initializing...';
@@ -218,10 +282,18 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       final model = SettingsService.instance.aiModel.value;
       String aiResponse = '';
 
+      // Build complete messages array including the new user message
+      final messagesHistory = _buildMessagesFromHistory();
+      // The new user message is already added to _messages, so we need to include it
+      final allMessages = messagesHistory + [{
+        'role': 'user',
+        'content': message,
+      }];
+
       await ref
           .read(apiServiceProvider)
           .sendTextAIStream(
-            message,
+            allMessages,
             model,
             (chunk) {
               setState(() {
@@ -229,14 +301,14 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 if (_messages.isNotEmpty && !_messages.last.isUser) {
                   _messages.last = ChatMessage(
                     text: aiResponse,
-                    isUser: false,
+                    role: 'assistant',
                     timestamp: _messages.last.timestamp,
                   );
                 } else {
                   _messages.add(
                     ChatMessage(
                       text: aiResponse,
-                      isUser: false,
+                      role: 'assistant',
                       timestamp: DateTime.now(),
                     ),
                   );
@@ -262,6 +334,12 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 _statusMessage = status;
               });
             },
+            onToolCall: (toolCall) {
+              _addToolMessage(toolCall, MessageType.toolCall);
+            },
+            onToolResult: (toolResult) {
+              _addToolMessage(toolResult, MessageType.toolResult);
+            },
           );
     } catch (e) {
       LoggingService.logger.severe('Error sending AI request: $e');
@@ -269,7 +347,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         _messages.add(
           ChatMessage(
             text: 'Error: Failed to get AI response',
-            isUser: false,
+            role: 'assistant',
             timestamp: DateTime.now(),
           ),
         );
@@ -281,6 +359,12 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   }
 
   Widget _buildMessage(ChatMessage message) {
+    // Handle tool call and tool result messages differently
+    if (message.type == MessageType.toolCall || message.type == MessageType.toolResult) {
+      return _buildToolMessage(message);
+    }
+
+    // Regular chat messages
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
       child: Row(
@@ -344,6 +428,57 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
               child: const Icon(Icons.person, size: 16, color: Colors.white),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolMessage(ChatMessage message) {
+    final isToolCall = message.type == MessageType.toolCall;
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 16),
+      child: Row(
+        children: [
+          const SizedBox(width: 40), // Indent to align with AI messages
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: isToolCall 
+                    ? Colors.orange[100]?.withAlpha(128)
+                    : Colors.green[100]?.withAlpha(128),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isToolCall 
+                      ? Colors.orange[300]!
+                      : Colors.green[300]!,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isToolCall ? Icons.settings : Icons.check_circle,
+                    size: 16,
+                    color: isToolCall ? Colors.orange[700] : Colors.green[700],
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      message.text,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isToolCall ? Colors.orange[700] : Colors.green[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

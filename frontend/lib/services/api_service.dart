@@ -227,14 +227,16 @@ class ApiService {
   }
 
   Future<void> sendTextAIStream(
-    String text,
+    List<Map<String, dynamic>> messages,
     String model,
     Function(String) onChunk,
     Function() onDone, {
     Function(String)? onStatus,
+    Function(String)? onToolCall,
+    Function(String)? onToolResult,
   }) async {
     _logger.info('Sending text AI streaming request...', {
-      'text': text,
+      'messages_count': messages.length,
       'model': model,
     });
 
@@ -243,7 +245,7 @@ class ApiService {
       final request = http.Request('POST', Uri.parse('$baseUrl/ai/text'));
       request.headers['Content-Type'] = 'application/json';
       request.headers['Accept'] = 'text/event-stream';
-      request.body = json.encode({'text': text, 'model': model});
+      request.body = json.encode({'messages': messages, 'model': model});
 
       final response = await client.send(request);
 
@@ -298,9 +300,18 @@ class ApiService {
                   onDone();
                   return;
                 case 'tool_call':
+                  // Handle tool call events
+                  if (onToolCall != null && eventPayload is Map<String, dynamic>) {
+                    final tool = eventPayload['tool'] as String? ?? 'unknown';
+                    onToolCall('🔧 Calling $tool...');
+                  }
+                  break;
                 case 'tool_result':
-                  // These are intermediate events, we could show them as progress
-                  // For now, just log them
+                  // Handle tool result events
+                  if (onToolResult != null && eventPayload is Map<String, dynamic>) {
+                    final result = eventPayload['result'] as String? ?? '';
+                    onToolResult('✅ Tool result: $result');
+                  }
                   break;
                 default:
                   _logger.fine('Unknown SSE event type: $event');
@@ -369,6 +380,9 @@ class ApiService {
     Function() onDone, {
     Function(String)? onStatus,
     Function(String)? onTranscription,
+    Function(String)? onToolCall,
+    Function(String)? onToolResult,
+    List<Map<String, dynamic>>? previousMessages,
   }) async {
     _logger.info('Sending audio streaming request...', {'model': model});
 
@@ -387,6 +401,11 @@ class ApiService {
         ),
       );
       request.fields['model'] = model;
+      
+      // Add previous messages if provided
+      if (previousMessages != null && previousMessages.isNotEmpty) {
+        request.fields['messages'] = json.encode(previousMessages);
+      }
 
       final response = await client.send(request);
 
@@ -451,9 +470,18 @@ class ApiService {
                   onDone();
                   return;
                 case 'tool_call':
+                  // Handle tool call events
+                  if (onToolCall != null && eventPayload is Map<String, dynamic>) {
+                    final tool = eventPayload['tool'] as String? ?? 'unknown';
+                    onToolCall('🔧 Calling $tool...');
+                  }
+                  break;
                 case 'tool_result':
-                  // These are intermediate events, we could show them as progress
-                  // For now, just log them
+                  // Handle tool result events
+                  if (onToolResult != null && eventPayload is Map<String, dynamic>) {
+                    final result = eventPayload['result'] as String? ?? '';
+                    onToolResult('✅ Tool result: $result');
+                  }
                   break;
                 default:
                   _logger.fine('Unknown SSE event type: $event');
