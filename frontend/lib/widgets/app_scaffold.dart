@@ -11,7 +11,6 @@ import '../widgets/project_list_widget.dart';
 import '../widgets/mobile_layout.dart';
 import '../widgets/desktop_layout.dart';
 import '../widgets/keyboard_shortcuts_handler.dart';
-import '../screens/task_screen.dart';
 
 class AppScaffold extends ConsumerStatefulWidget {
   final List<Project> projects;
@@ -23,20 +22,11 @@ class AppScaffold extends ConsumerStatefulWidget {
 }
 
 class _AppScaffoldState extends ConsumerState<AppScaffold> {
-  GlobalKey<TaskScreenState>? _taskScreenKey;
-
   @override
   Widget build(BuildContext context) {
     final viewState = ref.watch(viewProvider);
     final viewNotifier = ref.read(viewProvider.notifier);
     final isMobile = ResponsiveUtils.isMobile(context);
-
-    // Update task screen key when view changes
-    final customView = viewState.currentCustomView;
-    final project = viewState.currentProject;
-    if (customView != null || project != null) {
-      _taskScreenKey = GlobalKey<TaskScreenState>();
-    }
 
     final leftBarContent = _buildLeftBar(
       context,
@@ -56,7 +46,6 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
           );
 
     return KeyboardShortcutsHandler(
-      taskScreenKey: _taskScreenKey,
       child: layout,
     );
   }

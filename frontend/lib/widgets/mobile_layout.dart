@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/project.dart';
+import '../models/app_bar_config.dart';
 import '../providers/view_provider.dart';
 import '../config/app_constants.dart';
 import 'main_content.dart';
@@ -21,6 +22,13 @@ class MobileLayout extends ConsumerStatefulWidget {
 
 class _MobileLayoutState extends ConsumerState<MobileLayout> {
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+  AppBarConfig? _appBarConfig;
+
+  void _onAppBarConfigChanged(AppBarConfig? config) {
+    setState(() {
+      _appBarConfig = config;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,18 +36,40 @@ class _MobileLayoutState extends ConsumerState<MobileLayout> {
 
     return Scaffold(
       key: scaffoldKey,
-      resizeToAvoidBottomInset: false,
-      appBar: _buildMobileAppBar(context, viewState, scaffoldKey),
+      appBar: _buildMobileAppBar(context, viewState),
       drawer: Drawer(child: SafeArea(child: widget.leftBarContent)),
-      body: MainContent(projects: widget.projects),
+      body: SafeArea(
+        child: MainContent(
+          projects: widget.projects,
+          onAppBarConfigChanged: _onAppBarConfigChanged,
+        ),
+      ),
     );
   }
 
   AppBar _buildMobileAppBar(
     BuildContext context,
     ViewState viewState,
-    GlobalKey<ScaffoldState> scaffoldKey,
   ) {
+    // Use app bar config from child if available, otherwise use default
+    if (_appBarConfig != null) {
+      return AppBar(
+        title: _appBarConfig!.title,
+        actions: _appBarConfig!.actions,
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () {
+            scaffoldKey.currentState?.openDrawer();
+          },
+        ),
+        centerTitle: _appBarConfig!.centerTitle,
+        elevation: _appBarConfig!.elevation,
+        backgroundColor: _appBarConfig!.backgroundColor,
+        bottom: _appBarConfig!.bottom,
+      );
+    }
+
+    // Default app bar when no config is provided
     String title = AppConstants.appName;
     final customView = viewState.currentCustomView;
     final project = viewState.currentProject;

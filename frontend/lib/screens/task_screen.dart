@@ -10,6 +10,7 @@ import 'package:dimaist/widgets/error_dialog.dart';
 import 'package:dimaist/widgets/task_widget.dart';
 import '../models/task.dart';
 import '../models/project.dart';
+import '../models/app_bar_config.dart';
 import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
 import 'package:dimaist/widgets/chat_input_widget.dart';
@@ -18,9 +19,14 @@ import 'ai_chat_screen.dart';
 class TaskScreen extends ConsumerStatefulWidget {
   final Project? project;
   final CustomView? customView;
+  final Function(AppBarConfig?)? onAppBarConfigChanged;
 
-  const TaskScreen({super.key, this.project, this.customView})
-    : assert(project != null || customView != null);
+  const TaskScreen({
+    super.key, 
+    this.project, 
+    this.customView,
+    this.onAppBarConfigChanged,
+  }) : assert(project != null || customView != null);
 
   @override
   TaskScreenState createState() => TaskScreenState();
@@ -29,6 +35,46 @@ class TaskScreen extends ConsumerStatefulWidget {
 class TaskScreenState extends ConsumerState<TaskScreen> {
   bool _isScheduleView = false;
   bool _isAiProcessing = false;
+
+  void _updateAppBarConfig(String title) {
+    widget.onAppBarConfigChanged?.call(
+      AppBarConfig(
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            if (widget.customView?.type == BuiltInViewType.today) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                iconSize: 20,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: Icon(
+                  _isScheduleView ? Icons.list : Icons.calendar_view_day,
+                ),
+                onPressed: () {
+                  LoggingService.logger.fine(
+                    'Toggle button pressed! Current state: $_isScheduleView',
+                  );
+                  setState(() {
+                    _isScheduleView = !_isScheduleView;
+                  });
+                  LoggingService.logger.fine('New state: $_isScheduleView');
+                },
+                tooltip: _isScheduleView ? 'List View' : 'Schedule View',
+              ),
+            ],
+          ],
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: const [],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -224,25 +270,28 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
     final taskNotifier = ref.read(taskProvider.notifier);
 
     return taskAsyncValue.when(
-      data: (taskData) => _buildTaskContent(context, taskData, taskNotifier),
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (error, stack) => Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('Error loading tasks: $error'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => taskNotifier.loadTasks(
-                  project: widget.project,
-                  customView: widget.customView,
-                ),
-                child: const Text('Retry'),
+      data: (taskData) {
+        // Update app bar config with the task data title
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _updateAppBarConfig(taskData.title);
+        });
+        return _buildTaskContent(context, taskData, taskNotifier);
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Error loading tasks: $error'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => taskNotifier.loadTasks(
+                project: widget.project,
+                customView: widget.customView,
               ),
-            ],
-          ),
+              child: const Text('Retry'),
+            ),
+          ],
         ),
       ),
     );
@@ -258,154 +307,111 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
         ? <Task>[]
         : taskData.completedTasks;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              taskData.title,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            if (widget.customView?.type == BuiltInViewType.today) ...[
-              const SizedBox(width: 8),
-              IconButton(
-                iconSize: 20,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: Icon(
-                  _isScheduleView ? Icons.list : Icons.calendar_view_day,
-                ),
-                onPressed: () {
-                  LoggingService.logger.fine(
-                    'Toggle button pressed! Current state: $_isScheduleView',
+    return Column(
+      children: [
+        Expanded(
+          child:
+              (widget.customView?.type == BuiltInViewType.today &&
+                  _isScheduleView)
+              ? (() {
+                  return ScheduleView(
+                    tasks: taskData.tasks,
+                    onToggleComplete: _toggleComplete,
+                    onDelete: _deleteTask,
+                    onEdit: _showEditTaskDialog,
+                    onScheduleTask: _scheduleTask,
+                    onUnscheduleTask: _unscheduleTask,
+                    onUpdateTask: _updateTask,
                   );
-                  setState(() {
-                    _isScheduleView = !_isScheduleView;
-                  });
-                  LoggingService.logger.fine('New state: $_isScheduleView');
-                },
-                tooltip: _isScheduleView ? 'List View' : 'Schedule View',
-              ),
-            ],
-          ],
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child:
-                (widget.customView?.type == BuiltInViewType.today &&
-                    _isScheduleView)
-                ? (() {
-                    LoggingService.logger.fine(
-                      'Showing ScheduleView - customView: ${widget.customView?.name}, isScheduleView: $_isScheduleView',
-                    );
-                    return ScheduleView(
-                      tasks: taskData.tasks,
-                      onToggleComplete: _toggleComplete,
-                      onDelete: _deleteTask,
-                      onEdit: _showEditTaskDialog,
-                      onScheduleTask: _scheduleTask,
-                      onUnscheduleTask: _unscheduleTask,
-                      onUpdateTask: _updateTask,
-                    );
-                  })()
-                : taskData.tasks.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.check_circle_outline, size: 64),
-                        const SizedBox(height: 16),
+                })()
+              : taskData.tasks.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.check_circle_outline, size: 64),
+                      const SizedBox(height: 16),
+                      Text(
+                        widget.customView?.type == BuiltInViewType.today
+                            ? 'No tasks for today'
+                            : 'No tasks yet!',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      if (widget.customView?.type != BuiltInViewType.today)
                         Text(
-                          widget.customView?.type == BuiltInViewType.today
-                              ? 'No tasks for today'
-                              : 'No tasks yet!',
-                          style: Theme.of(context).textTheme.headlineSmall,
+                          'Click the "+" button to add your first task.',
+                          style: Theme.of(context).textTheme.bodyLarge,
                         ),
-                        const SizedBox(height: 8),
-                        if (widget.customView?.type != BuiltInViewType.today)
-                          Text(
-                            'Click the "+" button to add your first task.',
-                            style: Theme.of(context).textTheme.bodyLarge,
-                          ),
-                      ],
-                    ),
-                  )
-                : (() {
-                    LoggingService.logger.fine(
-                      'Showing ListView - customView: ${widget.customView?.name}, isScheduleView: $_isScheduleView',
-                    );
-                    return ReorderableListView.builder(
-                      buildDefaultDragHandles: false,
-                      padding: const EdgeInsets.all(8.0),
-                      itemCount:
-                          nonCompletedTasks.length +
-                          (completedTasks.isNotEmpty
-                              ? completedTasks.length + 1
-                              : 0),
-                      itemBuilder: (context, index) {
-                        if (index < nonCompletedTasks.length) {
-                          final task = nonCompletedTasks[index];
-                          return ReorderableDragStartListener(
-                            key: Key(task.id.toString()),
-                            index: index,
-                            child: TaskWidget(
-                              task: task,
-                              onToggleComplete: _toggleComplete,
-                              onDelete: _deleteTask,
-                              onEdit: _showEditTaskDialog,
-                            ),
-                          );
-                        } else if (index == nonCompletedTasks.length &&
-                            completedTasks.isNotEmpty) {
-                          return Column(
-                            key: const Key('completed_tasks_header'),
-                            children: const [
-                              Divider(
-                                height: 32,
-                                thickness: 2,
-                                indent: 16,
-                                endIndent: 16,
-                              ),
-                              Text('Completed tasks'),
-                            ],
-                          );
-                        } else {
-                          final task =
-                              completedTasks[index -
-                                  nonCompletedTasks.length -
-                                  1];
-                          return CompletedTaskWidget(
-                            key: Key(task.id.toString()),
+                    ],
+                  ),
+                )
+              : (() {
+                  return ReorderableListView.builder(
+                    buildDefaultDragHandles: false,
+                    padding: const EdgeInsets.all(8.0),
+                    itemCount:
+                        nonCompletedTasks.length +
+                        (completedTasks.isNotEmpty
+                            ? completedTasks.length + 1
+                            : 0),
+                    itemBuilder: (context, index) {
+                      if (index < nonCompletedTasks.length) {
+                        final task = nonCompletedTasks[index];
+                        return ReorderableDragStartListener(
+                          key: Key(task.id.toString()),
+                          index: index,
+                          child: TaskWidget(
                             task: task,
                             onToggleComplete: _toggleComplete,
                             onDelete: _deleteTask,
                             onEdit: _showEditTaskDialog,
-                          );
-                        }
-                      },
-                      onReorder: (oldIndex, newIndex) async {
-                        try {
-                          await taskNotifier.reorderTasks(oldIndex, newIndex);
-                        } catch (e) {
-                          _showErrorDialog('Error reordering tasks: $e');
-                        }
-                      },
-                    );
-                  })(),
-          ),
-          ChatInputWidget(
-            onSendMessage: _handleAiMessage,
-            onAddPressed: _showAddTaskDialog,
-            isProcessing: _isAiProcessing,
-          ),
-        ],
-      ),
+                          ),
+                        );
+                      } else if (index == nonCompletedTasks.length &&
+                          completedTasks.isNotEmpty) {
+                        return Column(
+                          key: const Key('completed_tasks_header'),
+                          children: const [
+                            Divider(
+                              height: 32,
+                              thickness: 2,
+                              indent: 16,
+                              endIndent: 16,
+                            ),
+                            Text('Completed tasks'),
+                          ],
+                        );
+                      } else {
+                        final task =
+                            completedTasks[index -
+                                nonCompletedTasks.length -
+                                1];
+                        return CompletedTaskWidget(
+                          key: Key(task.id.toString()),
+                          task: task,
+                          onToggleComplete: _toggleComplete,
+                          onDelete: _deleteTask,
+                          onEdit: _showEditTaskDialog,
+                        );
+                      }
+                    },
+                    onReorder: (oldIndex, newIndex) async {
+                      try {
+                        await taskNotifier.reorderTasks(oldIndex, newIndex);
+                      } catch (e) {
+                        _showErrorDialog('Error reordering tasks: $e');
+                      }
+                    },
+                  );
+                })(),
+        ),
+        ChatInputWidget(
+          onSendMessage: _handleAiMessage,
+          onAddPressed: _showAddTaskDialog,
+          isProcessing: _isAiProcessing,
+        ),
+      ],
     );
   }
 }
