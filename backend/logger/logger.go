@@ -3,6 +3,7 @@ package logger
 import (
 	"os"
 	"strings"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -13,6 +14,8 @@ var Logger zerolog.Logger
 
 // InitLogger initializes the global logger with configuration
 func InitLogger(logLevel, logFormat string) {
+	// Set timestamp precision to include milliseconds
+	zerolog.TimeFieldFormat = time.RFC3339Nano
 	// Set log level from parameter, default to info
 	logLevel = strings.ToLower(logLevel)
 	var level zerolog.Level
@@ -43,7 +46,7 @@ func InitLogger(logLevel, logFormat string) {
 		// Pretty format for development
 		Logger = zerolog.New(zerolog.ConsoleWriter{
 			Out:        os.Stdout,
-			TimeFormat: "01-02 15:04:05.00",
+			TimeFormat: "01-02 15:04:05.000",
 		}).
 			Level(level).
 			With().
