@@ -38,6 +38,14 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   bool _hasText = false;
   String? _statusMessage;
 
+  String _getCondensedModelName(String fullPath) {
+    final parts = fullPath.split('/');
+    if (parts.length >= 3) {
+      return '${parts.first.substring(0, 1)}/${parts.last}';
+    }
+    return fullPath;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -370,9 +378,12 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentModel = SettingsService.instance.aiModel.value;
+    final condensedModelName = _getCondensedModelName(currentModel);
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI Chat'),
+        title: Text('AI Chat ($condensedModelName)'),
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
       ),
