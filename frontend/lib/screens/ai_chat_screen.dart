@@ -128,8 +128,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   }
 
   List<Map<String, dynamic>> _buildMessagesFromHistory() {
+    // Only include normal user/assistant messages for API context
+    // Tool calls and results are UI indicators, not conversation messages
     return _messages
-        .where((msg) => msg.type == MessageType.normal) // Only include normal messages, skip tool calls/results
+        .where((msg) => msg.type == MessageType.normal)
         .map((msg) => msg.toApiFormat())
         .toList();
   }
@@ -437,42 +439,56 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     final isToolCall = message.type == MessageType.toolCall;
     
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 16),
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(width: 40), // Indent to align with AI messages
           Flexible(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: isToolCall 
-                    ? Colors.orange[100]?.withAlpha(128)
-                    : Colors.green[100]?.withAlpha(128),
+                    ? Colors.orange[50]
+                    : Colors.green[50],
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: isToolCall 
-                      ? Colors.orange[300]!
-                      : Colors.green[300]!,
-                  width: 1,
+                      ? Colors.orange[200]!
+                      : Colors.green[200]!,
+                  width: 1.5,
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    isToolCall ? Icons.settings : Icons.check_circle,
-                    size: 16,
-                    color: isToolCall ? Colors.orange[700] : Colors.green[700],
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      message.text,
-                      style: TextStyle(
-                        fontSize: 13,
+                  Row(
+                    children: [
+                      Icon(
+                        isToolCall ? Icons.build : Icons.check_circle_outline,
+                        size: 18,
                         color: isToolCall ? Colors.orange[700] : Colors.green[700],
-                        fontWeight: FontWeight.w500,
                       ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          isToolCall ? 'Tool Call' : 'Tool Result',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isToolCall ? Colors.orange[700] : Colors.green[700],
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    message.text,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[800],
+                      fontFamily: 'monospace',
                     ),
                   ),
                 ],

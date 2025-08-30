@@ -303,14 +303,17 @@ class ApiService {
                   // Handle tool call events
                   if (onToolCall != null && eventPayload is Map<String, dynamic>) {
                     final tool = eventPayload['tool'] as String? ?? 'unknown';
-                    onToolCall('🔧 Calling $tool...');
+                    final arguments = eventPayload['arguments'] as String? ?? '';
+                    // Format the tool call with both tool name and arguments
+                    final formattedCall = 'Function: $tool\n${arguments.isNotEmpty ? 'Arguments: $arguments' : 'No arguments'}';
+                    onToolCall(formattedCall);
                   }
                   break;
                 case 'tool_result':
                   // Handle tool result events
                   if (onToolResult != null && eventPayload is Map<String, dynamic>) {
                     final result = eventPayload['result'] as String? ?? '';
-                    onToolResult('✅ Tool result: $result');
+                    onToolResult(result); // Pass full result without prefix
                   }
                   break;
                 default:
@@ -473,14 +476,17 @@ class ApiService {
                   // Handle tool call events
                   if (onToolCall != null && eventPayload is Map<String, dynamic>) {
                     final tool = eventPayload['tool'] as String? ?? 'unknown';
-                    onToolCall('🔧 Calling $tool...');
+                    final arguments = eventPayload['arguments'] as String? ?? '';
+                    // Format the tool call with both tool name and arguments
+                    final formattedCall = 'Function: $tool\n${arguments.isNotEmpty ? 'Arguments: $arguments' : 'No arguments'}';
+                    onToolCall(formattedCall);
                   }
                   break;
                 case 'tool_result':
                   // Handle tool result events
                   if (onToolResult != null && eventPayload is Map<String, dynamic>) {
                     final result = eventPayload['result'] as String? ?? '';
-                    onToolResult('✅ Tool result: $result');
+                    onToolResult(result); // Pass full result without prefix
                   }
                   break;
                 default:
