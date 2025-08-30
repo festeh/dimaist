@@ -243,7 +243,6 @@ func createAIAgent(systemPrompt string, model string) *ai.Agent {
 	agent := ai.NewAgent(
 		apiKey,       // API key
 		endpoint,     // Custom AI endpoint
-		systemPrompt, // context
 		systemPrompt, // initial prompt contains our full system prompt
 		tools,
 		model, // model

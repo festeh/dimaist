@@ -13,9 +13,15 @@ import (
 var Logger zerolog.Logger
 
 // InitLogger initializes the global logger with configuration
-func InitLogger(logLevel, logFormat string) {
+func InitLogger(logLevel, logFormat string, verbose bool) {
 	// Set timestamp precision to include milliseconds
 	zerolog.TimeFieldFormat = time.RFC3339Nano
+	
+	// If verbose flag is set, override log level to debug
+	if verbose {
+		logLevel = "debug"
+	}
+	
 	// Set log level from parameter, default to info
 	logLevel = strings.ToLower(logLevel)
 	var level zerolog.Level

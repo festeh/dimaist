@@ -23,6 +23,7 @@ var appEnv *env.Env
 func main() {
 	// Parse command line flags
 	port := flag.String("port", "3000", "Port to run the server on")
+	verbose := flag.Bool("verbose", false, "Enable verbose logging (shows AI request bodies)")
 	flag.Parse()
 
 	err := godotenv.Load()
@@ -39,7 +40,12 @@ func main() {
 	}
 
 	// Initialize logger with env config
-	logger.InitLogger(appEnv.LogLevel, appEnv.LogFormat)
+	logger.InitLogger(appEnv.LogLevel, appEnv.LogFormat, *verbose)
+	
+	// Log if verbose mode is enabled
+	if *verbose {
+		logger.Debug("Verbose mode enabled - debug logs will be shown").Send()
+	}
 
 	err = database.InitDB(appEnv.DatabaseURL)
 	if err != nil {

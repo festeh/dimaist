@@ -15,12 +15,7 @@ func CreateExampleAgent() *Agent {
 		logger.Warn("OPENROUTER_API_KEY not set, agent will not work").Send()
 	}
 
-	context := `You are a helpful AI assistant for a task management application. 
-You have access to a database of tasks and projects. 
-You can help users manage their tasks, create projects, and organize their work.
-The application uses PostgreSQL database with GORM for ORM.`
-
-	initialPrompt := `You are an AI assistant that helps users manage their tasks and projects. 
+	systemPrompt := `You are an AI assistant that helps users manage their tasks and projects. 
 You can create, read, update, and delete tasks and projects. 
 Always be helpful and provide clear responses.`
 
@@ -107,7 +102,7 @@ Always be helpful and provide clear responses.`
 	}
 
 	model := "google/gemini-2.0-flash-001" // default model
-	return NewAgent(apiKey, endpoint, context, initialPrompt, tools, model)
+	return NewAgent(apiKey, endpoint, systemPrompt, tools, model)
 }
 
 func createTaskTool(args map[string]interface{}) (string, error) {

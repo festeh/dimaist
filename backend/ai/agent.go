@@ -38,13 +38,12 @@ type ToolParameterProperty struct {
 }
 
 type Agent struct {
-	apiKey        string
-	endpoint      string
-	context       string
-	tools         []Tool
-	initialPrompt string
-	model         string
-	client        *http.Client
+	apiKey       string
+	endpoint     string
+	tools        []Tool
+	systemPrompt string
+	model        string
+	client       *http.Client
 }
 
 type Message struct {
@@ -89,15 +88,14 @@ type ChatCompletionChoice struct {
 	FinishReason string                `json:"finish_reason,omitempty"`
 }
 
-func NewAgent(apiKey, endpoint, context, initialPrompt string, tools []Tool, model string) *Agent {
+func NewAgent(apiKey, endpoint, systemPrompt string, tools []Tool, model string) *Agent {
 	return &Agent{
-		apiKey:        apiKey,
-		endpoint:      endpoint,
-		context:       context,
-		tools:         tools,
-		initialPrompt: initialPrompt,
-		model:         model,
-		client:        &http.Client{Timeout: 60 * time.Second},
+		apiKey:       apiKey,
+		endpoint:     endpoint,
+		tools:        tools,
+		systemPrompt: systemPrompt,
+		model:        model,
+		client:       &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
@@ -111,7 +109,7 @@ func (a *Agent) ExecuteWithSSE(userInput string, sseWriter SSEWriter, ctx contex
 	messages := []ChatCompletionMessage{
 		{
 			Role:    "system",
-			Content: a.buildSystemPrompt(),
+			Content: a.systemPrompt,
 		},
 		{
 			Role:    "user",
@@ -262,7 +260,7 @@ func (a *Agent) Execute(userInput string) (string, error) {
 	messages := []ChatCompletionMessage{
 		{
 			Role:    "system",
-			Content: a.buildSystemPrompt(),
+			Content: a.systemPrompt,
 		},
 		{
 			Role:    "user",
@@ -324,15 +322,6 @@ func (a *Agent) Execute(userInput string) (string, error) {
 	return "", fmt.Errorf("maximum iterations reached without final response")
 }
 
-func (a *Agent) buildSystemPrompt() string {
-	return fmt.Sprintf(`%s
-
-Context: %s
-
-Instructions:
-- Use the available tools to complete tasks
-- Provide clear and helpful responses`, a.initialPrompt, a.context)
-}
 
 func (a *Agent) callModel(messages []ChatCompletionMessage) (*ChatCompletionResponse, error) {
 	return a.callModelWithTimeout(context.Background(), messages)
@@ -360,6 +349,9 @@ func (a *Agent) callModelWithTimeout(ctx context.Context, messages []ChatComplet
 		Str("model", request.Model).
 		Int("tools_count", len(request.Tools)).
 		Send()
+
+	// Debug: Log full request (only visible with --verbose flag)
+	logger.Debug("AI request").Interface("request", request).Send()
 
 	// Execute with retry logic
 	return a.executeWithRetryStructured(ctx, requestBody)
@@ -511,9 +503,6 @@ func (a *Agent) SetModel(model string) {
 	a.model = model
 }
 
-func (a *Agent) SetContext(context string) {
-	a.context = context
-}
 
 // ExecuteOneStep executes just one step of the conversation and returns the tool calls
 // This is useful for testing to see what tools the LLM would call without executing them
@@ -521,7 +510,7 @@ func (a *Agent) ExecuteOneStep(userInput string) ([]ToolCall, error) {
 	messages := []ChatCompletionMessage{
 		{
 			Role:    "system",
-			Content: a.buildSystemPrompt(),
+			Content: a.systemPrompt,
 		},
 		{
 			Role:    "user",

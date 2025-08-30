@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../widgets/recording_dialog.dart';
 
 class ChatInputWidget extends StatefulWidget {
   final Function(String) onSendMessage;
   final VoidCallback? onVoicePressed;
+  final Function(List<int>)? onAudioRecorded;
   final VoidCallback? onAddPressed;
   final bool isProcessing;
 
@@ -11,6 +14,7 @@ class ChatInputWidget extends StatefulWidget {
     super.key,
     required this.onSendMessage,
     this.onVoicePressed,
+    this.onAudioRecorded,
     this.onAddPressed,
     this.isProcessing = false,
   });
@@ -59,7 +63,12 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
   }
 
   void _showVoiceDialog() {
-    showDialog(context: context, builder: (context) => const RecordingDialog());
+    showDialog(
+      context: context, 
+      builder: (context) => RecordingDialog(
+        onAudioRecorded: widget.onAudioRecorded,
+      ),
+    );
   }
 
   @override
@@ -144,26 +153,37 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: TextField(
-                  controller: _textController,
-                  focusNode: _focusNode,
-                  enabled: !widget.isProcessing,
-                  decoration: InputDecoration(
-                    hintText: widget.isProcessing
-                        ? 'Processing...'
-                        : 'Ask AI to help with tasks...',
-                    hintStyle: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                child: RawKeyboardListener(
+                  focusNode: FocusNode(),
+                  onKey: (RawKeyEvent event) {
+                    if (Platform.isLinux &&
+                        event is RawKeyDownEvent &&
+                        event.isControlPressed &&
+                        event.logicalKey == LogicalKeyboardKey.enter) {
+                      _sendMessage();
+                    }
+                  },
+                  child: TextField(
+                    controller: _textController,
+                    focusNode: _focusNode,
+                    enabled: !widget.isProcessing,
+                    decoration: InputDecoration(
+                      hintText: widget.isProcessing
+                          ? 'Processing...'
+                          : 'Ask AI to help with tasks...',
+                      hintStyle: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
                     ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 14,
-                    ),
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _sendMessage(),
+                    maxLines: 1,
                   ),
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => _sendMessage(),
-                  maxLines: 1,
                 ),
               ),
             ),

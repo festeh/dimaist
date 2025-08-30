@@ -6,6 +6,7 @@ import '../services/settings_service.dart';
 import '../services/logging_service.dart';
 import '../providers/task_provider.dart';
 import '../widgets/recording_dialog.dart';
+import '../widgets/chat_input_widget.dart';
 
 class ChatMessage {
   final String text;
@@ -86,16 +87,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     });
   }
 
-  void _showVoiceRecordingDialog() {
-    if (_isProcessing) return;
-    
-    showDialog(
-      context: context,
-      builder: (context) => RecordingDialog(
-        onAudioRecorded: _processAudioMessage,
-      ),
-    );
-  }
 
   Future<void> _processAudioMessage(List<int> audioBytes) async {
     if (_isProcessing) return;
@@ -198,23 +189,19 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   }
 
   Future<void> _processTextMessage(String message) async {
-    // Set the text in the controller and send it
-    _textController.text = message;
-    await _sendMessage();
+    await _sendTextMessage(message);
   }
 
-  Future<void> _sendMessage() async {
-    if (_textController.text.trim().isEmpty || _isProcessing) return;
+  Future<void> _sendTextMessage(String userMessage) async {
+    if (userMessage.trim().isEmpty || _isProcessing) return;
 
-    final userMessage = _textController.text.trim();
-    _textController.clear();
+    final message = userMessage.trim();
 
     setState(() {
       _messages.add(
-        ChatMessage(text: userMessage, isUser: true, timestamp: DateTime.now()),
+        ChatMessage(text: message, isUser: true, timestamp: DateTime.now()),
       );
       _isProcessing = true;
-      _hasText = false;
       _statusMessage = 'Initializing...';
     });
 
@@ -227,7 +214,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       await ref
           .read(apiServiceProvider)
           .sendTextAIStream(
-            userMessage,
+            message,
             model,
             (chunk) {
               setState(() {
@@ -398,112 +385,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             ),
           ),
           _buildStatusIndicator(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              border: Border(
-                top: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: SafeArea(
-              top: false,
-              child: Row(
-                children: [
-                  // Voice button
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _isProcessing ? null : _showVoiceRecordingDialog,
-                      borderRadius: BorderRadius.circular(24),
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: Icon(
-                          Icons.mic,
-                          color: _isProcessing
-                              ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)
-                              : Theme.of(context).colorScheme.primary,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16), // Space between voice and text input
-                  // Text input field
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: TextField(
-                        controller: _textController,
-                        enabled: !_isProcessing,
-                        decoration: InputDecoration(
-                          hintText: _isProcessing
-                              ? 'Processing...'
-                              : 'Ask AI to help with tasks...',
-                          hintStyle: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 14,
-                          ),
-                        ),
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _sendMessage(),
-                        maxLines: 1,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16), // Space between text input and send
-                  // Send button
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _hasText && !_isProcessing ? _sendMessage : null,
-                      borderRadius: BorderRadius.circular(24),
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: _hasText && !_isProcessing
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: _isProcessing
-                            ? SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Theme.of(context).colorScheme.onSurface,
-                                ),
-                              )
-                            : Icon(
-                                Icons.send,
-                                color: _hasText
-                                    ? Theme.of(context).colorScheme.onPrimary
-                                    : Theme.of(context).colorScheme.onSurfaceVariant,
-                                size: 20,
-                              ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          ChatInputWidget(
+            onSendMessage: _sendTextMessage,
+            onAudioRecorded: _processAudioMessage,
+            isProcessing: _isProcessing,
           ),
         ],
       ),
