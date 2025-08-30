@@ -16,7 +16,7 @@ import (
 type Tool struct {
 	Type     string                                            `json:"type"`
 	Function ToolFunc                                          `json:"function"`
-	Handler  func(args map[string]interface{}) (string, error) `json:"-"`
+	Handler  func(args map[string]any) (string, error) `json:"-"`
 }
 
 type ToolFunc struct {
@@ -68,7 +68,7 @@ type ChatCompletionRequest struct {
 	MaxTokens   int                     `json:"max_tokens,omitempty"`
 	Temperature float64                 `json:"temperature,omitempty"`
 	Tools       []Tool                  `json:"tools,omitempty"`
-	ToolChoice  interface{}             `json:"tool_choice,omitempty"`
+	ToolChoice  any             `json:"tool_choice,omitempty"`
 }
 
 type ChatCompletionMessage struct {
@@ -131,7 +131,7 @@ func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseW
 		
 		if err != nil {
 			logger.Error("Model call failed").Err(err).Send()
-			if err := sseWriter.Send("error", map[string]interface{}{
+			if err := sseWriter.Send("error", map[string]any{
 				"error": fmt.Sprintf("AI call failed: %v", err),
 				"duration": modelDuration,
 			}); err != nil {
@@ -140,13 +140,25 @@ func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseW
 			return "", fmt.Errorf("model call failed: %w", err)
 		}
 
-		logger.Info("Model response received").Send()
+		logEvent := logger.Info("Model response received").
+			Str("content", response.Choices[0].Message.Content).
+			Int("tool_calls_count", len(response.Choices[0].Message.ToolCalls))
+		
+		if len(response.Choices[0].Message.ToolCalls) > 0 {
+			toolNames := make([]string, len(response.Choices[0].Message.ToolCalls))
+			for i, toolCall := range response.Choices[0].Message.ToolCalls {
+				toolNames[i] = toolCall.Function.Name
+			}
+			logEvent = logEvent.Strs("tool_calls", toolNames)
+		}
+		
+		logEvent.Send()
 
 		if !a.hasToolCalls(response) {
 			// No tool calls, return the response content
 			logger.Info("No tool calls found, returning response").Send()
 			responseText := response.Choices[0].Message.Content
-			if err := sseWriter.Send("final_response", map[string]interface{}{
+			if err := sseWriter.Send("final_response", map[string]any{
 				"response": responseText,
 				"duration": modelDuration,
 			}); err != nil {
@@ -164,10 +176,10 @@ func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseW
 
 			// Check for respond tool (final response)
 			if toolCall.Function.Name == "respond" {
-				var args map[string]interface{}
+				var args map[string]any
 				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err == nil {
 					if text, ok := args["text"].(string); ok {
-						if err := sseWriter.Send("final_response", map[string]interface{}{
+						if err := sseWriter.Send("final_response", map[string]any{
 							"response": text,
 							"duration": modelDuration,
 						}); err != nil {
@@ -178,7 +190,7 @@ func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseW
 						return text, nil
 					}
 				}
-				if err := sseWriter.Send("final_response", map[string]interface{}{
+				if err := sseWriter.Send("final_response", map[string]any{
 					"response": "Invalid response format",
 					"duration": modelDuration,
 				}); err != nil {
@@ -188,7 +200,7 @@ func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseW
 			}
 
 			// Send tool call event with model duration (how long it took to decide to call the tool)
-			if err := sseWriter.Send("tool_call", map[string]interface{}{
+			if err := sseWriter.Send("tool_call", map[string]any{
 				"tool":      toolCall.Function.Name,
 				"arguments": toolCall.Function.Arguments,
 				"duration":  modelDuration,
@@ -205,7 +217,7 @@ func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseW
 				logger.Error("Tool execution failed").Str("tool", toolCall.Function.Name).Err(err).Send()
 
 				// Send error event with timing
-				if err := sseWriter.Send("error", map[string]interface{}{
+				if err := sseWriter.Send("error", map[string]any{
 					"error": fmt.Sprintf("Tool execution failed: %v", err),
 					"duration": toolDuration,
 				}); err != nil {
@@ -223,7 +235,7 @@ func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseW
 			}
 
 			// Send tool result event without duration
-			if err := sseWriter.Send("tool_result", map[string]interface{}{
+			if err := sseWriter.Send("tool_result", map[string]any{
 				"result": toolResult,
 			}); err != nil {
 				logger.Error("Failed to send tool_result event").Err(err).Send()
@@ -273,7 +285,19 @@ func (a *Agent) Execute(userInput string) (string, error) {
 			return "", fmt.Errorf("model call failed: %w", err)
 		}
 
-		logger.Info("Model response received").Send()
+		logEvent := logger.Info("Model response received").
+			Str("content", response.Choices[0].Message.Content).
+			Int("tool_calls_count", len(response.Choices[0].Message.ToolCalls))
+		
+		if len(response.Choices[0].Message.ToolCalls) > 0 {
+			toolNames := make([]string, len(response.Choices[0].Message.ToolCalls))
+			for i, toolCall := range response.Choices[0].Message.ToolCalls {
+				toolNames[i] = toolCall.Function.Name
+			}
+			logEvent = logEvent.Strs("tool_calls", toolNames)
+		}
+		
+		logEvent.Send()
 
 		if !a.hasToolCalls(response) {
 			logger.Info("No tool call found, returning response").Send()
@@ -288,7 +312,7 @@ func (a *Agent) Execute(userInput string) (string, error) {
 
 			// Check for respond tool (final response)
 			if toolCall.Function.Name == "respond" {
-				var args map[string]interface{}
+				var args map[string]any
 				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err == nil {
 					if text, ok := args["text"].(string); ok {
 						return text, nil
@@ -328,7 +352,7 @@ func (a *Agent) callModelWithTimeout(ctx context.Context, messages []ChatComplet
 		Temperature: 0.1,
 		Messages:    messages,
 		Tools:       a.tools,
-		ToolChoice:  "auto",
+		ToolChoice:  "required",
 	}
 
 	// Marshal request to JSON
@@ -478,7 +502,7 @@ func (a *Agent) executeTool(toolCall ToolCall) (string, error) {
 	for _, tool := range a.tools {
 		if tool.Function.Name == toolCall.Function.Name {
 			// Parse arguments from JSON string
-			var args map[string]interface{}
+			var args map[string]any
 			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
 				return "", fmt.Errorf("failed to parse tool arguments: %w", err)
 			}

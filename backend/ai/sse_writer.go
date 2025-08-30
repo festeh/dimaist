@@ -7,13 +7,13 @@ import (
 )
 
 type SSEWriter interface {
-	Send(event string, data interface{}) error
+	Send(event string, data any) error
 	Flush()
 }
 
 type SSEEvent struct {
 	Event string      `json:"event"`
-	Data  interface{} `json:"data"`
+	Data  any `json:"data"`
 }
 
 type sseWriter struct {
@@ -34,7 +34,7 @@ func NewSSEWriter(w http.ResponseWriter) SSEWriter {
 	}
 }
 
-func (s *sseWriter) Send(event string, data interface{}) error {
+func (s *sseWriter) Send(event string, data any) error {
 	sseEvent := SSEEvent{
 		Event: event,
 		Data:  data,

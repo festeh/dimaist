@@ -101,7 +101,7 @@ func CreateExampleAgent() *Agent {
 	return NewAgent(apiKey, endpoint, tools, model)
 }
 
-func createTaskTool(args map[string]interface{}) (string, error) {
+func createTaskTool(args map[string]any) (string, error) {
 	description, ok := args["description"].(string)
 	if !ok {
 		return "", fmt.Errorf("description is required")
@@ -136,7 +136,7 @@ func createTaskTool(args map[string]interface{}) (string, error) {
 	return fmt.Sprintf("Task created successfully with ID %d: %s", task.ID, task.Description), nil
 }
 
-func listTasksTool(args map[string]interface{}) (string, error) {
+func listTasksTool(args map[string]any) (string, error) {
 	var tasks []database.Task
 	query := database.DB.Preload("Project")
 
@@ -177,7 +177,7 @@ func listTasksTool(args map[string]interface{}) (string, error) {
 	return response, nil
 }
 
-func createProjectTool(args map[string]interface{}) (string, error) {
+func createProjectTool(args map[string]any) (string, error) {
 	name, ok := args["name"].(string)
 	if !ok {
 		return "", fmt.Errorf("name is required")
@@ -199,7 +199,7 @@ func createProjectTool(args map[string]interface{}) (string, error) {
 	return fmt.Sprintf("Project created successfully with ID %d: %s", project.ID, project.Name), nil
 }
 
-func listProjectsTool(args map[string]interface{}) (string, error) {
+func listProjectsTool(args map[string]any) (string, error) {
 	var projects []database.Project
 	result := database.DB.Preload("Tasks").Find(&projects)
 	if result.Error != nil {
@@ -220,7 +220,7 @@ func listProjectsTool(args map[string]interface{}) (string, error) {
 	return response, nil
 }
 
-func completeTaskTool(args map[string]interface{}) (string, error) {
+func completeTaskTool(args map[string]any) (string, error) {
 	taskIDFloat, ok := args["task_id"].(float64)
 	if !ok {
 		return "", fmt.Errorf("task_id is required")

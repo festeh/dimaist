@@ -14,7 +14,7 @@ func (ta TimeArray) Value() (driver.Value, error) {
 	if ta == nil {
 		return nil, nil
 	}
-	timestamps := make([]interface{}, len(ta))
+	timestamps := make([]any, len(ta))
 	for i, t := range ta {
 		timestamps[i] = t
 	}
@@ -22,7 +22,7 @@ func (ta TimeArray) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner interface
-func (ta *TimeArray) Scan(value interface{}) error {
+func (ta *TimeArray) Scan(value any) error {
 	var timestamps pq.StringArray
 	if err := timestamps.Scan(value); err != nil {
 		return err

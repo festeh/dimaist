@@ -123,7 +123,7 @@ func HandleAITextWithWriter(sseWriter SSEWriter, messages []ChatCompletionMessag
 	agent := createAIAgent(model)
 
 	// Send thinking event before starting with context loading duration
-	if err := sseWriter.Send("thinking", map[string]interface{}{
+	if err := sseWriter.Send("thinking", map[string]any{
 		"message":  fmt.Sprintf("Context loaded (%.2fs), starting AI agent...", contextDuration),
 		"duration": contextDuration,
 	}); err != nil {
@@ -224,6 +224,7 @@ IMPORTANT RULES:
 2. Use MUST use tools (other than 'respond') to perform modifications on tasks and projects
 3. ALL TASK/PROJECT DATA IS ALREADY PROVIDED BELOW - you do not need to use tools to retrieve or list existing tasks, projects, or other information
 4. Never complete tasks without user's explicit ask
+5. The content of 'respond' tool should ONLY include user-visible text, never put your thoughts in it
 
 Current Local Time: %s
 

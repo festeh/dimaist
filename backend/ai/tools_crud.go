@@ -244,7 +244,7 @@ func CreateCRUDTools() []Tool {
 }
 
 // Special respond tool
-func respondTool(args map[string]interface{}) (string, error) {
+func respondTool(args map[string]any) (string, error) {
 	text, ok := args["text"].(string)
 	if !ok {
 		return "", fmt.Errorf("text parameter is required")
@@ -253,7 +253,7 @@ func respondTool(args map[string]interface{}) (string, error) {
 }
 
 // Task CRUD Tools
-func createTaskCRUDTool(args map[string]interface{}) (string, error) {
+func createTaskCRUDTool(args map[string]any) (string, error) {
 	description, ok := args["description"].(string)
 	if !ok {
 		return "", fmt.Errorf("description is required")
@@ -313,7 +313,7 @@ func createTaskCRUDTool(args map[string]interface{}) (string, error) {
 	}
 
 	// Optional labels
-	if labelsInterface, ok := args["labels"].([]interface{}); ok {
+	if labelsInterface, ok := args["labels"].([]any); ok {
 		labels := make([]string, len(labelsInterface))
 		for i, label := range labelsInterface {
 			if labelStr, ok := label.(string); ok {
@@ -326,7 +326,7 @@ func createTaskCRUDTool(args map[string]interface{}) (string, error) {
 	}
 
 	// Optional reminders
-	if remindersInterface, ok := args["reminders"].([]interface{}); ok {
+	if remindersInterface, ok := args["reminders"].([]any); ok {
 		reminders := make(database.TimeArray, len(remindersInterface))
 		for i, reminder := range remindersInterface {
 			if reminderStr, ok := reminder.(string); ok {
@@ -369,7 +369,7 @@ func createTaskCRUDTool(args map[string]interface{}) (string, error) {
 	return fmt.Sprintf("Task created successfully with ID %d: %s", task.ID, task.Description), nil
 }
 
-func updateTaskCRUDTool(args map[string]interface{}) (string, error) {
+func updateTaskCRUDTool(args map[string]any) (string, error) {
 	taskIDFloat, ok := args["task_id"].(float64)
 	if !ok {
 		return "", fmt.Errorf("task_id is required")
@@ -383,7 +383,7 @@ func updateTaskCRUDTool(args map[string]interface{}) (string, error) {
 	}
 
 	// Update fields if provided
-	updates := make(map[string]interface{})
+	updates := make(map[string]any)
 
 	if description, ok := args["description"].(string); ok {
 		updates["description"] = description
@@ -426,7 +426,7 @@ func updateTaskCRUDTool(args map[string]interface{}) (string, error) {
 		updates["end_datetime"] = &endDatetime
 	}
 
-	if labelsInterface, ok := args["labels"].([]interface{}); ok {
+	if labelsInterface, ok := args["labels"].([]any); ok {
 		labels := make([]string, len(labelsInterface))
 		for i, label := range labelsInterface {
 			if labelStr, ok := label.(string); ok {
@@ -438,7 +438,7 @@ func updateTaskCRUDTool(args map[string]interface{}) (string, error) {
 		updates["labels"] = pq.StringArray(labels)
 	}
 
-	if remindersInterface, ok := args["reminders"].([]interface{}); ok {
+	if remindersInterface, ok := args["reminders"].([]any); ok {
 		reminders := make(database.TimeArray, len(remindersInterface))
 		for i, reminder := range remindersInterface {
 			if reminderStr, ok := reminder.(string); ok {
@@ -470,7 +470,7 @@ func updateTaskCRUDTool(args map[string]interface{}) (string, error) {
 	return fmt.Sprintf("Task %d updated successfully", taskID), nil
 }
 
-func deleteTaskCRUDTool(args map[string]interface{}) (string, error) {
+func deleteTaskCRUDTool(args map[string]any) (string, error) {
 	taskIDFloat, ok := args["task_id"].(float64)
 	if !ok {
 		return "", fmt.Errorf("task_id is required")
@@ -492,7 +492,7 @@ func deleteTaskCRUDTool(args map[string]interface{}) (string, error) {
 	return fmt.Sprintf("Task %d deleted successfully", taskID), nil
 }
 
-func completeTaskCRUDTool(args map[string]interface{}) (string, error) {
+func completeTaskCRUDTool(args map[string]any) (string, error) {
 	taskIDFloat, ok := args["task_id"].(float64)
 	if !ok {
 		return "", fmt.Errorf("task_id is required")
@@ -552,7 +552,7 @@ func completeTaskCRUDTool(args map[string]interface{}) (string, error) {
 }
 
 // Project CRUD Tools
-func createProjectCRUDTool(args map[string]interface{}) (string, error) {
+func createProjectCRUDTool(args map[string]any) (string, error) {
 	name, ok := args["name"].(string)
 	if !ok {
 		return "", fmt.Errorf("name is required")
@@ -580,14 +580,14 @@ func createProjectCRUDTool(args map[string]interface{}) (string, error) {
 	return fmt.Sprintf("Project created successfully with ID %d: %s", project.ID, project.Name), nil
 }
 
-func updateProjectCRUDTool(args map[string]interface{}) (string, error) {
+func updateProjectCRUDTool(args map[string]any) (string, error) {
 	projectIDFloat, ok := args["project_id"].(float64)
 	if !ok {
 		return "", fmt.Errorf("project_id is required")
 	}
 	projectID := uint(projectIDFloat)
 
-	updates := make(map[string]interface{})
+	updates := make(map[string]any)
 
 	if name, ok := args["name"].(string); ok {
 		updates["name"] = name
@@ -613,7 +613,7 @@ func updateProjectCRUDTool(args map[string]interface{}) (string, error) {
 	return fmt.Sprintf("Project %d updated successfully", projectID), nil
 }
 
-func deleteProjectCRUDTool(args map[string]interface{}) (string, error) {
+func deleteProjectCRUDTool(args map[string]any) (string, error) {
 	projectIDFloat, ok := args["project_id"].(float64)
 	if !ok {
 		return "", fmt.Errorf("project_id is required")
