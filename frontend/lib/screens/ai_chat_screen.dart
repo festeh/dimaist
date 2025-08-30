@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../repositories/providers.dart';
 import '../services/settings_service.dart';
 import '../services/logging_service.dart';
@@ -297,7 +298,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           if (!message.isUser) ...[
             CircleAvatar(
               radius: 16,
-              backgroundColor: Theme.of(context).colorScheme.primary,
+              backgroundColor: Colors.deepPurple[600],
               child: const Icon(Icons.smart_toy, size: 16, color: Colors.white),
             ),
             const SizedBox(width: 8),
@@ -311,14 +312,30 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                     : Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: SelectableText(
-                message.text,
-                style: TextStyle(
-                  color: message.isUser
-                      ? Colors.white
-                      : Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
+              child: message.isUser
+                  ? SelectableText(
+                      message.text,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
+                    )
+                  : MarkdownBody(
+                      data: message.text,
+                      selectable: true,
+                      styleSheet: MarkdownStyleSheet(
+                        p: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        code: TextStyle(
+                          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        codeblockDecoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
             ),
           ),
           if (message.isUser) ...[
