@@ -366,7 +366,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       return _buildToolMessage(message);
     }
 
-    // User messages - keep the bubble style
+    // User messages - use card style similar to AI messages but right-aligned
     if (message.isUser) {
       return Container(
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
@@ -376,24 +376,50 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           children: [
             Flexible(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                constraints: const BoxConstraints(maxWidth: 300), // Limit max width
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: SelectableText(
-                  message.text,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onPrimary,
+                  color: Colors.purple[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.purple[200]!,
+                    width: 1.5,
                   ),
                 ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.person,
+                          size: 18,
+                          color: Colors.purple[700],
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'You',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.purple[700],
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    SelectableText(
+                      message.text,
+                      style: TextStyle(
+                        color: Colors.grey[800],
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: Theme.of(context).colorScheme.secondary,
-              child: const Icon(Icons.person, size: 16, color: Colors.white),
             ),
           ],
         ),
@@ -449,6 +475,63 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                       p: TextStyle(
                         color: Colors.grey[800],
                         fontSize: 13,
+                      ),
+                      h1: TextStyle(
+                        color: Colors.grey[800],
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      h2: TextStyle(
+                        color: Colors.grey[800],
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      h3: TextStyle(
+                        color: Colors.grey[800],
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      h4: TextStyle(
+                        color: Colors.grey[800],
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      h5: TextStyle(
+                        color: Colors.grey[800],
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      h6: TextStyle(
+                        color: Colors.grey[800],
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      listBullet: TextStyle(
+                        color: Colors.grey[800],
+                        fontSize: 13,
+                      ),
+                      em: TextStyle(
+                        color: Colors.grey[800],
+                        fontStyle: FontStyle.italic,
+                      ),
+                      strong: TextStyle(
+                        color: Colors.grey[800],
+                        fontWeight: FontWeight.bold,
+                      ),
+                      a: TextStyle(
+                        color: Colors.blue[600],
+                        decoration: TextDecoration.underline,
+                      ),
+                      blockquote: TextStyle(
+                        color: Colors.grey[700],
+                        fontStyle: FontStyle.italic,
+                      ),
+                      tableHead: TextStyle(
+                        color: Colors.grey[800],
+                        fontWeight: FontWeight.bold,
+                      ),
+                      tableBody: TextStyle(
+                        color: Colors.grey[800],
                       ),
                       code: TextStyle(
                         backgroundColor: Colors.grey[200],
