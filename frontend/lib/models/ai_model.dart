@@ -5,6 +5,7 @@ enum AiModel {
   gptOss120bOpenrouter('openrouter/openai/gpt-oss-120b:nitro'),
   gptOss20b('chutes/openai/gpt-oss-20b'),
   deepseekV31('chutes/deepseek-ai/DeepSeek-V3.1'),
+  deepseekV31Openrouter('openrouter/deepseek/deepseek-chat-v3.1:nitro'),
   glm45('chutes/zai-org/GLM-4.5-FP8');
 
   const AiModel(this.value);

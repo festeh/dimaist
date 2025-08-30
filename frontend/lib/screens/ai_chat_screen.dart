@@ -185,7 +185,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
     try {
       final model = SettingsService.instance.aiModel.value;
-      String aiResponse = '';
       bool transcriptionReceived = false;
 
       // Build messages history for context
@@ -198,24 +197,14 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             model,
             (chunk, {double? duration}) {
               setState(() {
-                aiResponse += chunk;
-                if (_messages.isNotEmpty && !_messages.last.isUser) {
-                  _messages.last = ChatMessage(
-                    text: aiResponse,
+                _messages.add(
+                  ChatMessage(
+                    text: chunk,
                     role: 'assistant',
-                    timestamp: _messages.last.timestamp,
+                    timestamp: DateTime.now(),
                     duration: duration,
-                  );
-                } else {
-                  _messages.add(
-                    ChatMessage(
-                      text: aiResponse,
-                      role: 'assistant',
-                      timestamp: DateTime.now(),
-                      duration: duration,
-                    ),
-                  );
-                }
+                  ),
+                );
               });
               _scrollToBottom();
             },
@@ -307,7 +296,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
     try {
       final model = SettingsService.instance.aiModel.value;
-      String aiResponse = '';
 
       // Build complete messages array including the new user message
       final messagesHistory = _buildMessagesFromHistory();
@@ -325,24 +313,14 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             model,
             (chunk, {double? duration}) {
               setState(() {
-                aiResponse += chunk;
-                if (_messages.isNotEmpty && !_messages.last.isUser) {
-                  _messages.last = ChatMessage(
-                    text: aiResponse,
+                _messages.add(
+                  ChatMessage(
+                    text: chunk,
                     role: 'assistant',
-                    timestamp: _messages.last.timestamp,
+                    timestamp: DateTime.now(),
                     duration: duration,
-                  );
-                } else {
-                  _messages.add(
-                    ChatMessage(
-                      text: aiResponse,
-                      role: 'assistant',
-                      timestamp: DateTime.now(),
-                      duration: duration,
-                    ),
-                  );
-                }
+                  ),
+                );
               });
               _scrollToBottom();
             },

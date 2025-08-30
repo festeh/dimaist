@@ -162,16 +162,6 @@ func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseW
 		for _, toolCall := range response.Choices[0].Message.ToolCalls {
 			logger.Info("Tool call detected").Str("tool", toolCall.Function.Name).Send()
 
-			// Send tool call event with model duration (how long it took to decide to call the tool)
-			if err := sseWriter.Send("tool_call", map[string]interface{}{
-				"tool":      toolCall.Function.Name,
-				"arguments": toolCall.Function.Arguments,
-				"duration":  modelDuration,
-			}); err != nil {
-				logger.Error("Failed to send tool_call event").Err(err).Send()
-				return "", err
-			}
-
 			// Check for respond tool (final response)
 			if toolCall.Function.Name == "respond" {
 				var args map[string]interface{}
@@ -195,6 +185,16 @@ func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseW
 					logger.Error("Failed to send final_response event").Err(err).Send()
 				}
 				return "Invalid response format", nil
+			}
+
+			// Send tool call event with model duration (how long it took to decide to call the tool)
+			if err := sseWriter.Send("tool_call", map[string]interface{}{
+				"tool":      toolCall.Function.Name,
+				"arguments": toolCall.Function.Arguments,
+				"duration":  modelDuration,
+			}); err != nil {
+				logger.Error("Failed to send tool_call event").Err(err).Send()
+				return "", err
 			}
 
 			toolStartTime := time.Now()
