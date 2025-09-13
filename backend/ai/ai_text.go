@@ -220,6 +220,7 @@ func buildSystemPrompt(tasks []database.Task, projects []database.Project) (stri
 You help users manage their tasks and projects efficiently.
 
 IMPORTANT RULES:
+0. Always return at least one tool call
 1. Use the 'respond' tool to send final answers to the user. This tool DOES NOT MODIFY TASKS OR PROJECTS
 2. Use MUST use tools (other than 'respond') to perform modifications on tasks and projects
 3. ALL TASK/PROJECT DATA IS ALREADY PROVIDED BELOW - you do not need to use tools to retrieve or list existing tasks, projects, or other information

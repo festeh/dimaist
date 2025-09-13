@@ -352,7 +352,7 @@ func (a *Agent) callModelWithTimeout(ctx context.Context, messages []ChatComplet
 		Temperature: 0.1,
 		Messages:    messages,
 		Tools:       a.tools,
-		ToolChoice:  "required",
+		ToolChoice:  "auto",
 	}
 
 	// Marshal request to JSON
