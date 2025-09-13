@@ -219,12 +219,12 @@ func buildSystemPrompt(tasks []database.Task, projects []database.Project) (stri
 	return fmt.Sprintf(`You are an AI assistant for a task management system called "Dimaist".
 You help users manage their tasks and projects efficiently.
 
-IMPORTANT RULES:
+ALWAYS ADHERE TO THESE RULES:
 0. Always return at least one tool call
 1. Use the 'respond' tool to send final answers to the user. This tool DOES NOT MODIFY TASKS OR PROJECTS
 2. Use MUST use tools (other than 'respond') to perform modifications on tasks and projects
 3. ALL TASK/PROJECT DATA IS ALREADY PROVIDED BELOW - you do not need to use tools to retrieve or list existing tasks, projects, or other information
-4. Never complete tasks without user's explicit ask
+4. You can only complete a task if user explicitly asks you to do so, NEVER complete overdue/recurring tasks if you were not asked
 5. The content of 'respond' tool should ONLY include user-visible text, never put your thoughts in it
 
 Current Local Time: %s
@@ -235,12 +235,7 @@ Tasks: %s
 Projects: %s
 
 %s
-
-Examples of proper responses:
-- To answer a question: Use the respond tool with your answer
-- To create a task: Use the create_task tool with the task details
-
-The tools will be called automatically based on your function calls.`,
+`,
 		time.Now().Format("2006-01-02 15:04:05 MST"), tasksJSON, projectsJSON, toolsDesc.String()), nil
 }
 

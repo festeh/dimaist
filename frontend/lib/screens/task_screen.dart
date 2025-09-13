@@ -3,6 +3,7 @@ import 'package:dimaist/services/logging_service.dart';
 import 'package:dimaist/widgets/custom_view_widget.dart';
 import 'package:dimaist/widgets/task_form_dialog.dart';
 import 'package:dimaist/widgets/schedule_view.dart';
+import 'package:dimaist/widgets/view_options_menu.dart';
 import 'package:dimaist/utils/value_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,55 +41,37 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
   void _updateAppBarConfig(String title, SortMode sortMode) {
     widget.onAppBarConfigChanged?.call(
       AppBarConfig(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.headlineSmall),
-            if (widget.customView?.type == BuiltInViewType.today) ...[
-              const SizedBox(width: 8),
-              IconButton(
-                iconSize: 20,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: Icon(
-                  _isScheduleView ? Icons.list : Icons.calendar_view_day,
-                ),
-                onPressed: () {
-                  LoggingService.logger.fine(
-                    'Toggle button pressed! Current state: $_isScheduleView',
-                  );
-                  setState(() {
-                    _isScheduleView = !_isScheduleView;
-                  });
-                  LoggingService.logger.fine('New state: $_isScheduleView');
-                },
-                tooltip: _isScheduleView ? 'List View' : 'Schedule View',
-              ),
-            ],
-            const SizedBox(width: 8),
-            IconButton(
-              iconSize: 20,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              icon: Icon(
-                sortMode == SortMode.order ? Icons.reorder : Icons.sort,
-              ),
-              onPressed: () async {
+        title: Text(title, style: Theme.of(context).textTheme.headlineSmall),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 60.0), // Add padding to avoid debug banner
+            child: ViewOptionsMenu(
+              sortMode: sortMode,
+              isScheduleView: _isScheduleView,
+              showScheduleToggle: widget.customView?.type == BuiltInViewType.today,
+              onSortToggle: () async {
                 final taskNotifier = ref.read(taskProvider.notifier);
                 final newSortMode = sortMode == SortMode.order
                     ? SortMode.dueDate
                     : SortMode.order;
                 await taskNotifier.setSortMode(newSortMode);
               },
-              tooltip: sortMode == SortMode.order
-                  ? 'Sort by Due Date'
-                  : 'Sort Manually',
+              onScheduleToggle: widget.customView?.type == BuiltInViewType.today
+                  ? () {
+                      LoggingService.logger.fine(
+                        'Toggle button pressed! Current state: $_isScheduleView',
+                      );
+                      setState(() {
+                        _isScheduleView = !_isScheduleView;
+                      });
+                      LoggingService.logger.fine('New state: $_isScheduleView');
+                    }
+                  : null,
             ),
-          ],
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: const [],
+          ),
+        ],
       ),
     );
   }
