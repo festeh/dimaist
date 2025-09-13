@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:dimaist/models/project.dart' as project_model;
 import 'package:dimaist/models/task.dart' as task_model;
+import '../enums/sort_mode.dart';
 
 part 'app_database.g.dart';
 
@@ -208,53 +209,94 @@ class AppDatabase extends _$AppDatabase {
   }
 
   // Task methods
-  Future<List<task_model.Task>> getTasksByProject(int projectId) =>
-      (select(tasks)
-            ..where((t) => t.projectId.equals(projectId))
-            ..orderBy([(t) => OrderingTerm(expression: t.order)]))
-          .get();
+  Future<List<task_model.Task>> getTasksByProject(int projectId, {SortMode sortMode = SortMode.order}) {
+    final query = select(tasks)..where((t) => t.projectId.equals(projectId));
 
-  Future<List<task_model.Task>> getTodayTasks() async {
+    if (sortMode == SortMode.dueDate) {
+      query.orderBy([
+        (t) => OrderingTerm(expression: t.dueDate, nulls: NullsOrder.last),
+        (t) => OrderingTerm(expression: t.dueDatetime, nulls: NullsOrder.last),
+        (t) => OrderingTerm(expression: t.order),
+      ]);
+    } else {
+      query.orderBy([(t) => OrderingTerm(expression: t.order)]);
+    }
+
+    return query.get();
+  }
+
+  Future<List<task_model.Task>> getTodayTasks({SortMode sortMode = SortMode.order}) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final todayEnd = today.add(const Duration(days: 1));
 
-    return (select(tasks)
-          ..where(
-            (t) =>
-                t.completedAt.isNull() &
-                t.dueDate.isNotNull() &
-                t.dueDate.isBetweenValues(DateTime(1900), todayEnd),
-          )
-          ..orderBy([(t) => OrderingTerm(expression: t.order)]))
-        .get();
+    final query = select(tasks)
+      ..where(
+        (t) =>
+            t.completedAt.isNull() &
+            t.dueDate.isNotNull() &
+            t.dueDate.isBetweenValues(DateTime(1900), todayEnd),
+      );
+
+    if (sortMode == SortMode.dueDate) {
+      query.orderBy([
+        (t) => OrderingTerm(expression: t.dueDate, nulls: NullsOrder.last),
+        (t) => OrderingTerm(expression: t.dueDatetime, nulls: NullsOrder.last),
+        (t) => OrderingTerm(expression: t.order),
+      ]);
+    } else {
+      query.orderBy([(t) => OrderingTerm(expression: t.order)]);
+    }
+
+    return query.get();
   }
 
-  Future<List<task_model.Task>> getUpcomingTasks() async {
+  Future<List<task_model.Task>> getUpcomingTasks({SortMode sortMode = SortMode.order}) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final sevenDaysFromNow = today.add(const Duration(days: 7));
     final tomorrow = today.add(const Duration(days: 1));
 
-    return (select(tasks)
-          ..where((t) {
-            final dueDateClause =
-                t.dueDate.isNotNull() &
-                t.dueDate.isBetweenValues(tomorrow, sevenDaysFromNow);
-            final dueDatetimeClause =
-                t.dueDatetime.isNotNull() &
-                t.dueDatetime.isBetweenValues(tomorrow, sevenDaysFromNow);
-            return t.completedAt.isNull() & (dueDateClause | dueDatetimeClause);
-          })
-          ..orderBy([(t) => OrderingTerm(expression: t.order)]))
-        .get();
+    final query = select(tasks)
+      ..where((t) {
+        final dueDateClause =
+            t.dueDate.isNotNull() &
+            t.dueDate.isBetweenValues(tomorrow, sevenDaysFromNow);
+        final dueDatetimeClause =
+            t.dueDatetime.isNotNull() &
+            t.dueDatetime.isBetweenValues(tomorrow, sevenDaysFromNow);
+        return t.completedAt.isNull() & (dueDateClause | dueDatetimeClause);
+      });
+
+    if (sortMode == SortMode.dueDate) {
+      query.orderBy([
+        (t) => OrderingTerm(expression: t.dueDate, nulls: NullsOrder.last),
+        (t) => OrderingTerm(expression: t.dueDatetime, nulls: NullsOrder.last),
+        (t) => OrderingTerm(expression: t.order),
+      ]);
+    } else {
+      query.orderBy([(t) => OrderingTerm(expression: t.order)]);
+    }
+
+    return query.get();
   }
 
-  Future<List<task_model.Task>> getTasksByLabel(String label) =>
-      (select(tasks)
-            ..where((t) => t.completedAt.isNull() & t.labels.like('%$label%'))
-            ..orderBy([(t) => OrderingTerm(expression: t.order)]))
-          .get();
+  Future<List<task_model.Task>> getTasksByLabel(String label, {SortMode sortMode = SortMode.order}) {
+    final query = select(tasks)
+      ..where((t) => t.completedAt.isNull() & t.labels.like('%$label%'));
+
+    if (sortMode == SortMode.dueDate) {
+      query.orderBy([
+        (t) => OrderingTerm(expression: t.dueDate, nulls: NullsOrder.last),
+        (t) => OrderingTerm(expression: t.dueDatetime, nulls: NullsOrder.last),
+        (t) => OrderingTerm(expression: t.order),
+      ]);
+    } else {
+      query.orderBy([(t) => OrderingTerm(expression: t.order)]);
+    }
+
+    return query.get();
+  }
 
   Future<task_model.Task?> getTaskById(int id) =>
       (select(tasks)..where((t) => t.id.equals(id))).getSingleOrNull();

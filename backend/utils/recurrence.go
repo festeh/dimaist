@@ -169,6 +169,13 @@ func CalculateNextDueDate(recurrence string, currentDue *time.Time) (*time.Time,
 		return &next, nil
 	}
 
+	// Monthly (same date next month)
+	monthlyPatterns := []string{"month", "monthly", "every month"}
+	if slices.Contains(monthlyPatterns, strings.ToLower(recurrence)) {
+		next := baseDate.AddDate(0, 1, 0)
+		return &next, nil
+	}
+
 	// Yearly (same date next year)
 	yearlyPatterns := []string{"year", "yearly", "annually", "every year"}
 	if slices.Contains(yearlyPatterns, strings.ToLower(recurrence)) {
@@ -202,7 +209,7 @@ func CalculateNextDueDate(recurrence string, currentDue *time.Time) (*time.Time,
 		}
 	}
 
-	return nil, fmt.Errorf("unsupported recurrence pattern: '%s'. Valid patterns include: 'daily', 'weekly', 'yearly', intervals like 'every 2 weeks' or 'every three days', weekdays like 'mon' or 'mon,wed,fri', monthly dates like '15', or yearly dates like '25 dec'", recurrence)
+	return nil, fmt.Errorf("unsupported recurrence pattern: '%s'. Valid patterns include: 'daily', 'weekly', 'monthly', 'yearly', intervals like 'every 2 weeks' or 'every three days', weekdays like 'mon' or 'mon,wed,fri', monthly dates like '15', or yearly dates like '25 dec'", recurrence)
 }
 
 func findNextWeekday(from time.Time, weekdays []time.Weekday) time.Time {
@@ -221,10 +228,23 @@ func findNextMonthlyDate(from time.Time, day int, monthOffset int) time.Time {
 
 	// Try current month first, then next month
 	for range 2 {
-		candidate := time.Date(year, month, day, from.Hour(), from.Minute(), from.Second(), from.Nanosecond(), from.Location())
+		// Handle cases where the day doesn't exist in the target month
+		// e.g., asking for the 31st in February - fall back to last day of month
+		targetMonth := month
+		targetYear := year
+		
+		// Get the last day of the target month to validate
+		lastDayOfMonth := time.Date(targetYear, targetMonth+1, 0, 0, 0, 0, 0, from.Location()).Day()
+		actualDay := day
+		if day > lastDayOfMonth {
+			actualDay = lastDayOfMonth
+		}
+		
+		candidate := time.Date(targetYear, targetMonth, actualDay, from.Hour(), from.Minute(), from.Second(), from.Nanosecond(), from.Location())
 		if candidate.After(from) {
 			return candidate
 		}
+		
 		month++
 		if month > 12 {
 			month = 1
@@ -232,7 +252,13 @@ func findNextMonthlyDate(from time.Time, day int, monthOffset int) time.Time {
 		}
 	}
 
-	return time.Date(year, month, day, from.Hour(), from.Minute(), from.Second(), from.Nanosecond(), from.Location())
+	// Fallback for final attempt
+	lastDayOfMonth := time.Date(year, month+1, 0, 0, 0, 0, 0, from.Location()).Day()
+	actualDay := day
+	if day > lastDayOfMonth {
+		actualDay = lastDayOfMonth
+	}
+	return time.Date(year, month, actualDay, from.Hour(), from.Minute(), from.Second(), from.Nanosecond(), from.Location())
 }
 
 func findNextYearlyDate(from time.Time, day int, month time.Month) time.Time {

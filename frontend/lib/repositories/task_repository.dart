@@ -4,7 +4,7 @@ import '../models/project.dart';
 import '../services/logging_service.dart';
 import '../services/api_service.dart';
 import '../services/app_database.dart';
-import '../utils/value_wrapper.dart';
+import '../enums/sort_mode.dart';
 import 'interfaces/task_repository_interface.dart';
 
 class TaskRepository implements ITaskRepository {
@@ -18,23 +18,23 @@ class TaskRepository implements ITaskRepository {
        _database = database;
 
   @override
-  Future<List<Task>> getTasksByProject(int projectId) async {
-    return _database.getTasksByProject(projectId);
+  Future<List<Task>> getTasksByProject(int projectId, {SortMode sortMode = SortMode.order}) async {
+    return _database.getTasksByProject(projectId, sortMode: sortMode);
   }
 
   @override
-  Future<List<Task>> getTodayTasks() async {
-    return _database.getTodayTasks();
+  Future<List<Task>> getTodayTasks({SortMode sortMode = SortMode.order}) async {
+    return _database.getTodayTasks(sortMode: sortMode);
   }
 
   @override
-  Future<List<Task>> getUpcomingTasks() async {
-    return _database.getUpcomingTasks();
+  Future<List<Task>> getUpcomingTasks({SortMode sortMode = SortMode.order}) async {
+    return _database.getUpcomingTasks(sortMode: sortMode);
   }
 
   @override
-  Future<List<Task>> getTasksByLabel(String label) async {
-    return _database.getTasksByLabel(label);
+  Future<List<Task>> getTasksByLabel(String label, {SortMode sortMode = SortMode.order}) async {
+    return _database.getTasksByLabel(label, sortMode: sortMode);
   }
 
   @override
@@ -131,19 +131,6 @@ class TaskRepository implements ITaskRepository {
     );
 
     try {
-      // Update local task order first for immediate UI feedback
-      final tasks = await _database.getTasksByProject(projectId);
-      final nonCompletedTasks = tasks
-          .where((task) => task.completedAt == null)
-          .toList();
-
-      for (int i = 0; i < nonCompletedTasks.length; i++) {
-        final taskToUpdate = nonCompletedTasks[i];
-        if (taskToUpdate.order != i) {
-          await _database.updateTask(taskToUpdate.copyWith(order: i));
-        }
-      }
-
       // Update order on server
       await _apiService.reorderTasks(projectId, taskIds);
       LoggingService.logger.info(

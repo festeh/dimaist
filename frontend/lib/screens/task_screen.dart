@@ -13,6 +13,7 @@ import '../models/project.dart';
 import '../models/app_bar_config.dart';
 import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
+import '../enums/sort_mode.dart';
 import 'package:dimaist/widgets/chat_input_widget.dart';
 import 'ai_chat_screen.dart';
 
@@ -36,7 +37,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
   bool _isScheduleView = false;
   bool _isAiProcessing = false;
 
-  void _updateAppBarConfig(String title) {
+  void _updateAppBarConfig(String title, SortMode sortMode) {
     widget.onAppBarConfigChanged?.call(
       AppBarConfig(
         title: Row(
@@ -64,6 +65,25 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                 tooltip: _isScheduleView ? 'List View' : 'Schedule View',
               ),
             ],
+            const SizedBox(width: 8),
+            IconButton(
+              iconSize: 20,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              icon: Icon(
+                sortMode == SortMode.order ? Icons.reorder : Icons.sort,
+              ),
+              onPressed: () async {
+                final taskNotifier = ref.read(taskProvider.notifier);
+                final newSortMode = sortMode == SortMode.order
+                    ? SortMode.dueDate
+                    : SortMode.order;
+                await taskNotifier.setSortMode(newSortMode);
+              },
+              tooltip: sortMode == SortMode.order
+                  ? 'Sort by Due Date'
+                  : 'Sort Manually',
+            ),
           ],
         ),
         backgroundColor: Colors.transparent,
@@ -268,9 +288,9 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
 
     return taskAsyncValue.when(
       data: (taskData) {
-        // Update app bar config with the task data title
+        // Update app bar config with the task data title and sort mode
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _updateAppBarConfig(taskData.title);
+          _updateAppBarConfig(taskData.title, taskData.sortMode);
         });
         return _buildTaskContent(context, taskData, taskNotifier);
       },
@@ -344,62 +364,115 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                   ),
                 )
               : (() {
-                  return ReorderableListView.builder(
-                    buildDefaultDragHandles: false,
-                    padding: const EdgeInsets.all(8.0),
-                    itemCount:
-                        nonCompletedTasks.length +
-                        (completedTasks.isNotEmpty
-                            ? completedTasks.length + 1
-                            : 0),
-                    itemBuilder: (context, index) {
-                      if (index < nonCompletedTasks.length) {
-                        final task = nonCompletedTasks[index];
-                        return TaskWidget(
-                          key: Key(task.id.toString()),
-                          task: task,
-                          onToggleComplete: _toggleComplete,
-                          onDelete: _deleteTask,
-                          onEdit: _showEditTaskDialog,
-                          showDragHandle: true,
-                          dragIndex: index,
-                        );
-                      } else if (index == nonCompletedTasks.length &&
-                          completedTasks.isNotEmpty) {
-                        return Column(
-                          key: const Key('completed_tasks_header'),
-                          children: const [
-                            Divider(
-                              height: 32,
-                              thickness: 2,
-                              indent: 16,
-                              endIndent: 16,
-                            ),
-                            Text('Completed tasks'),
-                          ],
-                        );
-                      } else {
-                        final task =
-                            completedTasks[index -
-                                nonCompletedTasks.length -
-                                1];
-                        return CompletedTaskWidget(
-                          key: Key(task.id.toString()),
-                          task: task,
-                          onToggleComplete: _toggleComplete,
-                          onDelete: _deleteTask,
-                          onEdit: _showEditTaskDialog,
-                        );
-                      }
-                    },
-                    onReorder: (oldIndex, newIndex) async {
-                      try {
-                        await taskNotifier.reorderTasks(oldIndex, newIndex);
-                      } catch (e) {
-                        _showErrorDialog('Error reordering tasks: $e');
-                      }
-                    },
-                  );
+                  final canReorder = taskData.sortMode == SortMode.order;
+
+                  if (canReorder) {
+                    return ReorderableListView.builder(
+                      buildDefaultDragHandles: false,
+                      padding: const EdgeInsets.all(8.0),
+                      itemCount:
+                          nonCompletedTasks.length +
+                          (completedTasks.isNotEmpty
+                              ? completedTasks.length + 1
+                              : 0),
+                      itemBuilder: (context, index) {
+                        if (index < nonCompletedTasks.length) {
+                          final task = nonCompletedTasks[index];
+                          return TaskWidget(
+                            key: Key(task.id.toString()),
+                            task: task,
+                            onToggleComplete: _toggleComplete,
+                            onDelete: _deleteTask,
+                            onEdit: _showEditTaskDialog,
+                            showDragHandle: true,
+                            dragIndex: index,
+                          );
+                        } else if (index == nonCompletedTasks.length &&
+                            completedTasks.isNotEmpty) {
+                          return Column(
+                            key: const Key('completed_tasks_header'),
+                            children: const [
+                              Divider(
+                                height: 32,
+                                thickness: 2,
+                                indent: 16,
+                                endIndent: 16,
+                              ),
+                              Text('Completed tasks'),
+                            ],
+                          );
+                        } else {
+                          final task =
+                              completedTasks[index -
+                                  nonCompletedTasks.length -
+                                  1];
+                          return CompletedTaskWidget(
+                            key: Key(task.id.toString()),
+                            task: task,
+                            onToggleComplete: _toggleComplete,
+                            onDelete: _deleteTask,
+                            onEdit: _showEditTaskDialog,
+                          );
+                        }
+                      },
+                      onReorder: (oldIndex, newIndex) async {
+                        try {
+                          await taskNotifier.reorderTasks(oldIndex, newIndex);
+                        } catch (e) {
+                          _showErrorDialog('Error reordering tasks: $e');
+                        }
+                      },
+                    );
+                  } else {
+                    // Non-reorderable ListView for date sorting
+                    return ListView.builder(
+                      padding: const EdgeInsets.all(8.0),
+                      itemCount:
+                          nonCompletedTasks.length +
+                          (completedTasks.isNotEmpty
+                              ? completedTasks.length + 1
+                              : 0),
+                      itemBuilder: (context, index) {
+                        if (index < nonCompletedTasks.length) {
+                          final task = nonCompletedTasks[index];
+                          return TaskWidget(
+                            key: Key(task.id.toString()),
+                            task: task,
+                            onToggleComplete: _toggleComplete,
+                            onDelete: _deleteTask,
+                            onEdit: _showEditTaskDialog,
+                            showDragHandle: false,
+                            dragIndex: null,
+                          );
+                        } else if (index == nonCompletedTasks.length &&
+                            completedTasks.isNotEmpty) {
+                          return const Column(
+                            children: [
+                              Divider(
+                                height: 32,
+                                thickness: 2,
+                                indent: 16,
+                                endIndent: 16,
+                              ),
+                              Text('Completed tasks'),
+                            ],
+                          );
+                        } else {
+                          final task =
+                              completedTasks[index -
+                                  nonCompletedTasks.length -
+                                  1];
+                          return CompletedTaskWidget(
+                            key: Key(task.id.toString()),
+                            task: task,
+                            onToggleComplete: _toggleComplete,
+                            onDelete: _deleteTask,
+                            onEdit: _showEditTaskDialog,
+                          );
+                        }
+                      },
+                    );
+                  }
                 })(),
         ),
         ChatInputWidget(

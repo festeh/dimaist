@@ -1,18 +1,19 @@
 import '../../models/task.dart';
 import '../../models/project.dart';
+import '../../enums/sort_mode.dart';
 
 abstract class ITaskRepository {
   /// Get tasks for a specific project
-  Future<List<Task>> getTasksByProject(int projectId);
+  Future<List<Task>> getTasksByProject(int projectId, {SortMode sortMode = SortMode.order});
 
   /// Get tasks due today
-  Future<List<Task>> getTodayTasks();
+  Future<List<Task>> getTodayTasks({SortMode sortMode = SortMode.order});
 
   /// Get upcoming tasks
-  Future<List<Task>> getUpcomingTasks();
+  Future<List<Task>> getUpcomingTasks({SortMode sortMode = SortMode.order});
 
   /// Get tasks by label
-  Future<List<Task>> getTasksByLabel(String label);
+  Future<List<Task>> getTasksByLabel(String label, {SortMode sortMode = SortMode.order});
 
   /// Get a specific task by ID
   Future<Task?> getTaskById(int id);

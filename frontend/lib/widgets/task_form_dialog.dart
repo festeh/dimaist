@@ -175,15 +175,25 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                       const SizedBox(width: 8),
                       TextButton(
                         onPressed: () async {
+                          // Calculate dynamic date range
+                          final now = DateTime.now();
+                          final defaultFirstDate = now.subtract(const Duration(days: 365));
+                          final defaultLastDate = now.add(const Duration(days: 365));
+
+                          // Expand range if needed to include existing date
+                          final firstDate = _selectedDate != null && _selectedDate!.isBefore(defaultFirstDate)
+                              ? _selectedDate!
+                              : defaultFirstDate;
+
+                          final lastDate = _selectedDate != null && _selectedDate!.isAfter(defaultLastDate)
+                              ? _selectedDate!.add(const Duration(days: 365)) // Give some room for editing
+                              : defaultLastDate;
+
                           final date = await showDatePicker(
                             context: context,
-                            initialDate: _selectedDate ?? DateTime.now(),
-                            firstDate: DateTime.now().subtract(
-                              const Duration(days: 365),
-                            ),
-                            lastDate: DateTime.now().add(
-                              const Duration(days: 365),
-                            ),
+                            initialDate: _selectedDate ?? now,
+                            firstDate: firstDate,
+                            lastDate: lastDate,
                           );
                           if (date != null) {
                             setState(() {
