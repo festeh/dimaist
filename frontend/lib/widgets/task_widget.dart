@@ -7,6 +7,8 @@ class TaskWidget extends StatelessWidget {
   final Function(Task) onToggleComplete;
   final Function(int) onDelete;
   final Function(Task) onEdit;
+  final bool showDragHandle;
+  final int? dragIndex;
 
   const TaskWidget({
     super.key,
@@ -14,6 +16,8 @@ class TaskWidget extends StatelessWidget {
     required this.onToggleComplete,
     required this.onDelete,
     required this.onEdit,
+    this.showDragHandle = false,
+    this.dragIndex,
   });
 
   @override
@@ -28,9 +32,28 @@ class TaskWidget extends StatelessWidget {
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
         child: ListTile(
-          leading: Checkbox(
-            value: task.completedAt != null,
-            onChanged: (value) => onToggleComplete(task),
+          leading: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showDragHandle && dragIndex != null) ...[
+                ReorderableDragStartListener(
+                  index: dragIndex!,
+                  child: Opacity(
+                    opacity: 0.6,
+                    child: Icon(
+                      Icons.drag_handle,
+                      size: 20,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
+              Checkbox(
+                value: task.completedAt != null,
+                onChanged: (value) => onToggleComplete(task),
+              ),
+            ],
           ),
           contentPadding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
           title: Text(

@@ -355,15 +355,14 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                     itemBuilder: (context, index) {
                       if (index < nonCompletedTasks.length) {
                         final task = nonCompletedTasks[index];
-                        return ReorderableDragStartListener(
+                        return TaskWidget(
                           key: Key(task.id.toString()),
-                          index: index,
-                          child: TaskWidget(
-                            task: task,
-                            onToggleComplete: _toggleComplete,
-                            onDelete: _deleteTask,
-                            onEdit: _showEditTaskDialog,
-                          ),
+                          task: task,
+                          onToggleComplete: _toggleComplete,
+                          onDelete: _deleteTask,
+                          onEdit: _showEditTaskDialog,
+                          showDragHandle: true,
+                          dragIndex: index,
                         );
                       } else if (index == nonCompletedTasks.length &&
                           completedTasks.isNotEmpty) {

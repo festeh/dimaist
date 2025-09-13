@@ -108,17 +108,13 @@ class TaskRepository implements ITaskRepository {
     try {
       await _apiService.completeTask(id);
 
-      // Update local task completion status
-      final task = await _database.getTaskById(id);
-      if (task != null) {
-        final updatedTask = task.copyWith(
-          completedAt: ValueWrapper(DateTime.now()),
-        );
-        await _database.updateTask(updatedTask);
-      }
+      // Fetch the updated task from backend to get the correct state
+      // (for recurring tasks, the backend updates due date and clears completion)
+      final updatedTask = await _apiService.getTask(id);
+      await _database.updateTask(updatedTask);
 
       LoggingService.logger.info(
-        'TaskRepository: Task $id completed successfully',
+        'TaskRepository: Task $id completed successfully. Updated with new state from backend.',
       );
     } catch (e) {
       LoggingService.logger.severe(

@@ -79,6 +79,7 @@ func main() {
 		r.Get("/", listTasks)
 		r.Post("/", createTask)
 		r.Route("/{taskID}", func(r chi.Router) {
+			r.Get("/", getTask)
 			r.Put("/", updateTask)
 			r.Delete("/", deleteTask)
 			r.Post("/complete", completeTask)
@@ -133,6 +134,31 @@ func listTasks(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(tasks)
 }
 
+func getTask(w http.ResponseWriter, r *http.Request) {
+	logger.Info("Getting task").Send()
+
+	id, ok := utils.ParseTaskID(r, w)
+	if !ok {
+		return
+	}
+
+	var task database.Task
+	result := database.DB.Preload("Project").Where("id = ? AND deleted_at IS NULL", id).First(&task)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			logger.Error("Task not found").Uint("task_id", id).Send()
+			http.Error(w, "Task not found", http.StatusNotFound)
+			return
+		}
+		logger.Error("Failed to retrieve task").Uint("task_id", id).Err(result.Error).Send()
+		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	logger.Info("Successfully retrieved task").Uint("task_id", id).Send()
+	json.NewEncoder(w).Encode(task)
+}
+
 func createTask(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Creating new task").Send()
 
@@ -147,7 +173,13 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 	// Validate recurrence pattern
 	if err := utils.ValidateTaskRecurrence(t.Recurrence, t.DueDate, t.DueDatetime); err != nil {
 		logger.Error("Invalid task recurrence").Str("recurrence", t.Recurrence).Err(err).Send()
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "Invalid recurrence pattern",
+			"message": err.Error(),
+			"field": "recurrence",
+		})
 		return
 	}
 
@@ -188,7 +220,13 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 	// Validate recurrence pattern
 	if err := utils.ValidateTaskRecurrence(t.Recurrence, t.DueDate, t.DueDatetime); err != nil {
 		logger.Error("Invalid task recurrence").Str("recurrence", t.Recurrence).Err(err).Send()
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "Invalid recurrence pattern",
+			"message": err.Error(),
+			"field": "recurrence",
+		})
 		return
 	}
 

@@ -2,11 +2,74 @@ package utils
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// normalizeNumberWords converts written numbers to digits in recurrence patterns
+func normalizeNumberWords(text string) string {
+	wordToNum := map[string]string{
+		"one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
+		"six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10",
+		"eleven": "11", "twelve": "12",
+		"other": "2", "few": "3", "several": "4", "couple": "2",
+	}
+
+	normalized := strings.ToLower(text)
+	for word, num := range wordToNum {
+		normalized = strings.ReplaceAll(normalized, word, num)
+	}
+	return normalized
+}
+
+// parseEveryNPattern parses patterns like "every N days/weeks/months/years"
+func parseEveryNPattern(recurrence string) (int, string, error) {
+	// Match patterns like "every 2 weeks", "every three days", "every other month"
+	re := regexp.MustCompile(`^every\s+(\d+)\s+(day|days|week|weeks|month|months|year|years)s?$`)
+	matches := re.FindStringSubmatch(strings.ToLower(recurrence))
+	
+	if len(matches) != 3 {
+		return 0, "", fmt.Errorf("invalid every N pattern: %s", recurrence)
+	}
+
+	count, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return 0, "", fmt.Errorf("invalid number in pattern: %s", matches[1])
+	}
+
+	unit := matches[2]
+	// Normalize plural forms to singular
+	if strings.HasSuffix(unit, "s") {
+		unit = unit[:len(unit)-1]
+	}
+
+	// Validate reasonable ranges
+	switch unit {
+	case "day":
+		if count < 1 || count > 365 {
+			return 0, "", fmt.Errorf("day interval must be between 1 and 365, got %d", count)
+		}
+	case "week":
+		if count < 1 || count > 52 {
+			return 0, "", fmt.Errorf("week interval must be between 1 and 52, got %d", count)
+		}
+	case "month":
+		if count < 1 || count > 12 {
+			return 0, "", fmt.Errorf("month interval must be between 1 and 12, got %d", count)
+		}
+	case "year":
+		if count < 1 || count > 10 {
+			return 0, "", fmt.Errorf("year interval must be between 1 and 10, got %d", count)
+		}
+	default:
+		return 0, "", fmt.Errorf("unsupported time unit: %s", unit)
+	}
+
+	return count, unit, nil
+}
 
 // ValidateRecurrence validates the recurrence string by trying to calculate next due date
 func ValidateRecurrence(recurrence string) error {
@@ -25,7 +88,7 @@ func ValidateTaskRecurrence(recurrence string, dueDate, dueDatetime *time.Time) 
 	if recurrence != "" {
 		// Check that at least one due date field is provided for recurring tasks
 		if dueDate == nil && dueDatetime == nil {
-			return fmt.Errorf("recurring task must have either due_date or due_datetime")
+			return fmt.Errorf("recurring tasks must have a due date. Please set either a due date or due datetime to schedule the recurrence")
 		}
 
 		return ValidateRecurrence(recurrence)
@@ -43,6 +106,29 @@ func CalculateNextDueDate(recurrence string, currentDue *time.Time) (*time.Time,
 	baseDate := now
 	if currentDue != nil {
 		baseDate = *currentDue
+	}
+
+	// Normalize word numbers first
+	normalizedRecurrence := normalizeNumberWords(recurrence)
+
+	// Check for "every N [unit]" patterns first
+	if strings.HasPrefix(strings.ToLower(normalizedRecurrence), "every ") {
+		count, unit, err := parseEveryNPattern(normalizedRecurrence)
+		if err == nil {
+			var next time.Time
+			switch unit {
+			case "day":
+				next = baseDate.AddDate(0, 0, count)
+			case "week":
+				next = baseDate.AddDate(0, 0, count*7)
+			case "month":
+				next = baseDate.AddDate(0, count, 0)
+			case "year":
+				next = baseDate.AddDate(count, 0, 0)
+			}
+			return &next, nil
+		}
+		// If parsing failed, continue to other patterns
 	}
 
 	// Daily
@@ -83,6 +169,13 @@ func CalculateNextDueDate(recurrence string, currentDue *time.Time) (*time.Time,
 		return &next, nil
 	}
 
+	// Yearly (same date next year)
+	yearlyPatterns := []string{"year", "yearly", "annually", "every year"}
+	if slices.Contains(yearlyPatterns, strings.ToLower(recurrence)) {
+		next := baseDate.AddDate(1, 0, 0)
+		return &next, nil
+	}
+
 	// Monthly patterns
 	parts := strings.Fields(recurrence)
 	if len(parts) == 1 {
@@ -109,7 +202,7 @@ func CalculateNextDueDate(recurrence string, currentDue *time.Time) (*time.Time,
 		}
 	}
 
-	return nil, fmt.Errorf("unsupported recurrence pattern: %s", recurrence)
+	return nil, fmt.Errorf("unsupported recurrence pattern: '%s'. Valid patterns include: 'daily', 'weekly', 'yearly', intervals like 'every 2 weeks' or 'every three days', weekdays like 'mon' or 'mon,wed,fri', monthly dates like '15', or yearly dates like '25 dec'", recurrence)
 }
 
 func findNextWeekday(from time.Time, weekdays []time.Weekday) time.Time {

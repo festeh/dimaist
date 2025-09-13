@@ -593,10 +593,17 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                 navigator.pop();
               } catch (e) {
                 // Show error to user
+                String errorMessage = e.toString();
+                // Remove "Exception: " prefix if present for cleaner display
+                if (errorMessage.startsWith('Exception: ')) {
+                  errorMessage = errorMessage.substring(11);
+                }
+                
                 scaffoldMessenger.showSnackBar(
                   SnackBar(
-                    content: Text('Error saving task: $e'),
+                    content: Text(errorMessage),
                     backgroundColor: Theme.of(context).colorScheme.error,
+                    duration: const Duration(seconds: 5), // Longer duration for error messages
                   ),
                 );
               }

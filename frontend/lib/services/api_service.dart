@@ -68,7 +68,18 @@ class ApiService {
         return newTask;
       } else {
         _logger.warning('Failed to create task: ${response.statusCode}');
-        throw Exception('Failed to create task');
+        // Try to parse error response
+        String errorMessage = 'Failed to create task';
+        try {
+          final errorData = json.decode(response.body);
+          if (errorData is Map<String, dynamic> && errorData['message'] != null) {
+            errorMessage = errorData['message'];
+          }
+        } catch (e) {
+          // If parsing fails, use response body as-is or default message
+          errorMessage = response.body.isNotEmpty ? response.body : errorMessage;
+        }
+        throw Exception(errorMessage);
       }
     } catch (e) {
       _logger.severe('Error creating task: $e');
@@ -86,7 +97,18 @@ class ApiService {
       );
       if (response.statusCode != 200) {
         _logger.warning('Failed to update task $id: ${response.statusCode}');
-        throw Exception('Failed to update task');
+        // Try to parse error response
+        String errorMessage = 'Failed to update task';
+        try {
+          final errorData = json.decode(response.body);
+          if (errorData is Map<String, dynamic> && errorData['message'] != null) {
+            errorMessage = errorData['message'];
+          }
+        } catch (e) {
+          // If parsing fails, use response body as-is or default message
+          errorMessage = response.body.isNotEmpty ? response.body : errorMessage;
+        }
+        throw Exception(errorMessage);
       }
 
       _logger.info('Task $id updated successfully.');
@@ -203,6 +225,23 @@ class ApiService {
       _logger.info('Tasks for project $projectId reordered successfully.');
     } catch (e) {
       _logger.severe('Error reordering tasks for project $projectId: $e');
+      rethrow;
+    }
+  }
+
+  Future<Task> getTask(int id) async {
+    _logger.info('Fetching task $id...');
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/tasks/$id'));
+      if (response.statusCode == 200) {
+        _logger.info('Task $id fetched successfully.');
+        return Task.fromJson(json.decode(response.body));
+      } else {
+        _logger.warning('Failed to fetch task $id: ${response.statusCode}');
+        throw Exception('Failed to fetch task');
+      }
+    } catch (e) {
+      _logger.severe('Error fetching task $id: $e');
       rethrow;
     }
   }
