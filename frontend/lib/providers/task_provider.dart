@@ -43,8 +43,7 @@ class TaskViewData {
 
   String get title {
     return switch (currentView) {
-      ProjectViewSelection(project: final project) =>
-        'Tasks for ${project.name}',
+      ProjectViewSelection(project: final project) => project.name,
       CustomViewSelection(customView: final customView) => customView.name,
       null => 'Tasks',
     };
@@ -79,9 +78,16 @@ class TaskNotifier extends AsyncNotifier<TaskViewData> {
           <Task>[],
         ), // Handle case where project has no id
         CustomViewSelection(customView: final view) => switch (view.type) {
-          BuiltInViewType.today => _repository.getTodayTasks(sortMode: sortMode),
-          BuiltInViewType.upcoming => _repository.getUpcomingTasks(sortMode: sortMode),
-          BuiltInViewType.next => _repository.getTasksByLabel('next', sortMode: sortMode),
+          BuiltInViewType.today => _repository.getTodayTasks(
+            sortMode: sortMode,
+          ),
+          BuiltInViewType.upcoming => _repository.getUpcomingTasks(
+            sortMode: sortMode,
+          ),
+          BuiltInViewType.next => _repository.getTasksByLabel(
+            'next',
+            sortMode: sortMode,
+          ),
         },
         null => Future.value(<Task>[]),
       };
@@ -180,17 +186,23 @@ class TaskNotifier extends AsyncNotifier<TaskViewData> {
         _repository.getTasksByProject(proj.id!, sortMode: newSortMode),
       ProjectViewSelection() => Future.value(<Task>[]),
       CustomViewSelection(customView: final view) => switch (view.type) {
-        BuiltInViewType.today => _repository.getTodayTasks(sortMode: newSortMode),
-        BuiltInViewType.upcoming => _repository.getUpcomingTasks(sortMode: newSortMode),
-        BuiltInViewType.next => _repository.getTasksByLabel('next', sortMode: newSortMode),
+        BuiltInViewType.today => _repository.getTodayTasks(
+          sortMode: newSortMode,
+        ),
+        BuiltInViewType.upcoming => _repository.getUpcomingTasks(
+          sortMode: newSortMode,
+        ),
+        BuiltInViewType.next => _repository.getTasksByLabel(
+          'next',
+          sortMode: newSortMode,
+        ),
       },
       null => Future.value(<Task>[]),
     };
 
-    state = AsyncValue.data(currentData.copyWith(
-      tasks: tasks,
-      sortMode: newSortMode,
-    ));
+    state = AsyncValue.data(
+      currentData.copyWith(tasks: tasks, sortMode: newSortMode),
+    );
   }
 
   Future<SortMode> _getSortModeForView(ViewSelection? viewSelection) async {
@@ -203,7 +215,10 @@ class TaskNotifier extends AsyncNotifier<TaskViewData> {
     };
   }
 
-  Future<void> _saveSortModeForView(ViewSelection? viewSelection, SortMode sortMode) async {
+  Future<void> _saveSortModeForView(
+    ViewSelection? viewSelection,
+    SortMode sortMode,
+  ) async {
     switch (viewSelection) {
       case ProjectViewSelection(project: final project) when project.id != null:
         await SortPreferences.setSortModeForProject(project.id!, sortMode);
