@@ -44,34 +44,30 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
         title: Text(title, style: Theme.of(context).textTheme.headlineSmall),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 60.0), // Add padding to avoid debug banner
-            child: ViewOptionsMenu(
-              sortMode: sortMode,
-              isScheduleView: _isScheduleView,
-              showScheduleToggle: widget.customView?.type == BuiltInViewType.today,
-              onSortToggle: () async {
-                final taskNotifier = ref.read(taskProvider.notifier);
-                final newSortMode = sortMode == SortMode.order
-                    ? SortMode.dueDate
-                    : SortMode.order;
-                await taskNotifier.setSortMode(newSortMode);
-              },
-              onScheduleToggle: widget.customView?.type == BuiltInViewType.today
-                  ? () {
-                      LoggingService.logger.fine(
-                        'Toggle button pressed! Current state: $_isScheduleView',
-                      );
-                      setState(() {
-                        _isScheduleView = !_isScheduleView;
-                      });
-                      LoggingService.logger.fine('New state: $_isScheduleView');
-                    }
-                  : null,
-            ),
-          ),
-        ],
+        leading: ViewOptionsMenu(
+          sortMode: sortMode,
+          isScheduleView: _isScheduleView,
+          showScheduleToggle: widget.customView?.type == BuiltInViewType.today,
+          onSortToggle: () async {
+            final taskNotifier = ref.read(taskProvider.notifier);
+            final newSortMode = sortMode == SortMode.order
+                ? SortMode.dueDate
+                : SortMode.order;
+            await taskNotifier.setSortMode(newSortMode);
+          },
+          onScheduleToggle: widget.customView?.type == BuiltInViewType.today
+              ? () {
+                  LoggingService.logger.fine(
+                    'Toggle button pressed! Current state: $_isScheduleView',
+                  );
+                  setState(() {
+                    _isScheduleView = !_isScheduleView;
+                  });
+                  LoggingService.logger.fine('New state: $_isScheduleView');
+                }
+              : null,
+        ),
+        automaticallyImplyLeading: false,
       ),
     );
   }

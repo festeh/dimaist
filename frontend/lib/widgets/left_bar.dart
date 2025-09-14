@@ -30,7 +30,10 @@ class _LeftBarState extends State<LeftBar> {
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           border: Border(
-            right: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+            right: BorderSide(
+              color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+              width: 1,
+            ),
           ),
         ),
         child: TasksTab(

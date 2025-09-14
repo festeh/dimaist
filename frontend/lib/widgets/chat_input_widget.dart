@@ -73,20 +73,15 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          top: BorderSide(
-            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
-            width: 1,
-          ),
-        ),
       ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: [
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: SafeArea(
+          top: false,
+          child: Row(
+            children: [
             // Add button
             if (widget.onAddPressed != null) ...[
               Material(
@@ -227,6 +222,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
               ),
             ),
           ],
+          ),
         ),
       ),
     );

@@ -19,34 +19,47 @@ class TasksTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        CustomViewWidget(
-          selectedView: selectedView,
-          onSelected: onCustomViewSelected,
-        ),
-        const Divider(),
-        Expanded(child: projectList),
-        const Divider(),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.add_circle_outline),
-                onPressed: onAddProject,
-                tooltip: 'Add Project',
-              ),
-              IconButton(
-                icon: const Icon(Icons.settings),
-                onPressed: onOpenSettings,
-                tooltip: 'Settings',
-              ),
-            ],
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+            width: 1,
           ),
         ),
-      ],
+      ),
+      child: Column(
+        children: [
+          CustomViewWidget(
+            selectedView: selectedView,
+            onSelected: onCustomViewSelected,
+          ),
+          Divider(
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+            height: 1,
+            thickness: 1,
+          ),
+          Expanded(child: projectList),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  onPressed: onAddProject,
+                  tooltip: 'Add Project',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings),
+                  onPressed: onOpenSettings,
+                  tooltip: 'Settings',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

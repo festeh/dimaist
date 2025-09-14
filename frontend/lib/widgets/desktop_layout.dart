@@ -32,6 +32,7 @@ class _DesktopLayoutState extends State<DesktopLayout> {
       appBar: _buildDesktopAppBar(context),
       body: SafeArea(
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             widget.leftBarContent,
             Expanded(
