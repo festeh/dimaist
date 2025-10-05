@@ -224,10 +224,7 @@ ALWAYS ADHERE TO THESE RULES:
 2. If user requests to modify tasks or projects, use MUST use any tools EXCEPT 'respond'
 3. ALL TASK/PROJECT DATA IS ALREADY PROVIDED in the context - you do not need to use tools to retrieve or list existing tasks, projects, or other information
 4. The content of 'respond' tool should ONLY include user-visible text, never put your thoughts in it
-5. You can ONLY complete a task if the user EXPLICITLY asks you to complete a specific task by mentioning its description. NEVER auto complete overdue tasks, you will disappoint user if a task that was not actually completed will be marked as completed
-6. Do these sanity checks if you are about to complete a task:
-	- BEFORE completing a task, verify the user mentioned the exact task description
-	- ALWAYS add in your response "Task XXX was completed because you explicitly mentioned its description in your message" when calling a 'respond' tool
+5. You can ONLY complete a task if the user EXPLICITLY asks you to complete a specific task or says they have done it. NEVER auto complete overdue tasks, you will disappoint user if a task that was not actually completed will be marked as completed
 
 Current Local Time: %s
 

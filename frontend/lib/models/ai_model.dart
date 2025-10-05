@@ -3,10 +3,9 @@ enum AiModel {
   qwen3235B('chutes/Qwen/Qwen3-235B-A22B'),
   gptOss120b('chutes/openai/gpt-oss-120b'),
   gptOss120bOpenrouter('openrouter/openai/gpt-oss-120b:nitro'),
-  gptOss20b('chutes/openai/gpt-oss-20b'),
   deepseekV31('chutes/deepseek-ai/DeepSeek-V3.1'),
   deepseekV31Openrouter('openrouter/deepseek/deepseek-chat-v3.1:nitro'),
-  glm45('chutes/zai-org/GLM-4.5-FP8');
+  qwenNext('chutes/Qwen/Qwen3-Next-80B-A3B-Instruct');
 
   const AiModel(this.value);
 

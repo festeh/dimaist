@@ -161,7 +161,7 @@ class Task {
       'order': order,
       'completed_at': completedAt?.toUtc().toIso8601String(),
       'reminders': reminders.map((e) => e.toUtc().toIso8601String()).toList(),
-      'recurrence': recurrence,
+      'recurrence': recurrence?.trim(),
     };
   }
 
