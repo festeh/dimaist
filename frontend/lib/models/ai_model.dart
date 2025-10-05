@@ -5,7 +5,10 @@ enum AiModel {
   gptOss120bOpenrouter('openrouter/openai/gpt-oss-120b:nitro'),
   deepseekV31('chutes/deepseek-ai/DeepSeek-V3.1'),
   deepseekV31Openrouter('openrouter/deepseek/deepseek-chat-v3.1:nitro'),
-  qwenNext('chutes/Qwen/Qwen3-Next-80B-A3B-Instruct');
+  qwenNext('chutes/Qwen/Qwen3-Next-80B-A3B-Instruct'),
+  qwen3('chutes/Qwen/Qwen3-30B-A3B-Thinking-2507'),
+  glm46('chutes/zai-org/GLM-4.6-turbo'),
+  deepseekV31Turbo('deepseek-ai/DeepSeek-V3.1-turbo');
 
   const AiModel(this.value);
 
