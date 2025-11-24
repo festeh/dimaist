@@ -8,6 +8,7 @@ import 'services/logging_service.dart';
 import 'services/tray_service.dart';
 import 'services/settings_service.dart';
 import 'providers/project_provider.dart';
+import 'providers/theme_provider.dart';
 import 'widgets/app_scaffold.dart';
 
 void main() async {
@@ -24,14 +25,16 @@ void main() async {
   runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeProvider);
+
     return MaterialApp(
       title: AppConstants.appName,
-      theme: AppTheme.darkTheme(context),
+      theme: AppTheme.create(themeMode),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,

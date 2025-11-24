@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/settings_service.dart';
 import '../models/ai_model.dart';
 import '../providers/task_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/logging_service.dart';
+import '../config/design_tokens.dart';
 
 class SettingsDialog extends ConsumerStatefulWidget {
   const SettingsDialog({super.key});
@@ -63,6 +65,63 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         });
       }
     }
+  }
+
+  Widget _buildThemeSelector() {
+    final currentTheme = ref.watch(themeProvider);
+    final colors = AppColors.forTheme(currentTheme);
+
+    return Wrap(
+      spacing: Spacing.sm,
+      runSpacing: Spacing.sm,
+      children: AppThemeMode.values.map((mode) {
+        final isSelected = mode == currentTheme;
+        final modeColors = AppColors.forTheme(mode);
+
+        return Tooltip(
+          message: mode.description,
+          child: InkWell(
+            onTap: () => ref.read(themeProvider.notifier).setTheme(mode),
+            borderRadius: BorderRadius.circular(Radii.sm),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.md,
+                vertical: Spacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: isSelected ? colors.primary.withValues(alpha: 0.2) : null,
+                border: Border.all(
+                  color: isSelected ? colors.primary : colors.border,
+                  width: isSelected ? 2 : 1,
+                ),
+                borderRadius: BorderRadius.circular(Radii.sm),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: modeColors.primary,
+                      borderRadius: BorderRadius.circular(Radii.xs),
+                    ),
+                  ),
+                  const SizedBox(width: Spacing.sm),
+                  Text(
+                    mode.displayName,
+                    style: TextStyle(
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: isSelected ? colors.primary : null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
   }
 
   @override
@@ -129,6 +188,21 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                       );
                     }).toList(),
                   ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                const Icon(Icons.palette),
+                const SizedBox(width: 16),
+                const Text(
+                  'Theme:',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildThemeSelector(),
                 ),
               ],
             ),
