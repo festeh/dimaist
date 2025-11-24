@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:dimaist/widgets/due_widget.dart';
+import '../config/design_tokens.dart';
 import '../models/task.dart';
+import 'due_widget.dart';
 
 class TaskWidget extends StatelessWidget {
   final Task task;
@@ -20,107 +21,138 @@ class TaskWidget extends StatelessWidget {
     this.dragIndex,
   });
 
+  List<String> get _nonEmptyLabels =>
+      task.labels.where((l) => l.trim().isNotEmpty).toList();
+
+  bool get _hasMetadata =>
+      task.dueDate != null ||
+      task.dueDatetime != null ||
+      task.recurrence != null ||
+      _nonEmptyLabels.isNotEmpty;
+
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.symmetric(vertical: 4.0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () => onEdit(task),
-        borderRadius: BorderRadius.circular(12),
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        child: ListTile(
-          leading: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showDragHandle && dragIndex != null) ...[
-                ReorderableDragStartListener(
-                  index: dragIndex!,
-                  child: Opacity(
-                    opacity: 0.6,
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Dismissible(
+      key: Key('dismiss-${task.id}'),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => onDelete(task.id!),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: Spacing.xl),
+        decoration: BoxDecoration(
+          color: colors.error,
+          borderRadius: BorderRadius.circular(Radii.md),
+        ),
+        child: Icon(
+          Icons.delete_outline,
+          color: colors.onError,
+          size: Sizes.iconMd,
+        ),
+      ),
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: Spacing.xs),
+        child: InkWell(
+          onTap: () => onEdit(task),
+          borderRadius: BorderRadius.circular(Radii.md),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.md,
+              vertical: Spacing.sm,
+            ),
+            child: Row(
+              children: [
+                // Drag handle (conditional)
+                if (showDragHandle && dragIndex != null) ...[
+                  ReorderableDragStartListener(
+                    index: dragIndex!,
                     child: Icon(
                       Icons.drag_handle,
-                      size: 20,
-                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                      size: Sizes.iconSm,
+                      color: colors.onSurfaceVariant,
                     ),
                   ),
+                  const SizedBox(width: Spacing.sm),
+                ],
+
+                // Checkbox
+                SizedBox(
+                  width: Sizes.touchTargetSmall,
+                  height: Sizes.touchTargetSmall,
+                  child: Checkbox(
+                    value: false,
+                    onChanged: (_) => onToggleComplete(task),
+                  ),
                 ),
-                const SizedBox(width: 12),
-              ],
-              Checkbox(
-                value: task.completedAt != null,
-                onChanged: (value) => onToggleComplete(task),
-              ),
-            ],
-          ),
-          contentPadding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
-          title: Text(
-            task.description,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          subtitle:
-              (task.dueDate != null ||
-                  task.dueDatetime != null ||
-                  (task.labels
-                      .where((label) => label.trim().isNotEmpty)
-                      .isNotEmpty))
-              ? Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Row(
+
+                const SizedBox(width: Spacing.sm),
+
+                // Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (task.recurrence != null &&
-                          task.recurrence!.isNotEmpty)
-                        const Icon(Icons.repeat, size: 16),
-                      if (task.recurrence != null &&
-                          task.recurrence!.isNotEmpty)
-                        const SizedBox(width: 8),
-                      if (task.dueDate != null || task.dueDatetime != null)
-                        DueWidget(task: task),
-                      if ((task.dueDate != null || task.dueDatetime != null) &&
-                          task.labels
-                              .where((label) => label.trim().isNotEmpty)
-                              .isNotEmpty)
-                        const SizedBox(width: 8),
-                      if (task.labels
-                          .where((label) => label.trim().isNotEmpty)
-                          .isNotEmpty)
-                        Expanded(
-                          child: Wrap(
-                            spacing: 8.0,
-                            runSpacing: 4.0,
-                            children: task.labels
-                                .where((label) => label.trim().isNotEmpty)
-                                .map(
-                                  (label) => Chip(
-                                    label: Text(label),
-                                    backgroundColor: Theme.of(
-                                      context,
-                                    ).colorScheme.secondary.withAlpha(51),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                      side: BorderSide(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.secondary,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ),
+                      // Title
+                      Text(
+                        task.description,
+                        style: theme.textTheme.bodyLarge,
+                      ),
+
+                      // Metadata row
+                      if (_hasMetadata) ...[
+                        const SizedBox(height: Spacing.xs),
+                        _buildMetadataRow(context),
+                      ],
                     ],
                   ),
-                )
-              : null,
-          trailing: IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => onDelete(task.id!),
+                ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildMetadataRow(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Row(
+      children: [
+        // Recurrence indicator
+        if (task.recurrence != null && task.recurrence!.isNotEmpty) ...[
+          Icon(
+            Icons.repeat,
+            size: Sizes.iconXs,
+            color: colors.onSurfaceVariant,
+          ),
+          const SizedBox(width: Spacing.sm),
+        ],
+
+        // Due date
+        if (task.dueDate != null || task.dueDatetime != null) ...[
+          DueWidget(task: task),
+          const SizedBox(width: Spacing.sm),
+        ],
+
+        // Labels as compact text
+        if (_nonEmptyLabels.isNotEmpty)
+          Expanded(
+            child: Text(
+              _nonEmptyLabels.length <= 5
+                  ? _nonEmptyLabels.join(', ')
+                  : '${_nonEmptyLabels.take(5).join(', ')} +${_nonEmptyLabels.length - 5}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colors.secondary,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
     );
   }
 }

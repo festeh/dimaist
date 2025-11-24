@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/design_tokens.dart';
 import '../models/task.dart';
 
 class CompletedTaskWidget extends StatelessWidget {
@@ -17,29 +18,62 @@ class CompletedTaskWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2.0,
-      margin: const EdgeInsets.symmetric(vertical: 4.0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () => onEdit(task),
-        borderRadius: BorderRadius.circular(12),
-        child: ListTile(
-          contentPadding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
-          leading: Checkbox(
-            value: task.completedAt != null,
-            onChanged: (value) => onToggleComplete(task),
-          ),
-          title: Text(
-            task.description,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              decoration: TextDecoration.lineThrough,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Dismissible(
+      key: Key('dismiss-completed-${task.id}'),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => onDelete(task.id!),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: Spacing.xl),
+        decoration: BoxDecoration(
+          color: colors.error,
+          borderRadius: BorderRadius.circular(Radii.md),
+        ),
+        child: Icon(
+          Icons.delete_outline,
+          color: colors.onError,
+          size: Sizes.iconMd,
+        ),
+      ),
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: Spacing.xs),
+        child: InkWell(
+          onTap: () => onEdit(task),
+          borderRadius: BorderRadius.circular(Radii.md),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.md,
+              vertical: Spacing.sm,
             ),
-          ),
-          trailing: IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => onDelete(task.id!),
+            child: Row(
+              children: [
+                // Checkbox
+                SizedBox(
+                  width: Sizes.touchTargetSmall,
+                  height: Sizes.touchTargetSmall,
+                  child: Checkbox(
+                    value: true,
+                    onChanged: (_) => onToggleComplete(task),
+                  ),
+                ),
+
+                const SizedBox(width: Spacing.sm),
+
+                // Title with strikethrough
+                Expanded(
+                  child: Text(
+                    task.description,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      decoration: TextDecoration.lineThrough,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
