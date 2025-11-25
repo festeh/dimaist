@@ -389,7 +389,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                   if (canReorder) {
                     return ReorderableListView.builder(
                       buildDefaultDragHandles: false,
-                      padding: const EdgeInsets.all(8.0),
+                      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
                       itemCount:
                           nonCompletedTasks.length +
                           (completedTasks.isNotEmpty
@@ -466,7 +466,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                   } else {
                     // Non-reorderable ListView for date sorting
                     return ListView.builder(
-                      padding: const EdgeInsets.all(8.0),
+                      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
                       itemCount:
                           nonCompletedTasks.length +
                           (completedTasks.isNotEmpty
