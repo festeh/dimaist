@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/settings_service.dart';
-import '../models/ai_model.dart';
 import '../providers/task_provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/ai_model_provider.dart';
 import '../services/logging_service.dart';
 import '../config/design_tokens.dart';
+import 'model_list_dialog.dart';
 
 class SettingsDialog extends ConsumerStatefulWidget {
   const SettingsDialog({super.key});
@@ -15,22 +15,7 @@ class SettingsDialog extends ConsumerStatefulWidget {
 }
 
 class _SettingsDialogState extends ConsumerState<SettingsDialog> {
-  String _selectedModel = AiModel.defaultModel.value;
   bool _isSyncing = false;
-
-  String _getCondensedModelName(String fullPath) {
-    final parts = fullPath.split('/');
-    if (parts.length >= 3) {
-      return '${parts.first.substring(0, 1)}/${parts.last}';
-    }
-    return fullPath;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedModel = SettingsService.instance.aiModel.value;
-  }
 
   Future<void> _triggerSync() async {
     setState(() {
@@ -124,8 +109,18 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     );
   }
 
+  void _openModelManager() {
+    showDialog(
+      context: context,
+      builder: (context) => const ModelListDialog(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final modelState = ref.watch(aiModelProvider);
+    final selectedModel = modelState.selectedModel;
+
     return AlertDialog(
       title: const Text('Settings'),
       content: SizedBox(
@@ -143,50 +138,30 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    value: _selectedModel,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
+                  child: OutlinedButton(
+                    onPressed: _openModelManager,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 8,
+                        vertical: 12,
                       ),
-                      fillColor: Theme.of(context).colorScheme.surface,
-                      filled: true,
                     ),
-                    dropdownColor: Theme.of(context).colorScheme.surface,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                    onChanged: (String? newValue) {
-                      if (newValue != null) {
-                        setState(() {
-                          _selectedModel = newValue;
-                        });
-                        final model = AiModel.fromString(newValue);
-                        if (model != null) {
-                          SettingsService.instance.setAiModel(model);
-                        }
-                      }
-                    },
-                    items: AiModel.allValues.map<DropdownMenuItem<String>>((
-                      String value,
-                    ) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(
-                          _getCondensedModelName(value),
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            selectedModel?.displayName ?? 'No model selected',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: selectedModel != null
+                                  ? null
+                                  : Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
                         ),
-                      );
-                    }).toList(),
+                        const Icon(Icons.chevron_right, size: 20),
+                      ],
+                    ),
                   ),
                 ),
               ],

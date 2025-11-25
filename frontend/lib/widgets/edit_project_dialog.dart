@@ -50,7 +50,7 @@ class _EditProjectDialogState extends ConsumerState<EditProjectDialog> {
               },
             ),
             DropdownButtonFormField<String>(
-              value: _selectedColor,
+              initialValue: _selectedColor,
               decoration: const InputDecoration(labelText: 'Color'),
               items: colorMap.keys.map((String colorName) {
                 return DropdownMenuItem<String>(

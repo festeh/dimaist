@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/task.dart';
-import '../services/logging_service.dart';
 
 class DueWidget extends StatelessWidget {
   final Task task;

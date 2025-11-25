@@ -132,7 +132,7 @@ class TaskFormDialogState extends State<TaskFormDialog> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
-                value: _selectedProjectId,
+                initialValue: _selectedProjectId,
                 decoration: const InputDecoration(labelText: 'Project'),
                 items: widget.projects.map((project) {
                   return DropdownMenuItem<int>(
@@ -508,6 +508,7 @@ class TaskFormDialogState extends State<TaskFormDialog> {
             if (_formKey.currentState!.validate()) {
               final navigator = Navigator.of(context);
               final scaffoldMessenger = ScaffoldMessenger.of(context);
+              final errorColor = Theme.of(context).colorScheme.error;
               try {
                 final labels = _labelsController.text
                     .split(',')
@@ -612,7 +613,7 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                 scaffoldMessenger.showSnackBar(
                   SnackBar(
                     content: Text(errorMessage),
-                    backgroundColor: Theme.of(context).colorScheme.error,
+                    backgroundColor: errorColor,
                     duration: const Duration(seconds: 5), // Longer duration for error messages
                   ),
                 );

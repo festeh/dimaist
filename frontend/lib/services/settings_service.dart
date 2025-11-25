@@ -1,9 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/ai_model.dart';
 import '../config/design_tokens.dart';
 
 class SettingsService {
-  static const String _aiModelKey = 'ai_model';
   static const String _themeKey = 'app_theme';
 
   static SettingsService? _instance;
@@ -18,15 +16,6 @@ class SettingsService {
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
-  }
-
-  AiModel get aiModel {
-    final modelString = _prefs?.getString(_aiModelKey);
-    return AiModel.fromString(modelString ?? '') ?? AiModel.defaultModel;
-  }
-
-  Future<void> setAiModel(AiModel model) async {
-    await _prefs?.setString(_aiModelKey, model.value);
   }
 
   AppThemeMode get themeMode {

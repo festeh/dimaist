@@ -1,30 +1,61 @@
-enum AiModel {
-  deepseekR1('chutes/deepseek-ai/DeepSeek-R1'),
-  qwen3235B('chutes/Qwen/Qwen3-235B-A22B'),
-  gptOss120b('chutes/openai/gpt-oss-120b'),
-  gptOss120bOpenrouter('openrouter/openai/gpt-oss-120b:nitro'),
-  deepseekV31('chutes/deepseek-ai/DeepSeek-V3.1'),
-  deepseekV31Openrouter('openrouter/deepseek/deepseek-chat-v3.1:nitro'),
-  qwenNext('chutes/Qwen/Qwen3-Next-80B-A3B-Instruct'),
-  qwen3('chutes/Qwen/Qwen3-30B-A3B-Thinking-2507'),
-  glm46('chutes/zai-org/GLM-4.6-turbo'),
-  deepseekV31Turbo('deepseek-ai/DeepSeek-V3.1-turbo');
+class AiModel {
+  final String id;
+  final String displayName;
+  final String apiId;
 
-  const AiModel(this.value);
+  const AiModel({
+    required this.id,
+    required this.displayName,
+    required this.apiId,
+  });
 
-  final String value;
-
-  static AiModel get defaultModel => AiModel.deepseekV31;
-
-  static AiModel? fromString(String value) {
-    for (AiModel model in AiModel.values) {
-      if (model.value == value) {
-        return model;
-      }
-    }
-    return null;
+  factory AiModel.create({
+    required String displayName,
+    required String apiId,
+  }) {
+    return AiModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      displayName: displayName,
+      apiId: apiId,
+    );
   }
 
-  static List<String> get allValues =>
-      AiModel.values.map((e) => e.value).toList();
+  factory AiModel.fromJson(Map<String, dynamic> json) {
+    return AiModel(
+      id: json['id'] as String,
+      displayName: json['displayName'] as String,
+      apiId: json['apiId'] as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'displayName': displayName,
+      'apiId': apiId,
+    };
+  }
+
+  AiModel copyWith({
+    String? id,
+    String? displayName,
+    String? apiId,
+  }) {
+    return AiModel(
+      id: id ?? this.id,
+      displayName: displayName ?? this.displayName,
+      apiId: apiId ?? this.apiId,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AiModel && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() => 'AiModel(id: $id, displayName: $displayName, apiId: $apiId)';
 }

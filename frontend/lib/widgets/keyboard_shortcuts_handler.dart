@@ -1,12 +1,7 @@
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../widgets/custom_view_widget.dart';
-import '../providers/view_provider.dart';
 import '../screens/task_screen.dart';
-import '../screens/ai_chat_screen.dart';
-import '../widgets/recording_dialog.dart';
 
 class KeyboardShortcutsHandler extends ConsumerWidget {
   final Widget child;
@@ -33,42 +28,8 @@ class KeyboardShortcutsHandler extends ConsumerWidget {
               !isAltPressed &&
               !isShiftPressed &&
               !isMetaPressed) {
-            final viewNotifier = ref.read(viewProvider.notifier);
-
-            // if (event.logicalKey == LogicalKeyboardKey.keyN &&
-            //     Platform.isLinux) {
-            //   taskScreenKey?.currentState?.showAddTaskDialog();
-            //   return KeyEventResult.handled;
-            // }
-            // if (event.logicalKey == LogicalKeyboardKey.keyA &&
-            //     Platform.isLinux) {
-            //   Navigator.of(context).push(
-            //     MaterialPageRoute(builder: (context) => const AiChatScreen()),
-            //   );
-            //   return KeyEventResult.handled;
-            // }
-            // if (event.logicalKey == LogicalKeyboardKey.keyV &&
-            //     Platform.isLinux) {
-            //   showDialog(
-            //     context: context,
-            //     builder: (context) => const RecordingDialog(),
-            //   );
-            //   return KeyEventResult.handled;
-            // }
-            // if (event.logicalKey == LogicalKeyboardKey.keyT) {
-            //   viewNotifier.selectCustomView(BuiltInViewType.today.displayName);
-            //   return KeyEventResult.handled;
-            // }
-            // if (event.logicalKey == LogicalKeyboardKey.keyU) {
-            //   viewNotifier.selectCustomView(
-            //     BuiltInViewType.upcoming.displayName,
-            //   );
-            //   return KeyEventResult.handled;
-            // }
-            // if (event.logicalKey == LogicalKeyboardKey.keyE) {
-            //   viewNotifier.selectCustomView(BuiltInViewType.next.displayName);
-            //   return KeyEventResult.handled;
-            // }
+            // Keyboard shortcuts currently disabled
+            // TODO: Re-enable keyboard shortcuts if needed
           }
         }
         return KeyEventResult.ignored;

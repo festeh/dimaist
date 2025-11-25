@@ -96,12 +96,11 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                 .read(projectProvider.notifier)
                 .reorderProjects(oldIndex, newIndex);
           } catch (e) {
-            if (mounted) {
-              DialogService.showErrorDialog(
-                context,
-                error: 'Error reordering projects: $e',
-              );
-            }
+            if (!context.mounted) return;
+            DialogService.showErrorDialog(
+              context,
+              error: 'Error reordering projects: $e',
+            );
           }
         },
         onEdit: (project) =>

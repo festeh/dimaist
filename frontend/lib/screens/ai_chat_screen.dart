@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../repositories/providers.dart';
-import '../services/settings_service.dart';
 import '../services/logging_service.dart';
 import '../providers/task_provider.dart';
+import '../providers/ai_model_provider.dart';
 import '../widgets/chat_input_widget.dart';
 
 enum MessageType { normal, toolCall, toolResult }
@@ -78,14 +78,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   bool _isProcessing = false;
   bool _hasText = false;
   String? _statusMessage;
-
-  String _getCondensedModelName(String fullPath) {
-    final parts = fullPath.split('/');
-    if (parts.length >= 3) {
-      return '${parts.first.substring(0, 1)}/${parts.last}';
-    }
-    return fullPath;
-  }
 
   @override
   void initState() {
@@ -184,7 +176,18 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     _scrollToBottom();
 
     try {
-      final model = SettingsService.instance.aiModel.value;
+      final modelState = ref.read(aiModelProvider);
+      final model = modelState.selectedModel?.apiId ?? '';
+      if (model.isEmpty) {
+        setState(() {
+          _isProcessing = false;
+          _statusMessage = '';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No AI model selected. Please configure in Settings.')),
+        );
+        return;
+      }
       bool transcriptionReceived = false;
 
       // Build messages history for context
@@ -295,7 +298,18 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     _scrollToBottom();
 
     try {
-      final model = SettingsService.instance.aiModel.value;
+      final modelState = ref.read(aiModelProvider);
+      final model = modelState.selectedModel?.apiId ?? '';
+      if (model.isEmpty) {
+        setState(() {
+          _isProcessing = false;
+          _statusMessage = '';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No AI model selected. Please configure in Settings.')),
+        );
+        return;
+      }
 
       // Build complete messages array including the new user message
       final messagesHistory = _buildMessagesFromHistory();
@@ -648,12 +662,13 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentModel = SettingsService.instance.aiModel.value;
-    final condensedModelName = _getCondensedModelName(currentModel);
+    final modelState = ref.watch(aiModelProvider);
+    final selectedModel = modelState.selectedModel;
+    final modelDisplayName = selectedModel?.displayName ?? 'No model';
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('AI Chat ($condensedModelName)'),
+        title: Text('AI Chat ($modelDisplayName)'),
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
       ),

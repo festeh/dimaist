@@ -84,17 +84,19 @@ class _RecordingDialogState extends ConsumerState<RecordingDialog>
     });
 
     if (_audioPath != null && mounted) {
+      final navigator = Navigator.of(context);
       final file = File(_audioPath!);
       final bytes = await file.readAsBytes();
 
-      Navigator.of(context).pop(); // Close recording dialog
+      if (!mounted) return;
+      navigator.pop(); // Close recording dialog
 
       if (widget.onAudioRecorded != null) {
         // Use callback if provided (for in-chat recording)
         widget.onAudioRecorded!(bytes);
       } else {
         // Navigate to new chat screen (for recording from elsewhere)
-        Navigator.of(context).push(
+        navigator.push(
           MaterialPageRoute(
             builder: (context) => AiChatScreen(initialAudioBytes: bytes),
           ),

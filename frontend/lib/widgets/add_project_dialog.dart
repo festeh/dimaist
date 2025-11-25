@@ -43,7 +43,7 @@ class AddProjectDialogState extends ConsumerState<AddProjectDialog> {
               },
             ),
             DropdownButtonFormField<String>(
-              value: _selectedColor,
+              initialValue: _selectedColor,
               decoration: InputDecoration(labelText: 'Color'),
               items: colorMap.keys.map((String colorName) {
                 return DropdownMenuItem<String>(

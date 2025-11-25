@@ -151,12 +151,12 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: RawKeyboardListener(
+                child: KeyboardListener(
                   focusNode: FocusNode(),
-                  onKey: (RawKeyEvent event) {
+                  onKeyEvent: (KeyEvent event) {
                     if (Platform.isLinux &&
-                        event is RawKeyDownEvent &&
-                        event.isControlPressed &&
+                        event is KeyDownEvent &&
+                        HardwareKeyboard.instance.isControlPressed &&
                         event.logicalKey == LogicalKeyboardKey.enter) {
                       _sendMessage();
                     }
