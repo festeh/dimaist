@@ -3,6 +3,7 @@ import '../config/design_tokens.dart';
 
 class SettingsService {
   static const String _themeKey = 'app_theme';
+  static const String _asrLanguageKey = 'asr_language';
 
   static SettingsService? _instance;
   SharedPreferences? _prefs;
@@ -29,5 +30,13 @@ class SettingsService {
 
   Future<void> setThemeMode(AppThemeMode mode) async {
     await _prefs?.setString(_themeKey, mode.name);
+  }
+
+  String get asrLanguage {
+    return _prefs?.getString(_asrLanguageKey) ?? 'auto';
+  }
+
+  Future<void> setAsrLanguage(String language) async {
+    await _prefs?.setString(_asrLanguageKey, language);
   }
 }

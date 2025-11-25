@@ -102,7 +102,6 @@ func main() {
 
 	// AI routes
 	r.Route("/ai", func(r chi.Router) {
-		r.Post("/audio", transcribeAudio)
 		r.Post("/text", ai.HandleAIText)
 	})
 

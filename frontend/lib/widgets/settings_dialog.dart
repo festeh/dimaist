@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/task_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/ai_model_provider.dart';
+import '../providers/asr_language_provider.dart';
 import '../services/logging_service.dart';
 import '../config/design_tokens.dart';
 import 'model_list_dialog.dart';
@@ -116,6 +117,46 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     );
   }
 
+  Widget _buildAsrLanguageSelector() {
+    final currentLanguage = ref.watch(asrLanguageProvider);
+    final currentTheme = ref.watch(themeProvider);
+    final colors = AppColors.forTheme(currentTheme);
+
+    return Wrap(
+      spacing: Spacing.sm,
+      runSpacing: Spacing.sm,
+      children: AsrLanguage.values.map((lang) {
+        final isSelected = lang == currentLanguage;
+
+        return InkWell(
+          onTap: () => ref.read(asrLanguageProvider.notifier).setLanguage(lang),
+          borderRadius: BorderRadius.circular(Radii.sm),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.md,
+              vertical: Spacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: isSelected ? colors.primary.withValues(alpha: 0.2) : null,
+              border: Border.all(
+                color: isSelected ? colors.primary : colors.border,
+                width: isSelected ? 2 : 1,
+              ),
+              borderRadius: BorderRadius.circular(Radii.sm),
+            ),
+            child: Text(
+              lang.displayName,
+              style: TextStyle(
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? colors.primary : null,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final modelState = ref.watch(aiModelProvider);
@@ -188,6 +229,21 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildThemeSelector(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                const Icon(Icons.language),
+                const SizedBox(width: 16),
+                const Text(
+                  'ASR:',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildAsrLanguageSelector(),
                 ),
               ],
             ),

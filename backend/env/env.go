@@ -6,7 +6,6 @@ import (
 )
 
 type Env struct {
-	AsrUrl             string
 	LogLevel           string
 	LogFormat          string
 	DatabaseURL        string
@@ -25,12 +24,6 @@ func New() (*Env, error) {
 		return nil, fmt.Errorf("DATABASE_URL environment variable is required")
 	}
 	env.DatabaseURL = databaseURL
-
-	asrURL := os.Getenv("ASR_URL")
-	if asrURL == "" {
-		return nil, fmt.Errorf("ASR_URL environment variable is required")
-	}
-	env.AsrUrl = asrURL
 
 	chutesEndpoint := os.Getenv("CHUTES_ENDPOINT")
 	if chutesEndpoint == "" {

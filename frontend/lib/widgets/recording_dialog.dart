@@ -47,15 +47,17 @@ class _RecordingDialogState extends ConsumerState<RecordingDialog>
   Future<void> _startRecording() async {
     final hasPermission = await _requestPermissions();
     if (hasPermission) {
-      const encoder = AudioEncoder.wav;
-      const config = RecordConfig(
+      // Linux doesn't support pcm16bits, use WAV instead
+      final encoder = Platform.isLinux ? AudioEncoder.wav : AudioEncoder.pcm16bits;
+      final extension = Platform.isLinux ? 'wav' : 'pcm';
+      final config = RecordConfig(
         encoder: encoder,
         numChannels: 1,
         sampleRate: 16000,
         bitRate: 256000,
         noiseSuppress: true,
       );
-      final path = '${Directory.systemTemp.path}/temp.wav';
+      final path = '${Directory.systemTemp.path}/temp.$extension';
       await _recorder.start(config, path: path);
       setState(() {
         _isRecording = true;

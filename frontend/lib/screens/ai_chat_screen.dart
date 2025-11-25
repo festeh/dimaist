@@ -5,6 +5,7 @@ import '../repositories/providers.dart';
 import '../services/logging_service.dart';
 import '../providers/task_provider.dart';
 import '../providers/ai_model_provider.dart';
+import '../providers/asr_language_provider.dart';
 import '../widgets/chat_input_widget.dart';
 
 enum MessageType { normal, toolCall, toolResult }
@@ -176,91 +177,40 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     _scrollToBottom();
 
     try {
-      final modelState = ref.read(aiModelProvider);
-      final model = modelState.selectedModel?.apiId ?? '';
-      if (model.isEmpty) {
+      // Get ASR language setting
+      final asrLanguage = ref.read(asrLanguageProvider);
+
+      // Transcribe audio using ASR service directly
+      final transcribedText = await ref
+          .read(asrServiceProvider)
+          .transcribe(audioBytes, asrLanguage.code);
+
+      if (transcribedText.isEmpty) {
         setState(() {
+          _messages.removeLast();
           _isProcessing = false;
-          _statusMessage = '';
+          _statusMessage = null;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No AI model selected. Please configure in Settings.')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not transcribe audio')),
+          );
+        }
         return;
       }
-      bool transcriptionReceived = false;
 
-      // Build messages history for context
-      final previousMessages = _buildMessagesFromHistory();
+      // Update user message with transcribed text
+      setState(() {
+        _messages.last = ChatMessage(
+          text: transcribedText,
+          role: 'user',
+          timestamp: _messages.last.timestamp,
+        );
+      });
+      _scrollToBottom();
 
-      await ref
-          .read(apiServiceProvider)
-          .sendAudioStream(
-            audioBytes,
-            model,
-            (chunk, {double? duration}) {
-              setState(() {
-                _messages.add(
-                  ChatMessage(
-                    text: chunk,
-                    role: 'assistant',
-                    timestamp: DateTime.now(),
-                    duration: duration,
-                  ),
-                );
-              });
-              _scrollToBottom();
-            },
-            () async {
-              setState(() {
-                _isProcessing = false;
-                _statusMessage = null;
-              });
-              try {
-                await ref.read(taskProvider.notifier).syncData();
-              } catch (e) {
-                LoggingService.logger.warning(
-                  'Failed to sync after audio AI: $e',
-                );
-              }
-            },
-            onStatus: (status) {
-              setState(() {
-                _statusMessage = status;
-              });
-            },
-            onTranscription: (transcribedText) {
-              // Update the user message with the actual transcribed text
-              if (_messages.isNotEmpty &&
-                  _messages.last.isUser &&
-                  !transcriptionReceived) {
-                setState(() {
-                  _messages.last = ChatMessage(
-                    text: transcribedText,
-                    role: 'user',
-                    timestamp: _messages.last.timestamp,
-                  );
-                  transcriptionReceived = true;
-                });
-                _scrollToBottom();
-              }
-            },
-            onToolCall: (toolCall, {double? duration}) {
-              _addToolMessage(
-                toolCall,
-                MessageType.toolCall,
-                duration: duration,
-              );
-            },
-            onToolResult: (toolResult, {double? duration}) {
-              _addToolMessage(
-                toolResult,
-                MessageType.toolResult,
-                duration: duration,
-              );
-            },
-            previousMessages: previousMessages,
-          );
+      // Now send the transcribed text to the AI
+      await _sendTextMessage(transcribedText, addUserMessage: false);
     } catch (e) {
       LoggingService.logger.severe('Error processing audio: $e');
       setState(() {
@@ -282,15 +232,18 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     await _sendTextMessage(message);
   }
 
-  Future<void> _sendTextMessage(String userMessage) async {
-    if (userMessage.trim().isEmpty || _isProcessing) return;
+  Future<void> _sendTextMessage(String userMessage, {bool addUserMessage = true}) async {
+    if (userMessage.trim().isEmpty) return;
+    if (addUserMessage && _isProcessing) return;
 
     final message = userMessage.trim();
 
     setState(() {
-      _messages.add(
-        ChatMessage(text: message, role: 'user', timestamp: DateTime.now()),
-      );
+      if (addUserMessage) {
+        _messages.add(
+          ChatMessage(text: message, role: 'user', timestamp: DateTime.now()),
+        );
+      }
       _isProcessing = true;
       _statusMessage = 'Initializing...';
     });
@@ -311,14 +264,12 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         return;
       }
 
-      // Build complete messages array including the new user message
+      // Build complete messages array including the user message
       final messagesHistory = _buildMessagesFromHistory();
-      // The new user message is already added to _messages, so we need to include it
       final allMessages =
-          messagesHistory +
-          [
-            {'role': 'user', 'content': message},
-          ];
+          addUserMessage
+              ? messagesHistory + [{'role': 'user', 'content': message}]
+              : messagesHistory;
 
       await ref
           .read(apiServiceProvider)

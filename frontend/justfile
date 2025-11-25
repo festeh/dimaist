@@ -5,28 +5,27 @@ set dotenv-load
 default:
     @just --list
 
-# Verify BASE_URL is set and run command with it
-_run-with-base-url cmd *args:
+# Run command with env vars from .env file
+_run-with-env cmd *args:
     #!/usr/bin/env bash
-    source .env 2>/dev/null || true
-    if [ -z "$BASE_URL" ]; then
-        echo "ERROR: BASE_URL is not set in .env file"
-        echo "Please create a .env file with BASE_URL=your_server_url"
+    if [ ! -f .env ]; then
+        echo "ERROR: .env file not found"
+        echo "Please create a .env file with BASE_URL and ASR_URL"
         exit 1
     fi
-    echo "Using BASE_URL=$BASE_URL"
-    {{cmd}} --dart-define BASE_URL="$BASE_URL" {{args}}
+    echo "Loading env vars from .env"
+    {{cmd}} --dart-define-from-file=.env {{args}}
 
 run-linux:
-    @just _run-with-base-url "flutter run -d linux"
+    @just _run-with-env "flutter run -d linux"
 
 # Run the phone app with environment variables
 run-phone:
-    @just _run-with-base-url "flutter run --flavor phone -t lib/main.dart"
+    @just _run-with-env "flutter run --flavor phone -t lib/main.dart"
 
 # Run the Wear OS app with environment variables
 run-wear:
-    @just _run-with-base-url "flutter run --flavor wear -t lib/main_wear.dart"
+    @just _run-with-env "flutter run --flavor wear -t lib/main_wear.dart"
 
 # Run flutter analyze
 analyze:
@@ -46,19 +45,19 @@ upgrade:
 
 # Build APK for phone
 build-phone:
-    @just _run-with-base-url "flutter build apk --flavor phone -t lib/main.dart"
+    @just _run-with-env "flutter build apk --flavor phone -t lib/main.dart"
 
 # Build APK for Wear OS
 build-wear:
-    @just _run-with-base-url "flutter build apk --flavor wear -t lib/main_wear.dart"
+    @just _run-with-env "flutter build apk --flavor wear -t lib/main_wear.dart"
 
 # Build Linux app for release
 build-linux:
-    @just _run-with-base-url "flutter build linux --release -t lib/main.dart"
+    @just _run-with-env "flutter build linux --release -t lib/main.dart"
 
 # Build and install phone APK in debug mode
 install-phone:
-    @just _run-with-base-url "flutter build apk --debug --flavor phone -t lib/main.dart"
+    @just _run-with-env "flutter build apk --debug --flavor phone -t lib/main.dart"
     adb install build/app/outputs/flutter-apk/app-phone-debug.apk
 
 # Build and install phone APK in release mode
