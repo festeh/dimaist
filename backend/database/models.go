@@ -42,29 +42,29 @@ func (ta *TimeArray) Scan(value any) error {
 type Task struct {
 	ID            uint           `gorm:"primaryKey" json:"id"`
 	Description   string         `gorm:"not null" json:"description"`
-	Notes         string         `json:"notes"`
-	ProjectID     *uint          `gorm:"index" json:"project_id"`
-	Project       *Project       `gorm:"foreignKey:ProjectID" json:"project"`
-	DueDate       *time.Time     `json:"due_date"`
-	DueDatetime   *time.Time     `json:"due_datetime"`
-	StartDatetime *time.Time     `json:"start_datetime"`
-	EndDatetime   *time.Time     `json:"end_datetime"`
-	Labels        pq.StringArray `gorm:"type:text[]" json:"labels"`
-	Reminders     TimeArray      `gorm:"type:timestamp[]" json:"reminders"`
-	Recurrence    string         `json:"recurrence"`
+	Notes         string         `json:"notes,omitempty"`
+	ProjectID     *uint          `gorm:"index" json:"project_id,omitempty"`
+	Project       *Project       `gorm:"foreignKey:ProjectID" json:"project,omitempty"`
+	DueDate       *time.Time     `json:"due_date,omitempty"`
+	DueDatetime   *time.Time     `json:"due_datetime,omitempty"`
+	StartDatetime *time.Time     `json:"start_datetime,omitempty"`
+	EndDatetime   *time.Time     `json:"end_datetime,omitempty"`
+	Labels        pq.StringArray `gorm:"type:text[]" json:"labels,omitempty"`
+	Reminders     TimeArray      `gorm:"type:timestamp[]" json:"reminders,omitempty"`
+	Recurrence    string         `json:"recurrence,omitempty"`
 	Order         int            `gorm:"default:0" json:"order"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     *time.Time     `gorm:"index" json:"deleted_at,omitempty"`
-	CompletedAt   *time.Time     `json:"completed_at"`
+	CompletedAt   *time.Time     `json:"completed_at,omitempty"`
 }
 
 type Project struct {
 	ID        uint       `gorm:"primaryKey" json:"id"`
 	Name      string     `gorm:"not null" json:"name"`
-	Color     string     `gorm:"default:'gray'" json:"color"`
+	Color     string     `gorm:"default:'gray'" json:"color,omitempty"`
 	Order     int        `gorm:"default:0" json:"order"`
-	Tasks     []Task     `gorm:"foreignKey:ProjectID" json:"tasks"`
+	Tasks     []Task     `gorm:"foreignKey:ProjectID" json:"tasks,omitempty"`
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
 	DeletedAt *time.Time `gorm:"index" json:"deleted_at,omitempty"`
