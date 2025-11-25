@@ -14,22 +14,21 @@ class AddEditModelDialog extends ConsumerStatefulWidget {
 
 class _AddEditModelDialogState extends ConsumerState<AddEditModelDialog> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _displayNameController;
-  late TextEditingController _apiIdController;
+  late TextEditingController _modelNameController;
+  late AiProvider _selectedProvider;
 
   bool get isEditing => widget.model != null;
 
   @override
   void initState() {
     super.initState();
-    _displayNameController = TextEditingController(text: widget.model?.displayName ?? '');
-    _apiIdController = TextEditingController(text: widget.model?.apiId ?? '');
+    _modelNameController = TextEditingController(text: widget.model?.modelName ?? '');
+    _selectedProvider = widget.model?.provider ?? AiProvider.chutes;
   }
 
   @override
   void dispose() {
-    _displayNameController.dispose();
-    _apiIdController.dispose();
+    _modelNameController.dispose();
     super.dispose();
   }
 
@@ -42,29 +41,35 @@ class _AddEditModelDialogState extends ConsumerState<AddEditModelDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextFormField(
-              controller: _displayNameController,
+            DropdownButtonFormField<AiProvider>(
+              initialValue: _selectedProvider,
               decoration: const InputDecoration(
-                labelText: 'Display Name',
-                hintText: 'e.g., DeepSeek V3.1',
+                labelText: 'Provider',
               ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter a display name';
+              items: AiProvider.values.map((provider) {
+                return DropdownMenuItem(
+                  value: provider,
+                  child: Text(provider.displayName),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedProvider = value;
+                  });
                 }
-                return null;
               },
             ),
             const SizedBox(height: 16),
             TextFormField(
-              controller: _apiIdController,
+              controller: _modelNameController,
               decoration: const InputDecoration(
-                labelText: 'API Identifier',
-                hintText: 'e.g., chutes/deepseek-ai/DeepSeek-V3.1',
+                labelText: 'Model Name',
+                hintText: 'e.g., deepseek-ai/DeepSeek-V3',
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Please enter an API identifier';
+                  return 'Please enter a model name';
                 }
                 return null;
               },
@@ -94,14 +99,14 @@ class _AddEditModelDialogState extends ConsumerState<AddEditModelDialog> {
     try {
       if (isEditing) {
         final model = widget.model!.copyWith(
-          displayName: _displayNameController.text.trim(),
-          apiId: _apiIdController.text.trim(),
+          modelName: _modelNameController.text.trim(),
+          provider: _selectedProvider,
         );
         await ref.read(aiModelProvider.notifier).updateModel(model);
       } else {
         final model = AiModel.create(
-          displayName: _displayNameController.text.trim(),
-          apiId: _apiIdController.text.trim(),
+          modelName: _modelNameController.text.trim(),
+          provider: _selectedProvider,
         );
         await ref.read(aiModelProvider.notifier).addModel(model);
       }

@@ -62,17 +62,17 @@ class ModelListDialog extends ConsumerWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    model.displayName,
+                                    model.modelName,
                                     style: theme.textTheme.bodyLarge?.copyWith(
                                       fontWeight: isSelected ? FontWeight.w600 : null,
                                     ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                   Text(
-                                    model.apiId,
+                                    model.provider.displayName,
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
-                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),
@@ -143,7 +143,7 @@ class ModelListDialog extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Model'),
-        content: Text('Are you sure you want to delete "${model.displayName}"?'),
+        content: Text('Are you sure you want to delete "${model.modelName}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
