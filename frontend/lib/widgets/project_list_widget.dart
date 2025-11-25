@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/design_tokens.dart';
 import '../models/project.dart';
 import '../utils/color_utils.dart';
 
@@ -22,78 +23,78 @@ class ProjectList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
     return ReorderableListView(
       buildDefaultDragHandles: false,
       onReorder: onReorder,
       children: List.generate(projects.length, (index) {
         final project = projects[index];
-        return Container(
+        final isSelected = selectedIndex == index;
+
+        return ReorderableDragStartListener(
           key: Key(project.id.toString()),
-          decoration: BoxDecoration(
-            color: selectedIndex == index
-                ? Theme.of(context).highlightColor
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: InkWell(
-            onTap: () => onProjectSelected(index),
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 12.0,
-              ),
-              child: Row(
-                children: [
-                  ReorderableDragStartListener(
-                    index: index,
-                    child: Opacity(
-                      opacity: 0.6,
-                      child: Icon(
-                        Icons.drag_handle,
-                        size: 20,
-                        color: Theme.of(context).textTheme.bodyMedium?.color,
+          index: index,
+          child: Container(
+            decoration: BoxDecoration(
+              color: isSelected ? colors.primary.withValues(alpha: 0.15) : null,
+              borderRadius: BorderRadius.circular(Radii.sm),
+            ),
+            child: InkWell(
+              onTap: () => onProjectSelected(index),
+              borderRadius: BorderRadius.circular(Radii.sm),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.lg,
+                  vertical: Spacing.md,
+                ),
+                child: Row(
+                  children: [
+                    // Color dot
+                    Container(
+                      width: Sizes.avatarSm * 2,
+                      height: Sizes.avatarSm * 2,
+                      decoration: BoxDecoration(
+                        color: getColor(project.color),
+                        shape: BoxShape.circle,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  CircleAvatar(
-                    backgroundColor: getColor(project.color),
-                    radius: 12,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      project.name,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: selectedIndex == index
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+                    const SizedBox(width: Spacing.md),
+
+                    // Project name
+                    Expanded(
+                      child: Text(
+                        project.name,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        ),
                       ),
                     ),
-                  ),
-                  PopupMenuButton<String>(
-                    padding: EdgeInsets.zero,
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        onEdit(project);
-                      } else if (value == 'delete') {
-                        onDelete(project.id!);
-                      }
-                    },
-                    itemBuilder: (BuildContext context) =>
-                        <PopupMenuEntry<String>>[
-                          const PopupMenuItem<String>(
-                            value: 'edit',
-                            child: Text('Edit'),
-                          ),
-                          const PopupMenuItem<String>(
-                            value: 'delete',
-                            child: Text('Delete'),
-                          ),
+
+                    // Menu (only on selected)
+                    if (isSelected)
+                      PopupMenuButton<String>(
+                        padding: EdgeInsets.zero,
+                        icon: Icon(
+                          Icons.more_vert,
+                          size: Sizes.iconSm,
+                          color: colors.onSurfaceVariant,
+                        ),
+                        onSelected: (value) {
+                          if (value == 'edit') {
+                            onEdit(project);
+                          } else if (value == 'delete') {
+                            onDelete(project.id!);
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                          const PopupMenuItem(value: 'delete', child: Text('Delete')),
                         ],
-                  ),
-                ],
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

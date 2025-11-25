@@ -1,6 +1,7 @@
 import 'package:dimaist/widgets/completed_task_widget.dart';
 import 'package:dimaist/services/logging_service.dart';
 import 'package:dimaist/widgets/custom_view_widget.dart';
+import 'package:dimaist/config/design_tokens.dart';
 import 'package:dimaist/widgets/task_form_dialog.dart';
 import 'package:dimaist/widgets/schedule_view.dart';
 import 'package:dimaist/widgets/view_options_menu.dart';
@@ -374,17 +375,37 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                           );
                         } else if (index == nonCompletedTasks.length &&
                             completedTasks.isNotEmpty) {
-                          return Column(
+                          return Padding(
                             key: const Key('completed_tasks_header'),
-                            children: const [
-                              Divider(
-                                height: 32,
-                                thickness: 2,
-                                indent: 16,
-                                endIndent: 16,
-                              ),
-                              Text('Completed tasks'),
-                            ],
+                            padding: const EdgeInsets.symmetric(
+                              vertical: Spacing.lg,
+                              horizontal: Spacing.md,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Divider(
+                                    thickness: 1,
+                                    color: Theme.of(context).colorScheme.outlineVariant,
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+                                  child: Text(
+                                    'Completed',
+                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Divider(
+                                    thickness: 1,
+                                    color: Theme.of(context).colorScheme.outlineVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
                           );
                         } else {
                           final task =
@@ -431,16 +452,36 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                           );
                         } else if (index == nonCompletedTasks.length &&
                             completedTasks.isNotEmpty) {
-                          return const Column(
-                            children: [
-                              Divider(
-                                height: 32,
-                                thickness: 2,
-                                indent: 16,
-                                endIndent: 16,
-                              ),
-                              Text('Completed tasks'),
-                            ],
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: Spacing.lg,
+                              horizontal: Spacing.md,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Divider(
+                                    thickness: 1,
+                                    color: Theme.of(context).colorScheme.outlineVariant,
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+                                  child: Text(
+                                    'Completed',
+                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Divider(
+                                    thickness: 1,
+                                    color: Theme.of(context).colorScheme.outlineVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
                           );
                         } else {
                           final task =

@@ -1,5 +1,6 @@
-import 'package:dimaist/widgets/dynamic_calendar_icon.dart';
 import 'package:flutter/material.dart';
+import '../config/design_tokens.dart';
+import 'dynamic_calendar_icon.dart';
 
 enum BuiltInViewType {
   today('Today', Icons.today),
@@ -46,38 +47,37 @@ class CustomViewWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
     return Column(
       children: customViews.map((view) {
         final isSelected = selectedView == view.name;
         return Container(
           decoration: BoxDecoration(
-            color: isSelected
-                ? Theme.of(context).highlightColor
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            color: isSelected ? colors.primary.withValues(alpha: 0.15) : null,
+            borderRadius: BorderRadius.circular(Radii.sm),
           ),
           child: InkWell(
             onTap: () => onSelected(view.name),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(Radii.sm),
             child: Padding(
               padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 12.0,
+                horizontal: Spacing.lg,
+                vertical: Spacing.md,
               ),
               child: Row(
                 children: [
                   if (view.type == BuiltInViewType.today)
                     const DynamicCalendarIcon()
                   else
-                    Icon(view.icon, size: 24),
-                  const SizedBox(width: 16),
+                    Icon(view.icon, size: Sizes.iconMd),
+                  const SizedBox(width: Spacing.lg),
                   Expanded(
                     child: Text(
                       view.name,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                   ),

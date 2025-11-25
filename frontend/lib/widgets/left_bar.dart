@@ -1,5 +1,6 @@
-import 'package:dimaist/widgets/tasks_tab.dart';
 import 'package:flutter/material.dart';
+import '../config/design_tokens.dart';
+import 'tasks_tab.dart';
 
 class LeftBar extends StatefulWidget {
   final String? selectedView;
@@ -25,7 +26,7 @@ class _LeftBarState extends State<LeftBar> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 248,
+      width: Sizes.sidebarWidth,
       child: Container(
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,

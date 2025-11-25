@@ -38,6 +38,10 @@ class Sizes {
   static const double iconMd = 24;
   static const double iconLg = 32;
 
+  // Avatars
+  static const double avatarSm = 12;
+  static const double avatarMd = 16;
+
   // Layout
   static const double sidebarWidth = 248;
   static const double dialogWidth = 300;
