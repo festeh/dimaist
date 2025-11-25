@@ -462,8 +462,8 @@ func (a *Agent) ExecuteWithWS(messages []ChatCompletionMessage, ws *WSWriter, ct
 				// Resolve defaults before sending to frontend
 				argsForPreview := resolveToolDefaults(toolCall.Function.Name, args)
 
-				// Send tool pending event
-				if err := ws.SendToolPending(toolCall.Function.Name, argsForPreview); err != nil {
+				// Send tool pending event with LLM duration
+				if err := ws.SendToolPending(toolCall.Function.Name, argsForPreview, modelDuration); err != nil {
 					logger.Error("Failed to send tool_pending event").Err(err).Send()
 					return err
 				}
@@ -578,6 +578,25 @@ func resolveToolDefaults(toolName string, args map[string]any) map[string]any {
 			var inboxProject database.Project
 			if err := database.DB.Where("name = ? AND deleted_at IS NULL", "Inbox").First(&inboxProject).Error; err == nil {
 				result["project_id"] = float64(inboxProject.ID)
+			}
+		}
+	}
+
+	// For complete_task and delete_task, fetch task details for preview
+	if toolName == "complete_task" || toolName == "delete_task" {
+		if taskID, ok := result["task_id"].(float64); ok {
+			var task database.Task
+			if err := database.DB.First(&task, int(taskID)).Error; err == nil {
+				result["description"] = task.Description
+				if task.ProjectID != nil {
+					result["project_id"] = float64(*task.ProjectID)
+				}
+				if task.DueDate != nil {
+					result["due_date"] = task.DueDate.Format("2006-01-02")
+				}
+				if len(task.Labels) > 0 {
+					result["labels"] = task.Labels
+				}
 			}
 		}
 	}

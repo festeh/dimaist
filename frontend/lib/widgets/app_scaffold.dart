@@ -7,6 +7,7 @@ import '../services/dialog_service.dart';
 import '../utils/responsive_utils.dart';
 import '../widgets/left_bar.dart';
 import '../widgets/settings_dialog.dart';
+import '../widgets/label_list_dialog.dart';
 import '../widgets/project_list_widget.dart';
 import '../widgets/mobile_layout.dart';
 import '../widgets/desktop_layout.dart';
@@ -71,6 +72,15 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
           Navigator.of(context).pop();
         }
         DialogService.showAddProjectDialog(context, ref);
+      },
+      onOpenLabels: () {
+        if (isMobile) {
+          Navigator.of(context).pop();
+        }
+        showDialog(
+          context: context,
+          builder: (context) => const LabelListDialog(),
+        );
       },
       onOpenSettings: () {
         if (isMobile) {

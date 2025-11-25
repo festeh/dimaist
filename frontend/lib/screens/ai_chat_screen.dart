@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import '../config/design_tokens.dart';
 import '../repositories/providers.dart';
 import '../services/logging_service.dart';
@@ -86,7 +86,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   final AiWebSocketService _wsService = AiWebSocketService();
   bool _isProcessing = false;
   bool _hasText = false;
-  String? _statusMessage;
 
   // Index of the pending tool preview message (if any)
   int? _pendingToolMessageIndex;
@@ -162,7 +161,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         ),
       );
       _isProcessing = true;
-      _statusMessage = 'Transcribing audio...';
     });
 
     _scrollToBottom();
@@ -180,7 +178,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         setState(() {
           _messages.removeLast();
           _isProcessing = false;
-          _statusMessage = null;
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -213,7 +210,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           ),
         );
         _isProcessing = false;
-        _statusMessage = null;
       });
       _scrollToBottom();
     }
@@ -236,7 +232,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         );
       }
       _isProcessing = true;
-      _statusMessage = 'Initializing...';
       _pendingToolMessageIndex = null;
     });
 
@@ -267,7 +262,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         onDone: () async {
           setState(() {
             _isProcessing = false;
-            _statusMessage = null;
             _pendingToolMessageIndex = null;
           });
           _wsService.close();
@@ -290,7 +284,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
               ),
             );
             _isProcessing = false;
-            _statusMessage = null;
           });
           _scrollToBottom();
         },
@@ -306,7 +299,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           ),
         );
         _isProcessing = false;
-        _statusMessage = null;
       });
       _scrollToBottom();
     }
@@ -315,14 +307,13 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   void _handleWSMessage(WSMessageType type, Map<String, dynamic> data) {
     switch (type) {
       case WSMessageType.thinking:
-        setState(() {
-          _statusMessage = data['message'] as String? ?? 'Processing...';
-        });
+        // Typing indicator is shown automatically while _isProcessing is true
         break;
 
       case WSMessageType.toolPending:
         final toolName = data['tool'] as String?;
         final arguments = data['arguments'] as Map<String, dynamic>?;
+        final duration = data['duration'] as double?;
         setState(() {
           _messages.add(
             ChatMessage(
@@ -335,6 +326,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 'arguments': arguments,
                 'status': 'pending',
               },
+              duration: duration,
             ),
           );
           _pendingToolMessageIndex = _messages.length - 1;
@@ -344,8 +336,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         break;
 
       case WSMessageType.toolResult:
-        // Tool result just confirms the action - status already set to 'confirmed'
-        // No separate message needed
+        // Duration already set at toolPending, nothing to do here
         break;
 
       case WSMessageType.finalResponse:
@@ -390,7 +381,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   void _confirmTool(Map<String, dynamic> args) {
     if (_pendingToolMessageIndex == null) return;
 
-    // Mark the preview as confirmed
+    // Mark the preview as confirmed, preserving duration
     final oldMessage = _messages[_pendingToolMessageIndex!];
     final newMetadata = Map<String, dynamic>.from(oldMessage.metadata ?? {});
     newMetadata['status'] = 'confirmed';
@@ -403,10 +394,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         timestamp: oldMessage.timestamp,
         type: oldMessage.type,
         metadata: newMetadata,
+        duration: oldMessage.duration,
       );
       _pendingToolMessageIndex = null;
       _isProcessing = true;
-      _statusMessage = 'Executing...';
     });
     _wsService.confirm(args);
   }
@@ -414,7 +405,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   void _rejectTool() {
     if (_pendingToolMessageIndex == null) return;
 
-    // Mark the preview as cancelled
+    // Mark the preview as cancelled, preserving duration
     final oldMessage = _messages[_pendingToolMessageIndex!];
     final newMetadata = Map<String, dynamic>.from(oldMessage.metadata ?? {});
     newMetadata['status'] = 'cancelled';
@@ -426,6 +417,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         timestamp: oldMessage.timestamp,
         type: oldMessage.type,
         metadata: newMetadata,
+        duration: oldMessage.duration,
       );
       _pendingToolMessageIndex = null;
     });
@@ -541,45 +533,21 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       onReject: isPending ? _rejectTool : () {},
       projects: projects.cast(),
       status: status,
+      duration: message.formattedDuration,
     );
   }
 
-  Widget _buildStatusIndicator() {
-    if (!_isProcessing || _statusMessage == null) {
-      return const SizedBox.shrink();
-    }
-
+  Widget _buildTypingIndicator() {
     final colors = Theme.of(context).colorScheme;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
-      padding: const EdgeInsets.all(Spacing.md),
+      padding: const EdgeInsets.all(Spacing.lg),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(Radii.lg),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: Sizes.iconSm,
-            height: Sizes.iconSm,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: colors.primary,
-            ),
-          ),
-          const SizedBox(width: Spacing.sm),
-          Flexible(
-            child: Text(
-              _statusMessage!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: _TypingDots(color: colors.onSurfaceVariant),
     );
   }
 
@@ -622,13 +590,15 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
-              itemCount: _messages.length,
+              itemCount: _messages.length + (_isProcessing ? 1 : 0),
               itemBuilder: (context, index) {
+                if (index == _messages.length) {
+                  return _buildTypingIndicator();
+                }
                 return _buildMessage(_messages[index], projects);
               },
             ),
           ),
-          _buildStatusIndicator(),
           ChatInputWidget(
             onSendMessage: _sendTextMessage,
             onAudioRecorded: _processAudioMessage,
@@ -636,6 +606,83 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Animated typing dots indicator
+class _TypingDots extends StatefulWidget {
+  final Color color;
+
+  const _TypingDots({required this.color});
+
+  @override
+  State<_TypingDots> createState() => _TypingDotsState();
+}
+
+class _TypingDotsState extends State<_TypingDots> with TickerProviderStateMixin {
+  late final List<AnimationController> _controllers;
+  late final List<Animation<double>> _animations;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = List.generate(3, (index) {
+      return AnimationController(
+        duration: const Duration(milliseconds: 400),
+        vsync: this,
+      );
+    });
+
+    _animations = _controllers.map((controller) {
+      return Tween<double>(begin: 0, end: 1).animate(
+        CurvedAnimation(parent: controller, curve: Curves.easeInOut),
+      );
+    }).toList();
+
+    // Start animations with staggered delay
+    for (var i = 0; i < _controllers.length; i++) {
+      Future.delayed(Duration(milliseconds: i * 150), () {
+        if (mounted) {
+          _controllers[i].repeat(reverse: true);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (index) {
+        return AnimatedBuilder(
+          animation: _animations[index],
+          builder: (context, child) {
+            return Container(
+              margin: EdgeInsets.only(right: index < 2 ? 4 : 0),
+              child: Opacity(
+                opacity: 0.3 + (_animations[index].value * 0.7),
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: widget.color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      }),
     );
   }
 }

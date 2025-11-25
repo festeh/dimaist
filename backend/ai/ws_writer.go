@@ -35,11 +35,12 @@ func (w *WSWriter) SendThinking(message string, duration float64) error {
 }
 
 // SendToolPending sends a tool pending message requesting user confirmation
-func (w *WSWriter) SendToolPending(tool string, args map[string]any) error {
+func (w *WSWriter) SendToolPending(tool string, args map[string]any, duration float64) error {
 	return w.write(WSMessage{
 		Type:      WSMsgToolPending,
 		Tool:      tool,
 		Arguments: args,
+		Duration:  duration,
 	})
 }
 

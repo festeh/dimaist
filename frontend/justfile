@@ -6,11 +6,11 @@ default:
     @just --list
 
 # Run command with env vars from .env file
-_run-with-env cmd *args:
-    @just _run-with-env-file .env {{cmd}} {{args}}
+_run-with-env +cmd:
+    @just _run-with-env-file .env {{cmd}}
 
 # Run command with env vars from specified file
-_run-with-env-file envfile cmd *args:
+_run-with-env-file envfile +cmd:
     #!/usr/bin/env bash
     if [ ! -f {{envfile}} ]; then
         echo "ERROR: {{envfile}} file not found"
@@ -18,10 +18,10 @@ _run-with-env-file envfile cmd *args:
         exit 1
     fi
     echo "Loading env vars from {{envfile}}"
-    {{cmd}} --dart-define-from-file={{envfile}} {{args}}
+    {{cmd}} --dart-define-from-file={{envfile}}
 
 run-linux:
-    @just _run-with-env "flutter run -d linux"
+    @just _run-with-env flutter run -d linux
 
 # Run Linux app with local backend (starts backend automatically)
 run-linux-local:
@@ -62,11 +62,11 @@ run-linux-local:
 
 # Run the phone app with environment variables
 run-phone:
-    @just _run-with-env "flutter run --flavor phone -t lib/main.dart"
+    @just _run-with-env flutter run --flavor phone -t lib/main.dart
 
 # Run the Wear OS app with environment variables
 run-wear:
-    @just _run-with-env "flutter run --flavor wear -t lib/main_wear.dart"
+    @just _run-with-env flutter run --flavor wear -t lib/main_wear.dart
 
 # Run flutter analyze
 analyze:
@@ -86,23 +86,18 @@ upgrade:
 
 # Build APK for phone
 build-phone:
-    @just _run-with-env "flutter build apk --flavor phone -t lib/main.dart"
+    @just _run-with-env flutter build apk --flavor phone -t lib/main.dart
 
 # Build APK for Wear OS
 build-wear:
-    @just _run-with-env "flutter build apk --flavor wear -t lib/main_wear.dart"
+    @just _run-with-env flutter build apk --flavor wear -t lib/main_wear.dart
 
 # Build Linux app for release
 build-linux:
-    @just _run-with-env "flutter build linux --release -t lib/main.dart"
+    @just _run-with-env flutter build linux --release -t lib/main.dart
 
-# Build and install phone APK in debug mode
+# Build and install phone APK
 install-phone:
-    @just _run-with-env "flutter build apk --debug --flavor phone -t lib/main.dart"
-    adb install build/app/outputs/flutter-apk/app-phone-debug.apk
-
-# Build and install phone APK in release mode
-install-phone-release:
     @just build-phone
     adb install build/app/outputs/flutter-apk/app-phone-release.apk
 

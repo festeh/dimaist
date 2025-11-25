@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.dimaist"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

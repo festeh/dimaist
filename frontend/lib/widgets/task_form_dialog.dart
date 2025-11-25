@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:dimaist/models/project.dart';
 import 'package:dimaist/models/task.dart';
 import 'package:dimaist/services/app_database.dart';
+import 'package:dimaist/config/design_tokens.dart';
+import 'label_selector.dart';
+import 'recurrence_picker.dart';
 
-class TaskFormDialog extends StatefulWidget {
+class TaskFormDialog extends ConsumerStatefulWidget {
   final Task? task;
   final List<Project> projects;
   final Project? selectedProject;
@@ -27,11 +32,11 @@ class TaskFormDialog extends StatefulWidget {
   TaskFormDialogState createState() => TaskFormDialogState();
 }
 
-class TaskFormDialogState extends State<TaskFormDialog> {
+class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _descriptionController;
-  late TextEditingController _labelsController;
-  late TextEditingController _recurrenceController;
+  String? _recurrence;
+  List<String> _selectedLabels = [];
   int? _selectedProjectId;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
@@ -58,10 +63,8 @@ class TaskFormDialogState extends State<TaskFormDialog> {
     _descriptionController = TextEditingController(
       text: task?.description ?? '',
     );
-    _labelsController = TextEditingController(
-      text: task?.labels.join(', ') ?? '',
-    );
-    _recurrenceController = TextEditingController(text: task?.recurrence ?? '');
+    _recurrence = task?.recurrence;
+    _selectedLabels = List<String>.from(task?.labels ?? []);
     _selectedProjectId = task?.projectId ?? widget.selectedProject?.id;
     if (task != null) {
       if (task.dueDatetime != null) {
@@ -108,8 +111,17 @@ class TaskFormDialogState extends State<TaskFormDialog> {
     }
   }
 
+  bool _hasScheduleOrRecurrence() {
+    return _selectedStartDate != null ||
+        _selectedEndDate != null ||
+        (_recurrence != null && _recurrence!.isNotEmpty);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
     return AlertDialog(
       title: Text(widget.title),
       content: Form(
@@ -119,6 +131,7 @@ class TaskFormDialogState extends State<TaskFormDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Description
               TextFormField(
                 autofocus: true,
                 controller: _descriptionController,
@@ -130,370 +143,77 @@ class TaskFormDialogState extends State<TaskFormDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<int>(
-                initialValue: _selectedProjectId,
-                decoration: const InputDecoration(labelText: 'Project'),
-                items: widget.projects.map((project) {
-                  return DropdownMenuItem<int>(
-                    value: project.id,
-                    child: Text(
-                      project.name,
-                      style: Theme.of(context).textTheme.bodyMedium,
+
+              const SizedBox(height: Spacing.lg),
+
+              // Project + Due Date Row
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Project dropdown
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      initialValue: _selectedProjectId,
+                      decoration: const InputDecoration(
+                        labelText: 'Project',
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: Spacing.md,
+                          vertical: Spacing.sm,
+                        ),
+                      ),
+                      items: widget.projects.map((project) {
+                        return DropdownMenuItem<int>(
+                          value: project.id,
+                          child: Text(
+                            project.name,
+                            style: theme.textTheme.bodyMedium,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedProjectId = value;
+                        });
+                      },
+                      validator: (value) {
+                        if (value == null) {
+                          return 'Required';
+                        }
+                        return null;
+                      },
                     ),
-                  );
-                }).toList(),
-                onChanged: (value) {
+                  ),
+
+                  const SizedBox(width: Spacing.md),
+
+                  // Due date picker
+                  Expanded(child: _buildDueDatePicker(theme, colors)),
+                ],
+              ),
+
+              const SizedBox(height: Spacing.lg),
+
+              // Labels
+              LabelSelector(
+                selectedLabels: _selectedLabels,
+                onChanged: (labels) {
                   setState(() {
-                    _selectedProjectId = value;
+                    _selectedLabels = labels;
                   });
                 },
-                validator: (value) {
-                  if (value == null) {
-                    return 'Please select a project';
-                  }
-                  return null;
-                },
               ),
-              const SizedBox(height: 16),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Due',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Wrap(
-                spacing: 8.0,
-                runSpacing: 8.0,
-                alignment: WrapAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.calendar_today),
-                      const SizedBox(width: 8),
-                      TextButton(
-                        onPressed: () async {
-                          // Calculate dynamic date range
-                          final now = DateTime.now();
-                          final defaultFirstDate = now.subtract(const Duration(days: 365));
-                          final defaultLastDate = now.add(const Duration(days: 365));
 
-                          // Expand range if needed to include existing date
-                          final firstDate = _selectedDate != null && _selectedDate!.isBefore(defaultFirstDate)
-                              ? _selectedDate!
-                              : defaultFirstDate;
+              // Reminders (only when due date is set)
+              if (_selectedDate != null) ...[
+                const SizedBox(height: Spacing.lg),
+                _buildRemindersSection(theme, colors),
+              ],
 
-                          final lastDate = _selectedDate != null && _selectedDate!.isAfter(defaultLastDate)
-                              ? _selectedDate!.add(const Duration(days: 365)) // Give some room for editing
-                              : defaultLastDate;
+              const SizedBox(height: Spacing.md),
 
-                          final date = await showDatePicker(
-                            context: context,
-                            initialDate: _selectedDate ?? now,
-                            firstDate: firstDate,
-                            lastDate: lastDate,
-                          );
-                          if (date != null) {
-                            setState(() {
-                              _selectedDate = date;
-                            });
-                          }
-                        },
-                        child: Text(
-                          _selectedDate?.toLocal().toString().split(' ')[0] ??
-                              'Select Date',
-                        ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.access_time),
-                      const SizedBox(width: 8),
-                      TextButton(
-                        onPressed: () async {
-                          final time = await showTimePicker(
-                            context: context,
-                            initialTime: _selectedTime ?? TimeOfDay.now(),
-                            builder: (BuildContext context, Widget? child) {
-                              return MediaQuery(
-                                data: MediaQuery.of(
-                                  context,
-                                ).copyWith(alwaysUse24HourFormat: true),
-                                child: child!,
-                              );
-                            },
-                          );
-                          if (time != null) {
-                            setState(() {
-                              _selectedTime = time;
-                              _selectedDate ??= DateTime.now();
-                            });
-                          }
-                        },
-                        child: Text(
-                          _selectedTime != null
-                              ? '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}'
-                              : 'Select Time',
-                        ),
-                      ),
-                      if (_selectedDate != null)
-                        IconButton(
-                          icon: const Icon(Icons.clear),
-                          tooltip: 'Clear date and time',
-                          onPressed: () {
-                            setState(() {
-                              _selectedDate = null;
-                              _selectedTime = null;
-                              _selectedReminders.clear();
-                            });
-                          },
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Schedule',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Start', style: TextStyle(fontSize: 12)),
-                        Row(
-                          children: [
-                            const Icon(Icons.access_time, size: 16),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: TextButton(
-                                onPressed: () async {
-                                  final date = await showDatePicker(
-                                    context: context,
-                                    initialDate:
-                                        _selectedStartDate ?? DateTime.now(),
-                                    firstDate: DateTime.now().subtract(
-                                      const Duration(days: 365),
-                                    ),
-                                    lastDate: DateTime.now().add(
-                                      const Duration(days: 365),
-                                    ),
-                                  );
-                                  if (date != null) {
-                                    setState(() {
-                                      _selectedStartDate = date;
-                                    });
-                                  }
-                                },
-                                child: Text(
-                                  _selectedStartDate
-                                          ?.toLocal()
-                                          .toString()
-                                          .split(' ')[0] ??
-                                      'Date',
-                                  style: const TextStyle(fontSize: 12),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            const SizedBox(width: 20),
-                            Flexible(
-                              child: TextButton(
-                                onPressed: () async {
-                                  final time = await showTimePicker(
-                                    context: context,
-                                    initialTime:
-                                        _selectedStartTime ?? TimeOfDay.now(),
-                                    builder:
-                                        (BuildContext context, Widget? child) {
-                                          return MediaQuery(
-                                            data: MediaQuery.of(context)
-                                                .copyWith(
-                                                  alwaysUse24HourFormat: true,
-                                                ),
-                                            child: child!,
-                                          );
-                                        },
-                                  );
-                                  if (time != null) {
-                                    setState(() {
-                                      _selectedStartTime = time;
-                                      _selectedStartDate ??= DateTime.now();
-                                    });
-                                  }
-                                },
-                                child: Text(
-                                  _selectedStartTime != null
-                                      ? '${_selectedStartTime!.hour.toString().padLeft(2, '0')}:${_selectedStartTime!.minute.toString().padLeft(2, '0')}'
-                                      : 'Time',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('End', style: TextStyle(fontSize: 12)),
-                        Row(
-                          children: [
-                            const Icon(Icons.access_time, size: 16),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: TextButton(
-                                onPressed: () async {
-                                  final date = await showDatePicker(
-                                    context: context,
-                                    initialDate:
-                                        _selectedEndDate ?? DateTime.now(),
-                                    firstDate: DateTime.now().subtract(
-                                      const Duration(days: 365),
-                                    ),
-                                    lastDate: DateTime.now().add(
-                                      const Duration(days: 365),
-                                    ),
-                                  );
-                                  if (date != null) {
-                                    setState(() {
-                                      _selectedEndDate = date;
-                                    });
-                                  }
-                                },
-                                child: Text(
-                                  _selectedEndDate?.toLocal().toString().split(
-                                        ' ',
-                                      )[0] ??
-                                      'Date',
-                                  style: const TextStyle(fontSize: 12),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            const SizedBox(width: 20),
-                            Flexible(
-                              child: TextButton(
-                                onPressed: () async {
-                                  final time = await showTimePicker(
-                                    context: context,
-                                    initialTime:
-                                        _selectedEndTime ?? TimeOfDay.now(),
-                                    builder:
-                                        (BuildContext context, Widget? child) {
-                                          return MediaQuery(
-                                            data: MediaQuery.of(context)
-                                                .copyWith(
-                                                  alwaysUse24HourFormat: true,
-                                                ),
-                                            child: child!,
-                                          );
-                                        },
-                                  );
-                                  if (time != null) {
-                                    setState(() {
-                                      _selectedEndTime = time;
-                                      _selectedEndDate ??= DateTime.now();
-                                    });
-                                  }
-                                },
-                                child: Text(
-                                  _selectedEndTime != null
-                                      ? '${_selectedEndTime!.hour.toString().padLeft(2, '0')}:${_selectedEndTime!.minute.toString().padLeft(2, '0')}'
-                                      : 'Time',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.clear, size: 16),
-                    tooltip: 'Clear schedule',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () {
-                      setState(() {
-                        _selectedStartDate = null;
-                        _selectedStartTime = null;
-                        _selectedEndDate = null;
-                        _selectedEndTime = null;
-                      });
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _labelsController,
-                decoration: const InputDecoration(
-                  labelText: 'Labels (comma-separated)',
-                  hintText: 'urgent, work, personal',
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _recurrenceController,
-                decoration: const InputDecoration(
-                  labelText: 'Recurrence',
-                  hintText: 'daily, weekly, etc.',
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Reminders',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8.0,
-                runSpacing: 4.0,
-                children: _reminderOptions.map((reminder) {
-                  final isEnabled = _selectedDate != null;
-                  return FilterChip(
-                    label: Text(reminder),
-                    selected:
-                        isEnabled && _selectedReminders.contains(reminder),
-                    onSelected: isEnabled
-                        ? (selected) {
-                            setState(() {
-                              if (selected) {
-                                _selectedReminders.add(reminder);
-                              } else {
-                                _selectedReminders.remove(reminder);
-                              }
-                            });
-                          }
-                        : null,
-                  );
-                }).toList(),
-              ),
+              // More Options (collapsed by default)
+              _buildMoreOptions(theme, colors),
             ],
           ),
         ),
@@ -504,126 +224,467 @@ class TaskFormDialogState extends State<TaskFormDialog> {
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: () async {
-            if (_formKey.currentState!.validate()) {
-              final navigator = Navigator.of(context);
-              final scaffoldMessenger = ScaffoldMessenger.of(context);
-              final errorColor = Theme.of(context).colorScheme.error;
-              try {
-                final labels = _labelsController.text
-                    .split(',')
-                    .map((s) => s.trim())
-                    .where((s) => s.isNotEmpty)
-                    .toList();
-
-                DateTime? dueDate;
-                DateTime? dueDatetime;
-                if (_selectedDate != null) {
-                  if (_selectedTime != null) {
-                    dueDatetime = DateTime(
-                      _selectedDate!.year,
-                      _selectedDate!.month,
-                      _selectedDate!.day,
-                      _selectedTime!.hour,
-                      _selectedTime!.minute,
-                    );
-                  } else {
-                    dueDate = DateTime(
-                      _selectedDate!.year,
-                      _selectedDate!.month,
-                      _selectedDate!.day,
-                      23,
-                      59,
-                    );
-                  }
-                }
-
-                DateTime? startDatetime;
-                DateTime? endDatetime;
-                if (_selectedStartDate != null && _selectedStartTime != null) {
-                  startDatetime = DateTime(
-                    _selectedStartDate!.year,
-                    _selectedStartDate!.month,
-                    _selectedStartDate!.day,
-                    _selectedStartTime!.hour,
-                    _selectedStartTime!.minute,
-                  );
-                }
-                if (_selectedEndDate != null && _selectedEndTime != null) {
-                  endDatetime = DateTime(
-                    _selectedEndDate!.year,
-                    _selectedEndDate!.month,
-                    _selectedEndDate!.day,
-                    _selectedEndTime!.hour,
-                    _selectedEndTime!.minute,
-                  );
-                }
-
-                final tasksForProject = await _db.getTasksByProject(
-                  _selectedProjectId!,
-                );
-                final newOrder =
-                    (tasksForProject.isNotEmpty
-                        ? tasksForProject
-                              .map((t) => t.order)
-                              .reduce((a, b) => a > b ? a : b)
-                        : 0) +
-                    1;
-
-                List<DateTime> reminders = [];
-                if (dueDatetime != null) {
-                  for (final reminderString in _selectedReminders) {
-                    reminders.add(
-                      dueDatetime.subtract(_getDuration(reminderString)),
-                    );
-                  }
-                } else if (dueDate != null) {
-                  for (final reminderString in _selectedReminders) {
-                    reminders.add(
-                      dueDate.subtract(_getDuration(reminderString)),
-                    );
-                  }
-                }
-
-                final task = Task(
-                  id: widget.task?.id,
-                  description: _descriptionController.text,
-                  projectId: _selectedProjectId!,
-                  dueDate: dueDate,
-                  dueDatetime: dueDatetime,
-                  startDatetime: startDatetime,
-                  endDatetime: endDatetime,
-                  labels: labels,
-                  order: widget.task?.order ?? newOrder,
-                  completedAt: widget.task?.completedAt,
-                  reminders: reminders,
-                  recurrence: _recurrenceController.text,
-                );
-
-                await widget.onSave(task);
-                navigator.pop();
-              } catch (e) {
-                // Show error to user
-                String errorMessage = e.toString();
-                // Remove "Exception: " prefix if present for cleaner display
-                if (errorMessage.startsWith('Exception: ')) {
-                  errorMessage = errorMessage.substring(11);
-                }
-                
-                scaffoldMessenger.showSnackBar(
-                  SnackBar(
-                    content: Text(errorMessage),
-                    backgroundColor: errorColor,
-                    duration: const Duration(seconds: 5), // Longer duration for error messages
-                  ),
-                );
-              }
-            }
-          },
+          onPressed: _handleSave,
           child: Text(widget.submitButtonText),
         ),
       ],
     );
+  }
+
+  Widget _buildDueDatePicker(ThemeData theme, ColorScheme colors) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: colors.outline),
+        borderRadius: BorderRadius.circular(Radii.sm),
+      ),
+      child: Row(
+        children: [
+          // Date button
+          Expanded(
+            child: InkWell(
+              onTap: _showDatePickerDialog,
+              borderRadius: BorderRadius.horizontal(
+                left: Radius.circular(Radii.sm),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(Spacing.md),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: Sizes.iconSm,
+                      color: colors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: Spacing.sm),
+                    Expanded(
+                      child: Text(
+                        _selectedDate != null
+                            ? DateFormat('MMM d').format(_selectedDate!)
+                            : 'Date',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: _selectedDate != null
+                              ? colors.onSurface
+                              : colors.onSurfaceVariant,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Divider
+          Container(
+            width: 1,
+            height: 24,
+            color: colors.outline,
+          ),
+
+          // Time button
+          InkWell(
+            onTap: _showTimePickerDialog,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.md,
+                vertical: Spacing.md,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.access_time,
+                    size: Sizes.iconSm,
+                    color: colors.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: Spacing.xs),
+                  Text(
+                    _selectedTime != null
+                        ? '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}'
+                        : '—',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: _selectedTime != null
+                          ? colors.onSurface
+                          : colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Clear button
+          if (_selectedDate != null)
+            IconButton(
+              icon: Icon(Icons.clear, size: Sizes.iconSm),
+              onPressed: _clearDateTime,
+              padding: const EdgeInsets.all(Spacing.sm),
+              constraints: const BoxConstraints(),
+              tooltip: 'Clear date',
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRemindersSection(ThemeData theme, ColorScheme colors) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Reminders',
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: Spacing.sm),
+        Wrap(
+          spacing: Spacing.sm,
+          runSpacing: Spacing.sm,
+          children: _reminderOptions.map((reminder) {
+            return FilterChip(
+              label: Text(reminder),
+              selected: _selectedReminders.contains(reminder),
+              onSelected: (selected) {
+                setState(() {
+                  if (selected) {
+                    _selectedReminders.add(reminder);
+                  } else {
+                    _selectedReminders.remove(reminder);
+                  }
+                });
+              },
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMoreOptions(ThemeData theme, ColorScheme colors) {
+    return Theme(
+      data: theme.copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        title: Text(
+          'More options',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(top: Spacing.sm),
+        initiallyExpanded: _hasScheduleOrRecurrence(),
+        children: [
+          // Recurrence picker
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Recurrence',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: Spacing.sm),
+              RecurrencePicker(
+                initialValue: _recurrence,
+                onChanged: (value) {
+                  setState(() => _recurrence = value);
+                },
+              ),
+            ],
+          ),
+
+          const SizedBox(height: Spacing.lg),
+
+          // Schedule section
+          _buildScheduleSection(theme, colors),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScheduleSection(ThemeData theme, ColorScheme colors) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Schedule',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ),
+            if (_selectedStartDate != null || _selectedEndDate != null)
+              IconButton(
+                icon: Icon(Icons.clear, size: Sizes.iconSm),
+                onPressed: _clearSchedule,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: 'Clear schedule',
+              ),
+          ],
+        ),
+        const SizedBox(height: Spacing.sm),
+        Row(
+          children: [
+            // Start
+            Expanded(
+              child: _DateTimeField(
+                label: 'Start',
+                date: _selectedStartDate,
+                time: _selectedStartTime,
+                onDateTap: () => _pickScheduleDate(isStart: true),
+                onTimeTap: () => _pickScheduleTime(isStart: true),
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+              child: Icon(
+                Icons.arrow_forward,
+                size: Sizes.iconSm,
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+
+            // End
+            Expanded(
+              child: _DateTimeField(
+                label: 'End',
+                date: _selectedEndDate,
+                time: _selectedEndTime,
+                onDateTap: () => _pickScheduleDate(isStart: false),
+                onTimeTap: () => _pickScheduleTime(isStart: false),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Date/Time Picker Methods
+
+  Future<void> _showDatePickerDialog() async {
+    final now = DateTime.now();
+    final defaultFirstDate = now.subtract(const Duration(days: 365));
+    final defaultLastDate = now.add(const Duration(days: 365));
+
+    final firstDate = _selectedDate != null && _selectedDate!.isBefore(defaultFirstDate)
+        ? _selectedDate!
+        : defaultFirstDate;
+
+    final lastDate = _selectedDate != null && _selectedDate!.isAfter(defaultLastDate)
+        ? _selectedDate!.add(const Duration(days: 365))
+        : defaultLastDate;
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? now,
+      firstDate: firstDate,
+      lastDate: lastDate,
+    );
+    if (date != null) {
+      setState(() {
+        _selectedDate = date;
+      });
+    }
+  }
+
+  Future<void> _showTimePickerDialog() async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime ?? TimeOfDay.now(),
+      builder: (BuildContext context, Widget? child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        );
+      },
+    );
+    if (time != null) {
+      setState(() {
+        _selectedTime = time;
+        _selectedDate ??= DateTime.now();
+      });
+    }
+  }
+
+  void _clearDateTime() {
+    setState(() {
+      _selectedDate = null;
+      _selectedTime = null;
+      _selectedReminders.clear();
+    });
+  }
+
+  void _clearSchedule() {
+    setState(() {
+      _selectedStartDate = null;
+      _selectedStartTime = null;
+      _selectedEndDate = null;
+      _selectedEndTime = null;
+    });
+  }
+
+  Future<void> _pickScheduleDate({required bool isStart}) async {
+    final currentDate = isStart ? _selectedStartDate : _selectedEndDate;
+    final date = await showDatePicker(
+      context: context,
+      initialDate: currentDate ?? DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (date != null) {
+      setState(() {
+        if (isStart) {
+          _selectedStartDate = date;
+        } else {
+          _selectedEndDate = date;
+        }
+      });
+    }
+  }
+
+  Future<void> _pickScheduleTime({required bool isStart}) async {
+    final currentTime = isStart ? _selectedStartTime : _selectedEndTime;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: currentTime ?? TimeOfDay.now(),
+      builder: (BuildContext context, Widget? child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        );
+      },
+    );
+    if (time != null) {
+      setState(() {
+        if (isStart) {
+          _selectedStartTime = time;
+          _selectedStartDate ??= DateTime.now();
+        } else {
+          _selectedEndTime = time;
+          _selectedEndDate ??= DateTime.now();
+        }
+      });
+    }
+  }
+
+  // Save Handler
+
+  Future<void> _handleSave() async {
+    if (_formKey.currentState!.validate()) {
+      final navigator = Navigator.of(context);
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      final errorColor = Theme.of(context).colorScheme.error;
+      try {
+        DateTime? dueDate;
+        DateTime? dueDatetime;
+        if (_selectedDate != null) {
+          if (_selectedTime != null) {
+            dueDatetime = DateTime(
+              _selectedDate!.year,
+              _selectedDate!.month,
+              _selectedDate!.day,
+              _selectedTime!.hour,
+              _selectedTime!.minute,
+            );
+          } else {
+            dueDate = DateTime(
+              _selectedDate!.year,
+              _selectedDate!.month,
+              _selectedDate!.day,
+              23,
+              59,
+            );
+          }
+        }
+
+        DateTime? startDatetime;
+        DateTime? endDatetime;
+        if (_selectedStartDate != null && _selectedStartTime != null) {
+          startDatetime = DateTime(
+            _selectedStartDate!.year,
+            _selectedStartDate!.month,
+            _selectedStartDate!.day,
+            _selectedStartTime!.hour,
+            _selectedStartTime!.minute,
+          );
+        }
+        if (_selectedEndDate != null && _selectedEndTime != null) {
+          endDatetime = DateTime(
+            _selectedEndDate!.year,
+            _selectedEndDate!.month,
+            _selectedEndDate!.day,
+            _selectedEndTime!.hour,
+            _selectedEndTime!.minute,
+          );
+        }
+
+        final tasksForProject = await _db.getTasksByProject(
+          _selectedProjectId!,
+        );
+        final newOrder =
+            (tasksForProject.isNotEmpty
+                ? tasksForProject
+                      .map((t) => t.order)
+                      .reduce((a, b) => a > b ? a : b)
+                : 0) +
+            1;
+
+        List<DateTime> reminders = [];
+        if (dueDatetime != null) {
+          for (final reminderString in _selectedReminders) {
+            reminders.add(
+              dueDatetime.subtract(_getDuration(reminderString)),
+            );
+          }
+        } else if (dueDate != null) {
+          for (final reminderString in _selectedReminders) {
+            reminders.add(
+              dueDate.subtract(_getDuration(reminderString)),
+            );
+          }
+        }
+
+        final task = Task(
+          id: widget.task?.id,
+          description: _descriptionController.text,
+          projectId: _selectedProjectId!,
+          dueDate: dueDate,
+          dueDatetime: dueDatetime,
+          startDatetime: startDatetime,
+          endDatetime: endDatetime,
+          labels: _selectedLabels,
+          order: widget.task?.order ?? newOrder,
+          completedAt: widget.task?.completedAt,
+          reminders: reminders,
+          recurrence: _recurrence ?? '',
+        );
+
+        await widget.onSave(task);
+        navigator.pop();
+      } catch (e) {
+        String errorMessage = e.toString();
+        if (errorMessage.startsWith('Exception: ')) {
+          errorMessage = errorMessage.substring(11);
+        }
+
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: errorColor,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
   }
 
   Duration _getDuration(String reminderString) {
@@ -645,5 +706,73 @@ class TaskFormDialogState extends State<TaskFormDialog> {
       default:
         return Duration.zero;
     }
+  }
+}
+
+/// Compact date+time field for schedule section
+class _DateTimeField extends StatelessWidget {
+  final String label;
+  final DateTime? date;
+  final TimeOfDay? time;
+  final VoidCallback onDateTap;
+  final VoidCallback onTimeTap;
+
+  const _DateTimeField({
+    required this.label,
+    required this.date,
+    required this.time,
+    required this.onDateTap,
+    required this.onTimeTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: Spacing.xs),
+        Row(
+          children: [
+            InkWell(
+              onTap: onDateTap,
+              child: Text(
+                date != null
+                    ? DateFormat('M/d').format(date!)
+                    : 'Date',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: date != null ? colors.primary : colors.onSurfaceVariant,
+                ),
+              ),
+            ),
+            Text(
+              ' @ ',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+            InkWell(
+              onTap: onTimeTap,
+              child: Text(
+                time != null
+                    ? '${time!.hour.toString().padLeft(2, '0')}:${time!.minute.toString().padLeft(2, '0')}'
+                    : 'Time',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: time != null ? colors.primary : colors.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }

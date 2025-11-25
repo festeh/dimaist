@@ -12,6 +12,7 @@ class ToolPreviewWidget extends StatefulWidget {
   final VoidCallback onReject;
   final List<Project> projects;
   final ToolStatus status;
+  final String? duration;
 
   const ToolPreviewWidget({
     super.key,
@@ -21,6 +22,7 @@ class ToolPreviewWidget extends StatefulWidget {
     required this.onReject,
     required this.projects,
     this.status = ToolStatus.pending,
+    this.duration,
   });
 
   @override
@@ -70,6 +72,7 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
     final displayColor = isCompleted ? colors.onSurfaceVariant : color;
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Icon(icon, color: displayColor, size: Sizes.iconMd),
         const SizedBox(width: Spacing.sm),
@@ -77,6 +80,15 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
           title,
           style: theme.textTheme.titleMedium?.copyWith(color: displayColor),
         ),
+        if (widget.duration != null) ...[
+          const SizedBox(width: Spacing.xs),
+          Text(
+            widget.duration!,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colors.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+          ),
+        ],
         if (widget.status == ToolStatus.confirmed) ...[
           const SizedBox(width: Spacing.sm),
           Container(
@@ -162,7 +174,6 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
     final description = _editedArguments['description'] as String? ?? '';
     final projectId = _editedArguments['project_id'] as num?;
     final dueDateStr = _editedArguments['due_date'] as String?;
-    final taskId = _editedArguments['task_id'] as num?;
     final labels = _editedArguments['labels'] as List<dynamic>? ?? [];
 
     // Find project name
@@ -187,11 +198,6 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (taskId != null)
-            Text(
-              'Task #$taskId',
-              style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant),
-            ),
           if (description.isNotEmpty)
             Text(description, style: theme.textTheme.bodyLarge),
           if (projectName != null || dueDateStr != null) ...[
@@ -253,7 +259,6 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
 
     final name = _editedArguments['name'] as String? ?? '';
     final color = _editedArguments['color'] as String? ?? 'gray';
-    final projectId = _editedArguments['project_id'] as num?;
 
     final borderColor = isDelete ? colors.error : colors.outline;
 
@@ -266,11 +271,6 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (projectId != null)
-            Text(
-              'Project #$projectId',
-              style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant),
-            ),
           Row(
             children: [
               Container(

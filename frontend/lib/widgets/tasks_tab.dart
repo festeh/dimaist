@@ -6,6 +6,7 @@ class TasksTab extends StatelessWidget {
   final String? selectedView;
   final Function(String) onCustomViewSelected;
   final VoidCallback onAddProject;
+  final VoidCallback onOpenLabels;
   final VoidCallback onOpenSettings;
   final Widget projectList;
 
@@ -14,6 +15,7 @@ class TasksTab extends StatelessWidget {
     required this.selectedView,
     required this.onCustomViewSelected,
     required this.onAddProject,
+    required this.onOpenLabels,
     required this.onOpenSettings,
     required this.projectList,
   });
@@ -45,6 +47,12 @@ class TasksTab extends StatelessWidget {
                   icon: const Icon(Icons.add_circle_outline),
                   onPressed: onAddProject,
                   tooltip: 'Add Project',
+                  iconSize: Sizes.iconSm,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.label_outline),
+                  onPressed: onOpenLabels,
+                  tooltip: 'Labels',
                   iconSize: Sizes.iconSm,
                 ),
                 IconButton(
