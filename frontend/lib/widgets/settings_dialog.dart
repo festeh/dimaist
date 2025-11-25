@@ -159,7 +159,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                         Expanded(
                           child: Text(
                             selectedModel != null
-                                ? '${selectedModel.provider.displayName}: ${selectedModel.modelName}'
+                                ? selectedModel.modelName.split('/').last
                                 : 'No model selected',
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
