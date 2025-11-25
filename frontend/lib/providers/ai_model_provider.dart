@@ -41,6 +41,13 @@ class AiModelNotifier extends StateNotifier<AiModelState> {
   static const String _modelsKey = 'ai_models_list';
   static const String _selectedKey = 'ai_model_selected_id';
 
+  static final List<AiModel> _defaultModels = [
+    AiModel(id: 'default_1', modelName: 'zai-org/GLM-4.6', provider: AiProvider.chutes),
+    AiModel(id: 'default_2', modelName: 'moonshotai/Kimi-K2-Thinking', provider: AiProvider.chutes),
+    AiModel(id: 'default_3', modelName: 'MiniMaxAI/MiniMax-M2', provider: AiProvider.chutes),
+    AiModel(id: 'default_4', modelName: 'deepseek-ai/DeepSeek-V3.1-Terminus', provider: AiProvider.chutes),
+  ];
+
   SharedPreferences? _prefs;
 
   AiModelNotifier() : super(const AiModelState(models: [], isLoading: true)) {
@@ -58,14 +65,17 @@ class AiModelNotifier extends StateNotifier<AiModelState> {
         final List<dynamic> decoded = jsonDecode(modelsJson);
         models = decoded.map((e) => AiModel.fromJson(e)).toList();
       } catch (_) {
-        // Invalid JSON, start fresh
-        models = [];
+        // Invalid JSON, use defaults
+        models = List.from(_defaultModels);
       }
+    } else {
+      // No saved models, use defaults
+      models = List.from(_defaultModels);
     }
 
     state = AiModelState(
       models: models,
-      selectedModelId: selectedId,
+      selectedModelId: selectedId ?? (models.isNotEmpty ? models.first.id : null),
       isLoading: false,
     );
   }
