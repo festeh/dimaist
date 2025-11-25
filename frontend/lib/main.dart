@@ -34,6 +34,7 @@ class MyApp extends ConsumerWidget {
 
     return MaterialApp(
       title: AppConstants.appName,
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.create(themeMode),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
