@@ -10,6 +10,15 @@ enum AiProvider {
         return 'OpenRouter';
     }
   }
+
+  String get iconPath {
+    switch (this) {
+      case AiProvider.chutes:
+        return 'assets/icons/chutes.png';
+      case AiProvider.openrouter:
+        return 'assets/icons/openrouter.png';
+    }
+  }
 }
 
 class AiModel {

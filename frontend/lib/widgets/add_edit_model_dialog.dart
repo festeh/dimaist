@@ -49,7 +49,17 @@ class _AddEditModelDialogState extends ConsumerState<AddEditModelDialog> {
               items: AiProvider.values.map((provider) {
                 return DropdownMenuItem(
                   value: provider,
-                  child: Text(provider.displayName),
+                  child: Row(
+                    children: [
+                      Image.asset(
+                        provider.iconPath,
+                        width: 20,
+                        height: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(provider.displayName),
+                    ],
+                  ),
                 );
               }).toList(),
               onChanged: (value) {

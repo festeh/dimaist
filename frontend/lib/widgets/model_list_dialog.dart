@@ -68,11 +68,21 @@ class ModelListDialog extends ConsumerWidget {
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  Text(
-                                    model.provider.displayName,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Image.asset(
+                                        model.provider.iconPath,
+                                        width: 14,
+                                        height: 14,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        model.provider.displayName,
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          color: theme.colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
