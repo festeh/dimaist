@@ -46,6 +46,7 @@ class AiModelNotifier extends StateNotifier<AiModelState> {
     AiModel(id: 'default_2', modelName: 'moonshotai/Kimi-K2-Thinking', provider: AiProvider.chutes),
     AiModel(id: 'default_3', modelName: 'MiniMaxAI/MiniMax-M2', provider: AiProvider.chutes),
     AiModel(id: 'default_4', modelName: 'deepseek-ai/DeepSeek-V3.1-Terminus', provider: AiProvider.chutes),
+    AiModel(id: 'default_5', modelName: 'z-ai/glm-4.6', provider: AiProvider.openrouter),
   ];
 
   SharedPreferences? _prefs;
