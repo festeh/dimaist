@@ -1,4 +1,5 @@
 import 'package:dimaist/widgets/custom_view_widget.dart';
+import 'package:dimaist/config/design_tokens.dart';
 import 'package:flutter/material.dart';
 
 class TasksTab extends StatelessWidget {
@@ -30,6 +31,31 @@ class TasksTab extends StatelessWidget {
       ),
       child: Column(
         children: [
+          // Top toolbar with actions
+          Padding(
+            padding: const EdgeInsets.only(
+              left: Spacing.xs,
+              right: Spacing.xs,
+              top: Spacing.xs,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  onPressed: onAddProject,
+                  tooltip: 'Add Project',
+                  iconSize: Sizes.iconSm,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings),
+                  onPressed: onOpenSettings,
+                  tooltip: 'Settings',
+                  iconSize: Sizes.iconSm,
+                ),
+              ],
+            ),
+          ),
           CustomViewWidget(
             selectedView: selectedView,
             onSelected: onCustomViewSelected,
@@ -40,24 +66,6 @@ class TasksTab extends StatelessWidget {
             thickness: 1,
           ),
           Expanded(child: projectList),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.add_circle_outline),
-                  onPressed: onAddProject,
-                  tooltip: 'Add Project',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.settings),
-                  onPressed: onOpenSettings,
-                  tooltip: 'Settings',
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

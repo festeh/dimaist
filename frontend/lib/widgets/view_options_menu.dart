@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../enums/sort_mode.dart';
+import '../config/design_tokens.dart';
 
 class ViewOptionsMenu extends StatelessWidget {
   final SortMode sortMode;
@@ -20,7 +21,7 @@ class ViewOptionsMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert),
+      icon: const Icon(Icons.more_vert, size: Sizes.iconSm),
       tooltip: 'View Options',
       onSelected: (value) {
         switch (value) {

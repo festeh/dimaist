@@ -312,6 +312,40 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
 
     return Column(
       children: [
+        // Inline toolbar
+        Padding(
+          padding: const EdgeInsets.only(
+            left: Spacing.xs,
+            right: Spacing.xs,
+            top: Spacing.xs,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ViewOptionsMenu(
+                sortMode: taskData.sortMode,
+                isScheduleView: _isScheduleView,
+                showScheduleToggle:
+                    widget.customView?.type == BuiltInViewType.today,
+                onSortToggle: () async {
+                  final taskNotifier = ref.read(taskProvider.notifier);
+                  final newSortMode = taskData.sortMode == SortMode.order
+                      ? SortMode.dueDate
+                      : SortMode.order;
+                  await taskNotifier.setSortMode(newSortMode);
+                },
+                onScheduleToggle:
+                    widget.customView?.type == BuiltInViewType.today
+                        ? () {
+                            setState(() {
+                              _isScheduleView = !_isScheduleView;
+                            });
+                          }
+                        : null,
+              ),
+            ],
+          ),
+        ),
         Expanded(
           child:
               (widget.customView?.type == BuiltInViewType.today &&
