@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/dima-b/go-task-backend/database"
-	"github.com/dima-b/go-task-backend/logger"
+	"dimaist/database"
+	"dimaist/logger"
 )
 
 type SearchResult struct {

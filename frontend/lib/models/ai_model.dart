@@ -35,6 +35,9 @@ class AiModel {
   /// Display name shown in UI (provider: model)
   String get displayName => '${provider.displayName}: $modelName';
 
+  /// Short model name (part after last /)
+  String get shortModelName => modelName.split('/').last;
+
   /// API identifier sent to backend
   String get apiId => modelName;
 

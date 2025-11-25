@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dima-b/go-task-backend/logger"
+	"dimaist/logger"
 	"github.com/go-chi/chi/v5/middleware"
 )
 

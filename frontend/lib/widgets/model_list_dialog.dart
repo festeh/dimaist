@@ -92,11 +92,13 @@ class ModelListDialog extends ConsumerWidget {
                               tooltip: 'Edit',
                               onPressed: () => _showAddEditDialog(context, model),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, size: Sizes.iconSm),
-                              tooltip: 'Delete',
-                              onPressed: () => _confirmDelete(context, ref, model),
-                            ),
+                            // Hide delete button if only one model remains
+                            if (modelState.models.length > 1)
+                              IconButton(
+                                icon: const Icon(Icons.delete, size: Sizes.iconSm),
+                                tooltip: 'Delete',
+                                onPressed: () => _confirmDelete(context, ref, model),
+                              ),
                           ],
                         ),
                       ),

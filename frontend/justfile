@@ -109,3 +109,30 @@ install-phone-release:
 # Clean build artifacts
 clean:
     flutter clean
+
+# Create a GitHub release with phone APK
+# Usage: just release 1.1.0 "Release notes here"
+release version notes:
+    #!/usr/bin/env bash
+    set -e
+
+    VERSION="{{version}}"
+    NOTES="{{notes}}"
+
+    echo "Building phone APK..."
+    just build-phone
+
+    APK_PATH="build/app/outputs/flutter-apk/app-phone-release.apk"
+
+    if [ ! -f "$APK_PATH" ]; then
+        echo "ERROR: APK not found at $APK_PATH"
+        exit 1
+    fi
+
+    echo "Creating GitHub release v$VERSION..."
+    gh release create "v$VERSION" \
+        --title "v$VERSION" \
+        --notes "$NOTES" \
+        "$APK_PATH#dimaist-phone-v$VERSION.apk"
+
+    echo "Release v$VERSION created successfully!"

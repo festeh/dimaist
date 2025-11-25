@@ -10,7 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dima-b/go-task-backend/logger"
+	"dimaist/database"
+	"dimaist/logger"
 )
 
 type Tool struct {
@@ -97,171 +98,6 @@ func NewAgent(apiKey, endpoint string, tools []Tool, model string) *Agent {
 	}
 }
 
-// ExecuteWithMessagesAndSSE runs the agent with pre-built messages and SSE streaming support
-func (a *Agent) ExecuteWithMessagesAndSSE(messages []ChatCompletionMessage, sseWriter SSEWriter, ctx context.Context) (string, error) {
-	logger.Info("Starting AI agent execution with messages and SSE").
-		Int("messages_count", len(messages)).
-		Str("model", a.model).
-		Send()
-
-	maxIterations := 15
-	for i := 0; i < maxIterations; i++ {
-		logger.Info("Agent iteration").Int("iteration", i+1).Send()
-
-		// Check context cancellation
-		select {
-		case <-ctx.Done():
-			logger.Info("Context cancelled, stopping agent").Send()
-			return "", ctx.Err()
-		default:
-		}
-
-		// Send thinking event
-		if err := sseWriter.Send("thinking", map[string]string{
-			"message": fmt.Sprintf("Processing request (iteration %d/%d)...", i+1, maxIterations),
-		}); err != nil {
-			logger.Error("Failed to send thinking event").Err(err).Send()
-			return "", err
-		}
-
-		// Call model with timeout and track timing
-		modelStartTime := time.Now()
-		response, err := a.callModelWithTimeout(ctx, messages)
-		modelDuration := time.Since(modelStartTime).Seconds()
-		
-		if err != nil {
-			logger.Error("Model call failed").Err(err).Send()
-			if err := sseWriter.Send("error", map[string]any{
-				"error": fmt.Sprintf("AI call failed: %v", err),
-				"duration": modelDuration,
-			}); err != nil {
-				logger.Error("Failed to send error event").Err(err).Send()
-			}
-			return "", fmt.Errorf("model call failed: %w", err)
-		}
-
-		logEvent := logger.Info("Model response received").
-			Str("content", response.Choices[0].Message.Content).
-			Int("tool_calls_count", len(response.Choices[0].Message.ToolCalls))
-		
-		if len(response.Choices[0].Message.ToolCalls) > 0 {
-			toolNames := make([]string, len(response.Choices[0].Message.ToolCalls))
-			for i, toolCall := range response.Choices[0].Message.ToolCalls {
-				toolNames[i] = toolCall.Function.Name
-			}
-			logEvent = logEvent.Strs("tool_calls", toolNames)
-		}
-		
-		logEvent.Send()
-
-		if !a.hasToolCalls(response) {
-			// No tool calls, return the response content
-			logger.Info("No tool calls found, returning response").Send()
-			responseText := response.Choices[0].Message.Content
-			if err := sseWriter.Send("final_response", map[string]any{
-				"response": responseText,
-				"duration": modelDuration,
-			}); err != nil {
-				logger.Error("Failed to send final_response event").Err(err).Send()
-				return "", err
-			}
-			return responseText, nil
-		}
-
-		// Process tool calls
-		messages = append(messages, response.Choices[0].Message)
-
-		for _, toolCall := range response.Choices[0].Message.ToolCalls {
-			logger.Info("Tool call detected").Str("tool", toolCall.Function.Name).Send()
-
-			// Check for respond tool (final response)
-			if toolCall.Function.Name == "respond" {
-				var args map[string]any
-				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err == nil {
-					if text, ok := args["text"].(string); ok {
-						if err := sseWriter.Send("final_response", map[string]any{
-							"response": text,
-							"duration": modelDuration,
-						}); err != nil {
-							logger.Error("Failed to send final_response event").Err(err).Send()
-							return "", err
-						}
-						logger.Info("Agent execution completed with respond tool").Send()
-						return text, nil
-					}
-				}
-				if err := sseWriter.Send("final_response", map[string]any{
-					"response": "Invalid response format",
-					"duration": modelDuration,
-				}); err != nil {
-					logger.Error("Failed to send final_response event").Err(err).Send()
-				}
-				return "Invalid response format", nil
-			}
-
-			// Send tool call event with model duration (how long it took to decide to call the tool)
-			if err := sseWriter.Send("tool_call", map[string]any{
-				"tool":      toolCall.Function.Name,
-				"arguments": toolCall.Function.Arguments,
-				"duration":  modelDuration,
-			}); err != nil {
-				logger.Error("Failed to send tool_call event").Err(err).Send()
-				return "", err
-			}
-
-			toolStartTime := time.Now()
-			toolResult, err := a.executeTool(toolCall)
-			toolDuration := time.Since(toolStartTime).Seconds()
-			
-			if err != nil {
-				logger.Error("Tool execution failed").Str("tool", toolCall.Function.Name).Err(err).Send()
-
-				// Send error event with timing
-				if err := sseWriter.Send("error", map[string]any{
-					"error": fmt.Sprintf("Tool execution failed: %v", err),
-					"duration": toolDuration,
-				}); err != nil {
-					logger.Error("Failed to send error event").Err(err).Send()
-					return "", err
-				}
-
-				// Add error to conversation for recovery
-				messages = append(messages, ChatCompletionMessage{
-					Role:       "tool",
-					Content:    fmt.Sprintf("Error: %v", err),
-					ToolCallID: toolCall.ID,
-				})
-				continue
-			}
-
-			// Send tool result event without duration
-			if err := sseWriter.Send("tool_result", map[string]any{
-				"result": toolResult,
-			}); err != nil {
-				logger.Error("Failed to send tool_result event").Err(err).Send()
-				return "", err
-			}
-
-			// Add tool result to conversation
-			messages = append(messages, ChatCompletionMessage{
-				Role:       "tool",
-				Content:    toolResult,
-				ToolCallID: toolCall.ID,
-			})
-
-			logger.Info("Tool executed successfully").Str("tool", toolCall.Function.Name).Str("result", toolResult).Send()
-		}
-	}
-
-	// Max iterations reached
-	if err := sseWriter.Send("error", map[string]string{
-		"error": "Maximum iterations reached without final response",
-	}); err != nil {
-		logger.Error("Failed to send error event").Err(err).Send()
-	}
-	return "", fmt.Errorf("maximum iterations reached without final response")
-}
-
 func (a *Agent) Execute(userInput string) (string, error) {
 	logger.Info("Starting AI agent execution").
 		Str("user_input", userInput).
@@ -308,7 +144,10 @@ func (a *Agent) Execute(userInput string) (string, error) {
 		messages = append(messages, response.Choices[0].Message)
 
 		for _, toolCall := range response.Choices[0].Message.ToolCalls {
-			logger.Info("Tool call detected").Str("tool", toolCall.Function.Name).Send()
+			logger.Info("Tool call detected").
+				Str("tool", toolCall.Function.Name).
+				Str("arguments", toolCall.Function.Arguments).
+				Send()
 
 			// Check for respond tool (final response)
 			if toolCall.Function.Name == "respond" {
@@ -517,6 +356,187 @@ func (a *Agent) AddTool(tool Tool) {
 	a.tools = append(a.tools, tool)
 }
 
+// ExecuteWithWS runs the agent with WebSocket communication and tool confirmation flow
+func (a *Agent) ExecuteWithWS(messages []ChatCompletionMessage, ws *WSWriter, ctx context.Context) error {
+	logger.Info("Starting AI agent execution with WebSocket").
+		Int("messages_count", len(messages)).
+		Str("model", a.model).
+		Send()
+
+	maxIterations := 15
+	for i := 0; i < maxIterations; i++ {
+		logger.Info("Agent iteration").Int("iteration", i+1).Send()
+
+		// Check context cancellation
+		select {
+		case <-ctx.Done():
+			logger.Info("Context cancelled, stopping agent").Send()
+			return ctx.Err()
+		default:
+		}
+
+		// Send thinking event
+		if err := ws.SendThinking(fmt.Sprintf("Processing request (iteration %d/%d)...", i+1, maxIterations), 0); err != nil {
+			logger.Error("Failed to send thinking event").Err(err).Send()
+			return err
+		}
+
+		// Call model with timeout and track timing
+		modelStartTime := time.Now()
+		response, err := a.callModelWithTimeout(ctx, messages)
+		modelDuration := time.Since(modelStartTime).Seconds()
+
+		if err != nil {
+			logger.Error("Model call failed").Err(err).Send()
+			ws.SendError(fmt.Sprintf("AI call failed: %v", err))
+			return fmt.Errorf("model call failed: %w", err)
+		}
+
+		logEvent := logger.Info("Model response received").
+			Str("content", response.Choices[0].Message.Content).
+			Int("tool_calls_count", len(response.Choices[0].Message.ToolCalls))
+
+		if len(response.Choices[0].Message.ToolCalls) > 0 {
+			toolNames := make([]string, len(response.Choices[0].Message.ToolCalls))
+			for j, toolCall := range response.Choices[0].Message.ToolCalls {
+				toolNames[j] = toolCall.Function.Name
+			}
+			logEvent = logEvent.Strs("tool_calls", toolNames)
+		}
+
+		logEvent.Send()
+
+		if !a.hasToolCalls(response) {
+			// No tool calls, return the response content
+			logger.Info("No tool calls found, returning response").Send()
+			responseText := response.Choices[0].Message.Content
+			if err := ws.SendFinalResponse(responseText, modelDuration); err != nil {
+				logger.Error("Failed to send final_response event").Err(err).Send()
+				return err
+			}
+			return nil
+		}
+
+		// Process tool calls
+		messages = append(messages, response.Choices[0].Message)
+
+		for _, toolCall := range response.Choices[0].Message.ToolCalls {
+			logger.Info("Tool call detected").
+				Str("tool", toolCall.Function.Name).
+				Str("arguments", toolCall.Function.Arguments).
+				Send()
+
+			// Check for respond tool (final response)
+			if toolCall.Function.Name == "respond" {
+				var args map[string]any
+				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err == nil {
+					if text, ok := args["text"].(string); ok {
+						if err := ws.SendFinalResponse(text, modelDuration); err != nil {
+							logger.Error("Failed to send final_response event").Err(err).Send()
+							return err
+						}
+						logger.Info("Agent execution completed with respond tool").Send()
+						return nil
+					}
+				}
+				ws.SendFinalResponse("Invalid response format", modelDuration)
+				return nil
+			}
+
+			// Parse tool arguments
+			var args map[string]any
+			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
+				logger.Error("Failed to parse tool arguments").Err(err).Send()
+				messages = append(messages, ChatCompletionMessage{
+					Role:       "tool",
+					Content:    fmt.Sprintf("Error: failed to parse arguments: %v", err),
+					ToolCallID: toolCall.ID,
+				})
+				continue
+			}
+
+			// Check if confirmation is required for this tool
+			if ConfirmationRequiredTools[toolCall.Function.Name] {
+				logger.Info("Tool requires confirmation").Str("tool", toolCall.Function.Name).Send()
+
+				// Resolve defaults before sending to frontend
+				argsForPreview := resolveToolDefaults(toolCall.Function.Name, args)
+
+				// Send tool pending event
+				if err := ws.SendToolPending(toolCall.Function.Name, argsForPreview); err != nil {
+					logger.Error("Failed to send tool_pending event").Err(err).Send()
+					return err
+				}
+
+				// Wait for user confirmation
+				confirmed, modifiedArgs, err := ws.WaitForConfirmation()
+				if err != nil {
+					logger.Error("Failed to wait for confirmation").Err(err).Send()
+					return err
+				}
+
+				if !confirmed {
+					logger.Info("Tool execution rejected by user").Str("tool", toolCall.Function.Name).Send()
+					ws.SendCancelled()
+					return nil
+				}
+
+				// Use modified args if provided
+				if modifiedArgs != nil {
+					args = modifiedArgs
+					logger.Info("Using modified arguments from user").Interface("args", args).Send()
+				}
+			}
+
+			// Execute tool
+			toolStartTime := time.Now()
+			toolResult, err := a.executeToolWithArgs(toolCall.Function.Name, args)
+			toolDuration := time.Since(toolStartTime).Seconds()
+
+			if err != nil {
+				logger.Error("Tool execution failed").Str("tool", toolCall.Function.Name).Err(err).Send()
+
+				// Add error to conversation for recovery
+				messages = append(messages, ChatCompletionMessage{
+					Role:       "tool",
+					Content:    fmt.Sprintf("Error: %v", err),
+					ToolCallID: toolCall.ID,
+				})
+				continue
+			}
+
+			// Send tool result event
+			if err := ws.SendToolResult(toolResult, toolDuration); err != nil {
+				logger.Error("Failed to send tool_result event").Err(err).Send()
+				return err
+			}
+
+			// Add tool result to conversation
+			messages = append(messages, ChatCompletionMessage{
+				Role:       "tool",
+				Content:    toolResult,
+				ToolCallID: toolCall.ID,
+			})
+
+			logger.Info("Tool executed successfully").Str("tool", toolCall.Function.Name).Str("result", toolResult).Send()
+		}
+	}
+
+	// Max iterations reached
+	ws.SendError("Maximum iterations reached without final response")
+	return fmt.Errorf("maximum iterations reached without final response")
+}
+
+// executeToolWithArgs executes a tool with pre-parsed arguments
+func (a *Agent) executeToolWithArgs(toolName string, args map[string]any) (string, error) {
+	for _, tool := range a.tools {
+		if tool.Function.Name == toolName {
+			return tool.Handler(args)
+		}
+	}
+	return "", fmt.Errorf("tool not found: %s", toolName)
+}
+
 func (a *Agent) SetModel(model string) {
 	a.model = model
 }
@@ -542,4 +562,25 @@ func (a *Agent) ExecuteOneStep(userInput string) ([]ToolCall, error) {
 	}
 
 	return response.Choices[0].Message.ToolCalls, nil
+}
+
+// resolveToolDefaults adds default values to tool arguments for frontend preview
+func resolveToolDefaults(toolName string, args map[string]any) map[string]any {
+	// Copy args to avoid modifying original
+	result := make(map[string]any)
+	for k, v := range args {
+		result[k] = v
+	}
+
+	// For create_task, default to Inbox project if not specified
+	if toolName == "create_task" {
+		if _, hasProject := result["project_id"]; !hasProject {
+			var inboxProject database.Project
+			if err := database.DB.Where("name = ? AND deleted_at IS NULL", "Inbox").First(&inboxProject).Error; err == nil {
+				result["project_id"] = float64(inboxProject.ID)
+			}
+		}
+	}
+
+	return result
 }

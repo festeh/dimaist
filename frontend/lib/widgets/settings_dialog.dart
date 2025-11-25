@@ -7,6 +7,7 @@ import '../providers/asr_language_provider.dart';
 import '../services/logging_service.dart';
 import '../config/design_tokens.dart';
 import 'model_list_dialog.dart';
+import 'model_display.dart';
 
 class SettingsDialog extends ConsumerStatefulWidget {
   const SettingsDialog({super.key});
@@ -189,26 +190,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                     ),
                     child: Row(
                       children: [
-                        if (selectedModel != null) ...[
-                          Image.asset(
-                            selectedModel.provider.iconPath,
-                            width: 16,
-                            height: 16,
-                          ),
-                          const SizedBox(width: 8),
-                        ],
                         Expanded(
-                          child: Text(
-                            selectedModel != null
-                                ? selectedModel.modelName.split('/').last
-                                : 'No model selected',
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: selectedModel != null
-                                  ? null
-                                  : Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                          ),
+                          child: ModelDisplay(model: selectedModel),
                         ),
                         const Icon(Icons.chevron_right, size: 20),
                       ],

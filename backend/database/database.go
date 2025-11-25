@@ -1,7 +1,7 @@
 package database
 
 import (
-	"github.com/dima-b/go-task-backend/logger"
+	"dimaist/logger"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"time"

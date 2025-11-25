@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dima-b/go-task-backend/database"
-	"github.com/dima-b/go-task-backend/logger"
+	"dimaist/database"
+	"dimaist/logger"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

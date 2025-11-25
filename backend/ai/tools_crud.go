@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dima-b/go-task-backend/database"
-	"github.com/dima-b/go-task-backend/utils"
+	"dimaist/database"
+	"dimaist/utils"
 	"github.com/lib/pq"
 )
 

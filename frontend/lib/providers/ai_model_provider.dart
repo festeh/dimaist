@@ -14,12 +14,19 @@ class AiModelState {
     this.isLoading = false,
   });
 
-  AiModel? get selectedModel {
-    if (selectedModelId == null || models.isEmpty) return null;
+  /// Returns the selected model. Always returns a model since we guarantee at least one exists.
+  AiModel get selectedModel {
+    if (models.isEmpty) {
+      // This should never happen, but fallback to a default
+      return AiModelNotifier._defaultModels.first;
+    }
+    if (selectedModelId == null) {
+      return models.first;
+    }
     try {
       return models.firstWhere((m) => m.id == selectedModelId);
     } catch (_) {
-      return models.isNotEmpty ? models.first : null;
+      return models.first;
     }
   }
 
@@ -115,13 +122,18 @@ class AiModelNotifier extends StateNotifier<AiModelState> {
     await _saveModels();
   }
 
-  Future<void> deleteModel(String modelId) async {
+  Future<bool> deleteModel(String modelId) async {
+    // Prevent deleting the last model
+    if (state.models.length <= 1) {
+      return false;
+    }
+
     final newModels = state.models.where((m) => m.id != modelId).toList();
 
     // Handle deletion of selected model
     String? newSelectedId = state.selectedModelId;
     if (state.selectedModelId == modelId) {
-      newSelectedId = newModels.isNotEmpty ? newModels.first.id : null;
+      newSelectedId = newModels.first.id;
     }
 
     state = AiModelState(
@@ -131,6 +143,7 @@ class AiModelNotifier extends StateNotifier<AiModelState> {
 
     await _saveModels();
     await _saveSelectedId(newSelectedId);
+    return true;
   }
 
   Future<void> selectModel(String modelId) async {

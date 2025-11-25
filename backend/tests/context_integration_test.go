@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dima-b/go-task-backend/ai"
-	"github.com/dima-b/go-task-backend/database"
+	"dimaist/ai"
+	"dimaist/database"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
 )

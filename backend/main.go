@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dima-b/go-task-backend/ai"
-	"github.com/dima-b/go-task-backend/database"
-	"github.com/dima-b/go-task-backend/env"
-	"github.com/dima-b/go-task-backend/logger"
-	"github.com/dima-b/go-task-backend/middleware"
-	"github.com/dima-b/go-task-backend/utils"
+	"dimaist/ai"
+	"dimaist/database"
+	"dimaist/env"
+	"dimaist/logger"
+	"dimaist/middleware"
+	"dimaist/utils"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"github.com/joho/godotenv"
@@ -101,9 +101,7 @@ func main() {
 	r.Put("/projects-reorder", reorderProjects)
 
 	// AI routes
-	r.Route("/ai", func(r chi.Router) {
-		r.Post("/text", ai.HandleAIText)
-	})
+	r.Get("/ai", ai.HandleWebSocket)
 
 	// Sync route
 	r.Get("/sync", syncData)

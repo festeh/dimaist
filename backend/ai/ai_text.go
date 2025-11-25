@@ -1,21 +1,14 @@
 package ai
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
-	"github.com/dima-b/go-task-backend/database"
-	"github.com/dima-b/go-task-backend/env"
-	"github.com/dima-b/go-task-backend/logger"
-)
-
-const (
-	// DefaultAIModel is the default AI model used when none is specified in requests
-	DefaultAIModel = "google/gemini-2.0-flash-001"
+	"dimaist/database"
+	"dimaist/env"
+	"dimaist/logger"
 )
 
 var appEnv *env.Env
@@ -23,133 +16,6 @@ var appEnv *env.Env
 // SetEnv sets the environment configuration for the ai package
 func SetEnv(e *env.Env) {
 	appEnv = e
-}
-
-func SetupSSEHeaders(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Cache-Control")
-}
-
-type TextRequest struct {
-	Messages []ChatCompletionMessage `json:"messages"`
-	Provider string                  `json:"provider,omitempty"` // Provider: "chutes" or "openrouter"
-	Model    string                  `json:"model,omitempty"`    // Full model name (e.g., "zhipu/GLM-4.6")
-}
-
-func HandleAIText(w http.ResponseWriter, r *http.Request) {
-	logger.Info("Handling AI text request").Send()
-
-	// Parse request
-	var req TextRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		logger.Error("Failed to decode request").Err(err).Send()
-		http.Error(w, "Invalid JSON request", http.StatusBadRequest)
-		return
-	}
-
-	if len(req.Messages) == 0 {
-		logger.Error("Empty messages in request").Send()
-		http.Error(w, "Messages field is required", http.StatusBadRequest)
-		return
-	}
-
-	// Validate required fields
-	if req.Provider == "" {
-		logger.Error("Missing provider in request").Send()
-		http.Error(w, "Provider field is required", http.StatusBadRequest)
-		return
-	}
-	if req.Model == "" {
-		logger.Error("Missing model in request").Send()
-		http.Error(w, "Model field is required", http.StatusBadRequest)
-		return
-	}
-	provider := req.Provider
-	model := req.Model
-
-	// Setup SSE headers
-	SetupSSEHeaders(w)
-
-	// Create SSE writer
-	sseWriter := NewSSEWriter(w)
-
-	// Call the shared handler
-	HandleAITextWithWriter(sseWriter, req.Messages, provider, model)
-}
-
-func HandleAITextWithWriter(sseWriter SSEWriter, messages []ChatCompletionMessage, provider, model string) {
-	logger.Info("Handling AI text with writer").Int("messages_count", len(messages)).Str("provider", provider).Str("model", model).Send()
-
-	// Send initial thinking event
-	if err := sseWriter.Send("thinking", map[string]string{
-		"message": "Loading task context...",
-	}); err != nil {
-		logger.Error("Failed to send initial SSE event").Err(err).Send()
-		return
-	}
-
-	// Load context with limits and track timing
-	contextStartTime := time.Now()
-	tasks, err := LoadRecentTasks(1000)
-	if err != nil {
-		logger.Error("Failed to load tasks").Err(err).Send()
-		sseWriter.Send("error", map[string]string{
-			"error": fmt.Sprintf("Failed to load tasks: %v", err),
-		})
-		return
-	}
-
-	projects, err := LoadRecentProjects(100)
-	if err != nil {
-		logger.Error("Failed to load projects").Err(err).Send()
-		sseWriter.Send("error", map[string]string{
-			"error": fmt.Sprintf("Failed to load projects: %v", err),
-		})
-		return
-	}
-	contextDuration := time.Since(contextStartTime).Seconds()
-
-	// Build system prompt and prepend to messages
-	systemPrompt, err := buildSystemPrompt(tasks, projects)
-	if err != nil {
-		logger.Error("Failed to build system prompt").Err(err).Send()
-		sseWriter.Send("error", map[string]string{
-			"error": fmt.Sprintf("Failed to build system prompt: %v", err),
-		})
-		return
-	}
-
-	// Prepend system message to the messages array
-	messagesWithSystem := []ChatCompletionMessage{
-		{Role: "system", Content: systemPrompt},
-	}
-	messagesWithSystem = append(messagesWithSystem, messages...)
-
-	// Create agent for message-based execution
-	agent := createAIAgent(provider, model)
-
-	// Send thinking event before starting with context loading duration
-	if err := sseWriter.Send("thinking", map[string]any{
-		"message":  fmt.Sprintf("Context loaded (%.2fs), starting AI agent...", contextDuration),
-		"duration": contextDuration,
-	}); err != nil {
-		logger.Error("Failed to send thinking event").Err(err).Send()
-		return
-	}
-
-	// Create context with timeout for the entire request (5 minutes max)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	// Execute agent with messages and SSE streaming
-	_, err = agent.ExecuteWithMessagesAndSSE(messagesWithSystem, sseWriter, ctx)
-	if err != nil {
-		logger.Error("Agent execution failed").Err(err).Send()
-		// Error events are already sent by the agent, so we don't need to send another one
-	}
 }
 
 func LoadRecentTasks(limit int) ([]database.Task, error) {

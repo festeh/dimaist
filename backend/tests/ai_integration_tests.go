@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dima-b/go-task-backend/ai"
+	"dimaist/ai"
 )
 
 // Mock data structures

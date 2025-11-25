@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import '../config/design_tokens.dart';
 import '../repositories/providers.dart';
 import '../services/logging_service.dart';
+import '../services/ai_websocket_service.dart';
+import '../models/ws_message_type.dart';
 import '../providers/task_provider.dart';
+import '../providers/project_provider.dart';
 import '../providers/ai_model_provider.dart';
 import '../providers/asr_language_provider.dart';
 import '../widgets/chat_input_widget.dart';
+import '../widgets/tool_preview_widget.dart';
+import '../widgets/model_display.dart';
+import '../widgets/model_list_dialog.dart';
 
-enum MessageType { normal, toolCall, toolResult }
+enum MessageType { normal, toolCall, toolResult, toolPreview }
 
 class ChatMessage {
   final String text;
@@ -76,9 +83,13 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   final List<ChatMessage> _messages = [];
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final AiWebSocketService _wsService = AiWebSocketService();
   bool _isProcessing = false;
   bool _hasText = false;
   String? _statusMessage;
+
+  // Index of the pending tool preview message (if any)
+  int? _pendingToolMessageIndex;
 
   @override
   void initState() {
@@ -105,6 +116,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     _textController.removeListener(_onTextChanged);
     _textController.dispose();
     _scrollController.dispose();
+    _wsService.close();
     super.dispose();
   }
 
@@ -136,27 +148,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         .where((msg) => msg.type == MessageType.normal)
         .map((msg) => msg.toApiFormat())
         .toList();
-  }
-
-  void _addToolMessage(
-    String text,
-    MessageType type, {
-    Map<String, dynamic>? metadata,
-    double? duration,
-  }) {
-    setState(() {
-      _messages.add(
-        ChatMessage(
-          text: text,
-          role: 'assistant',
-          timestamp: DateTime.now(),
-          type: type,
-          metadata: metadata,
-          duration: duration,
-        ),
-      );
-    });
-    _scrollToBottom();
   }
 
   Future<void> _processAudioMessage(List<int> audioBytes) async {
@@ -246,6 +237,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       }
       _isProcessing = true;
       _statusMessage = 'Initializing...';
+      _pendingToolMessageIndex = null;
     });
 
     _scrollToBottom();
@@ -253,16 +245,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     try {
       final modelState = ref.read(aiModelProvider);
       final selectedModel = modelState.selectedModel;
-      if (selectedModel == null) {
-        setState(() {
-          _isProcessing = false;
-          _statusMessage = '';
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No AI model selected. Please configure in Settings.')),
-        );
-        return;
-      }
       final provider = selectedModel.provider.name;
       final model = selectedModel.modelName;
 
@@ -273,58 +255,46 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
               ? messagesHistory + [{'role': 'user', 'content': message}]
               : messagesHistory;
 
-      await ref
-          .read(apiServiceProvider)
-          .sendTextAIStream(
-            allMessages,
-            provider,
-            model,
-            (chunk, {double? duration}) {
-              setState(() {
-                _messages.add(
-                  ChatMessage(
-                    text: chunk,
-                    role: 'assistant',
-                    timestamp: DateTime.now(),
-                    duration: duration,
-                  ),
-                );
-              });
-              _scrollToBottom();
-            },
-            () async {
-              setState(() {
-                _isProcessing = false;
-                _statusMessage = null;
-              });
-              try {
-                await ref.read(taskProvider.notifier).syncData();
-              } catch (e) {
-                LoggingService.logger.warning(
-                  'Failed to sync after text AI: $e',
-                );
-              }
-            },
-            onStatus: (status) {
-              setState(() {
-                _statusMessage = status;
-              });
-            },
-            onToolCall: (toolCall, {double? duration}) {
-              _addToolMessage(
-                toolCall,
-                MessageType.toolCall,
-                duration: duration,
-              );
-            },
-            onToolResult: (toolResult, {double? duration}) {
-              _addToolMessage(
-                toolResult,
-                MessageType.toolResult,
-                duration: duration,
-              );
-            },
-          );
+      // Connect and start WebSocket conversation
+      final baseUrl = ref.read(apiServiceProvider).baseUrl;
+      _wsService.connect(baseUrl);
+
+      _wsService.startConversation(
+        messages: allMessages,
+        provider: provider,
+        model: model,
+        onMessage: _handleWSMessage,
+        onDone: () async {
+          setState(() {
+            _isProcessing = false;
+            _statusMessage = null;
+            _pendingToolMessageIndex = null;
+          });
+          _wsService.close();
+          try {
+            await ref.read(taskProvider.notifier).syncData();
+          } catch (e) {
+            LoggingService.logger.warning(
+              'Failed to sync after AI: $e',
+            );
+          }
+        },
+        onError: (error) {
+          LoggingService.logger.severe('WebSocket error: $error');
+          setState(() {
+            _messages.add(
+              ChatMessage(
+                text: 'Error: $error',
+                role: 'assistant',
+                timestamp: DateTime.now(),
+              ),
+            );
+            _isProcessing = false;
+            _statusMessage = null;
+          });
+          _scrollToBottom();
+        },
+      );
     } catch (e) {
       LoggingService.logger.severe('Error sending AI request: $e');
       setState(() {
@@ -342,57 +312,155 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     }
   }
 
-  Widget _buildMessage(ChatMessage message) {
-    // Handle tool call and tool result messages
-    if (message.type == MessageType.toolCall ||
-        message.type == MessageType.toolResult) {
-      return _buildToolMessage(message);
+  void _handleWSMessage(WSMessageType type, Map<String, dynamic> data) {
+    switch (type) {
+      case WSMessageType.thinking:
+        setState(() {
+          _statusMessage = data['message'] as String? ?? 'Processing...';
+        });
+        break;
+
+      case WSMessageType.toolPending:
+        final toolName = data['tool'] as String?;
+        final arguments = data['arguments'] as Map<String, dynamic>?;
+        setState(() {
+          _messages.add(
+            ChatMessage(
+              text: toolName ?? 'Unknown tool',
+              role: 'assistant',
+              timestamp: DateTime.now(),
+              type: MessageType.toolPreview,
+              metadata: {
+                'tool': toolName,
+                'arguments': arguments,
+                'status': 'pending',
+              },
+            ),
+          );
+          _pendingToolMessageIndex = _messages.length - 1;
+          _isProcessing = false; // Allow interaction with preview
+        });
+        _scrollToBottom();
+        break;
+
+      case WSMessageType.toolResult:
+        // Tool result just confirms the action - status already set to 'confirmed'
+        // No separate message needed
+        break;
+
+      case WSMessageType.finalResponse:
+        final response = data['response'] as String? ?? '';
+        final duration = data['duration'] as double?;
+        setState(() {
+          _messages.add(
+            ChatMessage(
+              text: response,
+              role: 'assistant',
+              timestamp: DateTime.now(),
+              duration: duration,
+            ),
+          );
+        });
+        _scrollToBottom();
+        break;
+
+      case WSMessageType.cancelled:
+        // Widget already shows "Cancelled" badge, no additional message needed
+        break;
+
+      case WSMessageType.error:
+        final error = data['error'] as String? ?? 'Unknown error';
+        setState(() {
+          _messages.add(
+            ChatMessage(
+              text: 'Error: $error',
+              role: 'assistant',
+              timestamp: DateTime.now(),
+            ),
+          );
+        });
+        _scrollToBottom();
+        break;
+
+      default:
+        LoggingService.logger.warning('Unhandled message type: $type');
+    }
+  }
+
+  void _confirmTool(Map<String, dynamic> args) {
+    if (_pendingToolMessageIndex == null) return;
+
+    // Mark the preview as confirmed
+    final oldMessage = _messages[_pendingToolMessageIndex!];
+    final newMetadata = Map<String, dynamic>.from(oldMessage.metadata ?? {});
+    newMetadata['status'] = 'confirmed';
+    newMetadata['arguments'] = args; // Use potentially edited args
+
+    setState(() {
+      _messages[_pendingToolMessageIndex!] = ChatMessage(
+        text: oldMessage.text,
+        role: oldMessage.role,
+        timestamp: oldMessage.timestamp,
+        type: oldMessage.type,
+        metadata: newMetadata,
+      );
+      _pendingToolMessageIndex = null;
+      _isProcessing = true;
+      _statusMessage = 'Executing...';
+    });
+    _wsService.confirm(args);
+  }
+
+  void _rejectTool() {
+    if (_pendingToolMessageIndex == null) return;
+
+    // Mark the preview as cancelled
+    final oldMessage = _messages[_pendingToolMessageIndex!];
+    final newMetadata = Map<String, dynamic>.from(oldMessage.metadata ?? {});
+    newMetadata['status'] = 'cancelled';
+
+    setState(() {
+      _messages[_pendingToolMessageIndex!] = ChatMessage(
+        text: oldMessage.text,
+        role: oldMessage.role,
+        timestamp: oldMessage.timestamp,
+        type: oldMessage.type,
+        metadata: newMetadata,
+      );
+      _pendingToolMessageIndex = null;
+    });
+    _wsService.reject();
+  }
+
+  Widget _buildMessage(ChatMessage message, List<dynamic> projects) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    // Handle tool preview messages
+    if (message.type == MessageType.toolPreview) {
+      return _buildToolPreviewMessage(message, projects);
     }
 
-    // User messages - use card style similar to AI messages but right-aligned
+    // User messages - minimal bubble, right-aligned, primary tint
     if (message.isUser) {
       return Container(
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+        margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             Flexible(
               child: Container(
-                constraints: const BoxConstraints(
-                  maxWidth: 300,
-                ), // Limit max width
-                padding: const EdgeInsets.all(12),
+                constraints: const BoxConstraints(maxWidth: 320),
+                padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.md),
                 decoration: BoxDecoration(
-                  color: Colors.purple[50],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.purple[200]!, width: 1.5),
+                  color: colors.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(Radii.lg),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.person, size: 18, color: Colors.purple[700]),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            'You',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.purple[700],
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    SelectableText(
-                      message.text,
-                      style: TextStyle(color: Colors.grey[800], fontSize: 13),
-                    ),
-                  ],
+                child: SelectableText(
+                  message.text,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurface,
+                  ),
                 ),
               ),
             ),
@@ -401,189 +469,78 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       );
     }
 
-    // AI responses - use card style similar to tool messages
+    // AI responses - minimal bubble, left-aligned, surface color
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-      child: Row(
+      margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
+      padding: const EdgeInsets.all(Spacing.lg),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(Radii.lg),
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(width: 40), // Indent to align with other AI messages
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue[200]!, width: 1.5),
+          MarkdownBody(
+            data: message.text,
+            selectable: true,
+            styleSheet: MarkdownStyleSheet(
+              p: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface),
+              h1: theme.textTheme.titleLarge?.copyWith(color: colors.onSurface),
+              h2: theme.textTheme.titleMedium?.copyWith(color: colors.onSurface),
+              h3: theme.textTheme.titleSmall?.copyWith(color: colors.onSurface),
+              h4: theme.textTheme.bodyLarge?.copyWith(color: colors.onSurface, fontWeight: FontWeight.bold),
+              h5: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface, fontWeight: FontWeight.bold),
+              h6: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface, fontWeight: FontWeight.bold),
+              listBullet: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface),
+              em: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface, fontStyle: FontStyle.italic),
+              strong: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface, fontWeight: FontWeight.bold),
+              a: theme.textTheme.bodyMedium?.copyWith(color: colors.primary, decoration: TextDecoration.underline),
+              blockquote: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant, fontStyle: FontStyle.italic),
+              tableHead: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface, fontWeight: FontWeight.bold),
+              tableBody: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface),
+              code: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontFamily: 'monospace',
+                backgroundColor: colors.surfaceContainerHigh,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.smart_toy, size: 18, color: Colors.blue[700]),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          message.formattedDuration != null
-                              ? 'Response (${message.formattedDuration})'
-                              : 'Response',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.blue[700],
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  MarkdownBody(
-                    data: message.text,
-                    selectable: true,
-                    styleSheet: MarkdownStyleSheet(
-                      p: TextStyle(color: Colors.grey[800], fontSize: 13),
-                      h1: TextStyle(
-                        color: Colors.grey[800],
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      h2: TextStyle(
-                        color: Colors.grey[800],
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      h3: TextStyle(
-                        color: Colors.grey[800],
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      h4: TextStyle(
-                        color: Colors.grey[800],
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      h5: TextStyle(
-                        color: Colors.grey[800],
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      h6: TextStyle(
-                        color: Colors.grey[800],
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      listBullet: TextStyle(
-                        color: Colors.grey[800],
-                        fontSize: 13,
-                      ),
-                      em: TextStyle(
-                        color: Colors.grey[800],
-                        fontStyle: FontStyle.italic,
-                      ),
-                      strong: TextStyle(
-                        color: Colors.grey[800],
-                        fontWeight: FontWeight.bold,
-                      ),
-                      a: TextStyle(
-                        color: Colors.blue[600],
-                        decoration: TextDecoration.underline,
-                      ),
-                      blockquote: TextStyle(
-                        color: Colors.grey[700],
-                        fontStyle: FontStyle.italic,
-                      ),
-                      tableHead: TextStyle(
-                        color: Colors.grey[800],
-                        fontWeight: FontWeight.bold,
-                      ),
-                      tableBody: TextStyle(color: Colors.grey[800]),
-                      code: TextStyle(
-                        backgroundColor: Colors.grey[200],
-                        color: Colors.grey[800],
-                        fontFamily: 'monospace',
-                      ),
-                      codeblockDecoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
-                ],
+              codeblockDecoration: BoxDecoration(
+                color: colors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(Radii.sm),
               ),
             ),
           ),
+          if (message.formattedDuration != null)
+            Padding(
+              padding: const EdgeInsets.only(top: Spacing.sm),
+              child: Text(
+                message.formattedDuration!,
+                style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildToolMessage(ChatMessage message) {
-    final isToolCall = message.type == MessageType.toolCall;
+  Widget _buildToolPreviewMessage(ChatMessage message, List<dynamic> projects) {
+    final toolName = message.metadata?['tool'] as String? ?? '';
+    final arguments = message.metadata?['arguments'] as Map<String, dynamic>? ?? {};
+    final statusStr = message.metadata?['status'] as String? ?? 'pending';
+    final status = switch (statusStr) {
+      'confirmed' => ToolStatus.confirmed,
+      'cancelled' => ToolStatus.cancelled,
+      _ => ToolStatus.pending,
+    };
+    final messageIndex = _messages.indexOf(message);
+    final isPending = messageIndex == _pendingToolMessageIndex;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(width: 40), // Indent to align with AI messages
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isToolCall ? Colors.orange[50] : Colors.green[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isToolCall ? Colors.orange[200]! : Colors.green[200]!,
-                  width: 1.5,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        isToolCall ? Icons.build : Icons.check_circle_outline,
-                        size: 18,
-                        color: isToolCall
-                            ? Colors.orange[700]
-                            : Colors.green[700],
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          isToolCall
-                              ? (message.formattedDuration != null
-                                    ? 'Tool Call (${message.formattedDuration})'
-                                    : 'Tool Call')
-                              : 'Tool Result',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isToolCall
-                                ? Colors.orange[700]
-                                : Colors.green[700],
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  SelectableText(
-                    message.text,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[800],
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+    return ToolPreviewWidget(
+      toolName: toolName,
+      arguments: arguments,
+      onConfirm: isPending ? _confirmTool : (_) {},
+      onReject: isPending ? _rejectTool : () {},
+      projects: projects.cast(),
+      status: status,
     );
   }
 
@@ -592,23 +549,35 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       return const SizedBox.shrink();
     }
 
+    final colors = Theme.of(context).colorScheme;
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
+      padding: const EdgeInsets.all(Spacing.md),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withAlpha(25),
-        borderRadius: BorderRadius.circular(8),
+        color: colors.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(Radii.lg),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
+          SizedBox(
+            width: Sizes.iconSm,
+            height: Sizes.iconSm,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: colors.primary,
+            ),
           ),
-          const SizedBox(width: 12),
-          Flexible(child: Text(_statusMessage!)),
+          const SizedBox(width: Spacing.sm),
+          Flexible(
+            child: Text(
+              _statusMessage!,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -618,11 +587,33 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   Widget build(BuildContext context) {
     final modelState = ref.watch(aiModelProvider);
     final selectedModel = modelState.selectedModel;
-    final modelDisplayName = selectedModel?.displayName ?? 'No model';
+    final projectsAsync = ref.watch(projectProvider);
+    final projects = projectsAsync.valueOrNull ?? [];
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('AI Chat ($modelDisplayName)'),
+        title: InkWell(
+          onTap: () => showDialog(
+            context: context,
+            builder: (context) => const ModelListDialog(),
+          ),
+          borderRadius: BorderRadius.circular(Radii.sm),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ModelDisplay(model: selectedModel, iconSize: 20),
+                const SizedBox(width: Spacing.xs),
+                Icon(
+                  Icons.arrow_drop_down,
+                  size: Sizes.iconSm,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
       ),
@@ -633,7 +624,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
               controller: _scrollController,
               itemCount: _messages.length,
               itemBuilder: (context, index) {
-                return _buildMessage(_messages[index]);
+                return _buildMessage(_messages[index], projects);
               },
             ),
           ),
@@ -641,7 +632,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           ChatInputWidget(
             onSendMessage: _sendTextMessage,
             onAudioRecorded: _processAudioMessage,
-            isProcessing: _isProcessing,
+            isProcessing: _isProcessing || _pendingToolMessageIndex != null,
           ),
         ],
       ),
