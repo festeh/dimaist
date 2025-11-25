@@ -267,6 +267,7 @@ class ApiService {
 
   Future<void> sendTextAIStream(
     List<Map<String, dynamic>> messages,
+    String provider,
     String model,
     Function(String, {double? duration}) onChunk,
     Function() onDone, {
@@ -276,6 +277,7 @@ class ApiService {
   }) async {
     _logger.info('Sending text AI streaming request...', {
       'messages_count': messages.length,
+      'provider': provider,
       'model': model,
     });
 
@@ -284,7 +286,11 @@ class ApiService {
       final request = http.Request('POST', Uri.parse('$baseUrl/ai/text'));
       request.headers['Content-Type'] = 'application/json';
       request.headers['Accept'] = 'text/event-stream';
-      request.body = json.encode({'messages': messages, 'model': model});
+      request.body = json.encode({
+        'messages': messages,
+        'provider': provider,
+        'model': model,
+      });
 
       final response = await client.send(request);
 

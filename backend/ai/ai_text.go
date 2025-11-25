@@ -35,7 +35,8 @@ func SetupSSEHeaders(w http.ResponseWriter) {
 
 type TextRequest struct {
 	Messages []ChatCompletionMessage `json:"messages"`
-	Model    string                      `json:"model,omitempty"` // Optional AI model, defaults to DefaultAIModel
+	Provider string                  `json:"provider,omitempty"` // Provider: "chutes" or "openrouter"
+	Model    string                  `json:"model,omitempty"`    // Full model name (e.g., "zhipu/GLM-4.6")
 }
 
 func HandleAIText(w http.ResponseWriter, r *http.Request) {
@@ -55,11 +56,19 @@ func HandleAIText(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Use provided model or default
-	model := req.Model
-	if model == "" {
-		model = DefaultAIModel
+	// Validate required fields
+	if req.Provider == "" {
+		logger.Error("Missing provider in request").Send()
+		http.Error(w, "Provider field is required", http.StatusBadRequest)
+		return
 	}
+	if req.Model == "" {
+		logger.Error("Missing model in request").Send()
+		http.Error(w, "Model field is required", http.StatusBadRequest)
+		return
+	}
+	provider := req.Provider
+	model := req.Model
 
 	// Setup SSE headers
 	SetupSSEHeaders(w)
@@ -68,11 +77,11 @@ func HandleAIText(w http.ResponseWriter, r *http.Request) {
 	sseWriter := NewSSEWriter(w)
 
 	// Call the shared handler
-	HandleAITextWithWriter(sseWriter, req.Messages, model)
+	HandleAITextWithWriter(sseWriter, req.Messages, provider, model)
 }
 
-func HandleAITextWithWriter(sseWriter SSEWriter, messages []ChatCompletionMessage, model string) {
-	logger.Info("Handling AI text with writer").Int("messages_count", len(messages)).Str("model", model).Send()
+func HandleAITextWithWriter(sseWriter SSEWriter, messages []ChatCompletionMessage, provider, model string) {
+	logger.Info("Handling AI text with writer").Int("messages_count", len(messages)).Str("provider", provider).Str("model", model).Send()
 
 	// Send initial thinking event
 	if err := sseWriter.Send("thinking", map[string]string{
@@ -120,7 +129,7 @@ func HandleAITextWithWriter(sseWriter SSEWriter, messages []ChatCompletionMessag
 	messagesWithSystem = append(messagesWithSystem, messages...)
 
 	// Create agent for message-based execution
-	agent := createAIAgent(model)
+	agent := createAIAgent(provider, model)
 
 	// Send thinking event before starting with context loading duration
 	if err := sseWriter.Send("thinking", map[string]any{
@@ -238,12 +247,12 @@ Projects: %s
 		time.Now().Format("2006-01-02 15:04:05 MST"), tasksJSON, projectsJSON, toolsDesc.String()), nil
 }
 
-func createAIAgent(model string) *Agent {
+func createAIAgent(provider, model string) *Agent {
 	tools := CreateCRUDTools()
 
-	// Select endpoint and token based on model prefix
+	// Select endpoint and token based on provider
 	var apiKey, endpoint string
-	if strings.HasPrefix(model, "chutes/") {
+	if provider == "chutes" {
 		apiKey = appEnv.ChutesToken
 		endpoint = appEnv.ChutesEndpoint
 	} else {
@@ -251,17 +260,12 @@ func createAIAgent(model string) *Agent {
 		endpoint = appEnv.OpenrouterEndpoint
 	}
 
-	// Trim any prefix (everything before and including the first "/")
-	if slashIndex := strings.Index(model, "/"); slashIndex != -1 {
-		model = model[slashIndex+1:]
-	}
-
 	// Create agent using environment configuration
 	agent := NewAgent(
 		apiKey,   // API key
 		endpoint, // Custom AI endpoint
 		tools,
-		model, // model
+		model, // model (full name including provider prefix like "zhipu/GLM-4.6")
 	)
 
 	return agent

@@ -252,8 +252,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
     try {
       final modelState = ref.read(aiModelProvider);
-      final model = modelState.selectedModel?.apiId ?? '';
-      if (model.isEmpty) {
+      final selectedModel = modelState.selectedModel;
+      if (selectedModel == null) {
         setState(() {
           _isProcessing = false;
           _statusMessage = '';
@@ -263,6 +263,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         );
         return;
       }
+      final provider = selectedModel.provider.name;
+      final model = selectedModel.modelName;
 
       // Build complete messages array including the user message
       final messagesHistory = _buildMessagesFromHistory();
@@ -275,6 +277,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           .read(apiServiceProvider)
           .sendTextAIStream(
             allMessages,
+            provider,
             model,
             (chunk, {double? duration}) {
               setState(() {
