@@ -148,9 +148,19 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                     ),
                     child: Row(
                       children: [
+                        if (selectedModel != null) ...[
+                          Image.asset(
+                            selectedModel.provider.iconPath,
+                            width: 16,
+                            height: 16,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         Expanded(
                           child: Text(
-                            selectedModel?.displayName ?? 'No model selected',
+                            selectedModel != null
+                                ? '${selectedModel.provider.displayName}: ${selectedModel.modelName}'
+                                : 'No model selected',
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: selectedModel != null
