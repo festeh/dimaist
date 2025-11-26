@@ -3,7 +3,7 @@ import 'package:tray_manager/tray_manager.dart';
 
 class TrayService {
   static Future<void> initialize() async {
-    await trayManager.setIcon('assets/infinite.png');
+    await trayManager.setIcon('assets/tray_icon.png');
     Menu menu = Menu(
       items: [MenuItem(key: 'exit_app', label: 'Exit App')],
     );

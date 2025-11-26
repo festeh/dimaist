@@ -125,7 +125,21 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
     final colors = theme.colorScheme;
 
     return AlertDialog(
-      title: Text(widget.title),
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(widget.title),
+          if (widget.task != null && widget.onDelete != null)
+            TextButton.icon(
+              onPressed: _confirmDelete,
+              style: TextButton.styleFrom(
+                foregroundColor: colors.error,
+              ),
+              icon: const Icon(Icons.delete_outline, size: Sizes.iconSm),
+              label: const Text('Delete'),
+            ),
+        ],
+      ),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -155,7 +169,7 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
                   // Project dropdown
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      initialValue: _selectedProjectId,
+                      value: _selectedProjectId,
                       decoration: const InputDecoration(
                         labelText: 'Project',
                         contentPadding: EdgeInsets.symmetric(
@@ -221,17 +235,6 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
         ),
       ),
       actions: [
-        if (widget.task != null && widget.onDelete != null)
-          TextButton.icon(
-            onPressed: _confirmDelete,
-            style: TextButton.styleFrom(
-              foregroundColor: colors.error,
-            ),
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('Delete'),
-          ),
-        if (widget.task != null && widget.onDelete != null)
-          const Spacer(),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),

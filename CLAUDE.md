@@ -19,14 +19,24 @@ go run main.go -port=8080        # Run server on custom port
 ```
 
 ### Frontend (Flutter)
+
+Use `just` commands from the `frontend/` directory:
+
 ```bash
 cd frontend
-flutter run --flavor phone -t lib/main.dart     # Run phone app
-flutter run --flavor wear -t lib/main_wear.dart # Run Wear OS app
-flutter analyze                                  # Lint/analyze code
-flutter test                                     # Run tests (if any)
-flutter pub get                                  # Install dependencies
-flutter pub upgrade                              # Update dependencies
+just run-phone        # Run the phone app
+just run-wear         # Run the Wear OS app
+just run-linux        # Run Linux desktop app
+just build-phone      # Build APK for phone
+just build-wear       # Build APK for Wear OS
+just build-linux      # Build Linux app for release
+just install-phone    # Build and install phone APK
+just analyze          # Lint/analyze code
+just test             # Run tests
+just deps             # Get dependencies (flutter pub get)
+just upgrade          # Upgrade dependencies
+just clean            # Clean build artifacts
+just release 1.1.0    # Create a release with version tag
 ```
 
 ### Audio CLI Tool
