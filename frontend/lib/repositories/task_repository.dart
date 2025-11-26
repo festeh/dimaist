@@ -168,11 +168,6 @@ class TaskRepository implements ITaskRepository {
         await _database.upsertTask(task);
       }
 
-      // TODO: Notes sync not implemented in frontend database yet
-      LoggingService.logger.info(
-        'TaskRepository: Notes sync skipped - ${syncResponse.notes.length} notes received',
-      );
-
       // Handle deleted items
       LoggingService.logger.info(
         'TaskRepository: Deleting ${syncResponse.deletedProjectIds.length} projects...',
@@ -187,11 +182,6 @@ class TaskRepository implements ITaskRepository {
       for (var taskId in syncResponse.deletedTaskIds) {
         await _database.deleteTask(taskId);
       }
-
-      // TODO: Note deletions not implemented yet
-      LoggingService.logger.info(
-        'TaskRepository: Note deletions skipped - ${syncResponse.deletedNoteIds.length} note deletions received',
-      );
 
       // Save new sync token
       await prefs.setString('sync_token', syncResponse.syncToken);
