@@ -6,7 +6,6 @@ import 'due_widget.dart';
 class TaskWidget extends StatelessWidget {
   final Task task;
   final Function(Task) onToggleComplete;
-  final Function(int) onDelete;
   final Function(Task) onEdit;
   final bool showDragHandle;
   final int? dragIndex;
@@ -15,7 +14,6 @@ class TaskWidget extends StatelessWidget {
     super.key,
     required this.task,
     required this.onToggleComplete,
-    required this.onDelete,
     required this.onEdit,
     this.showDragHandle = false,
     this.dragIndex,
@@ -35,82 +33,64 @@ class TaskWidget extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return Dismissible(
-      key: Key('dismiss-${task.id}'),
-      direction: DismissDirection.endToStart,
-      onDismissed: (_) => onDelete(task.id!),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: Spacing.xl),
-        decoration: BoxDecoration(
-          color: colors.error,
-          borderRadius: BorderRadius.circular(Radii.md),
-        ),
-        child: Icon(
-          Icons.delete_outline,
-          color: colors.onError,
-          size: Sizes.iconMd,
-        ),
-      ),
-      child: Card(
-        margin: const EdgeInsets.symmetric(vertical: Spacing.xs),
-        child: InkWell(
-          onTap: () => onEdit(task),
-          borderRadius: BorderRadius.circular(Radii.md),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Spacing.md,
-              vertical: Spacing.sm,
-            ),
-            child: Row(
-              children: [
-                // Drag handle (conditional)
-                if (showDragHandle && dragIndex != null) ...[
-                  ReorderableDragStartListener(
-                    index: dragIndex!,
-                    child: Icon(
-                      Icons.drag_handle,
-                      size: Sizes.iconSm,
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(width: Spacing.sm),
-                ],
-
-                // Checkbox
-                SizedBox(
-                  width: Sizes.touchTargetSmall,
-                  height: Sizes.touchTargetSmall,
-                  child: Checkbox(
-                    value: false,
-                    onChanged: (_) => onToggleComplete(task),
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: Spacing.xs),
+      child: InkWell(
+        onTap: () => onEdit(task),
+        borderRadius: BorderRadius.circular(Radii.md),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.md,
+            vertical: Spacing.sm,
+          ),
+          child: Row(
+            children: [
+              // Drag handle (conditional)
+              if (showDragHandle && dragIndex != null) ...[
+                ReorderableDragStartListener(
+                  index: dragIndex!,
+                  child: Icon(
+                    Icons.drag_handle,
+                    size: Sizes.iconSm,
+                    color: colors.onSurfaceVariant,
                   ),
                 ),
-
                 const SizedBox(width: Spacing.sm),
-
-                // Content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Title
-                      Text(
-                        task.description,
-                        style: theme.textTheme.bodyLarge,
-                      ),
-
-                      // Metadata row
-                      if (_hasMetadata) ...[
-                        const SizedBox(height: Spacing.xs),
-                        _buildMetadataRow(context),
-                      ],
-                    ],
-                  ),
-                ),
               ],
-            ),
+
+              // Checkbox
+              SizedBox(
+                width: Sizes.touchTargetSmall,
+                height: Sizes.touchTargetSmall,
+                child: Checkbox(
+                  value: false,
+                  onChanged: (_) => onToggleComplete(task),
+                ),
+              ),
+
+              const SizedBox(width: Spacing.sm),
+
+              // Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Title
+                    Text(
+                      task.description,
+                      style: theme.textTheme.bodyLarge,
+                    ),
+
+                    // Metadata row
+                    if (_hasMetadata) ...[
+                      const SizedBox(height: Spacing.xs),
+                      _buildMetadataRow(context),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),

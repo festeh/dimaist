@@ -5,7 +5,6 @@ import '../utils/value_wrapper.dart';
 class ScheduleView extends StatefulWidget {
   final List<Task> tasks;
   final Function(Task) onToggleComplete;
-  final Function(int) onDelete;
   final Function(Task) onEdit;
   final Function(Task, DateTime) onScheduleTask;
   final Function(Task) onUnscheduleTask;
@@ -15,7 +14,6 @@ class ScheduleView extends StatefulWidget {
     super.key,
     required this.tasks,
     required this.onToggleComplete,
-    required this.onDelete,
     required this.onEdit,
     required this.onScheduleTask,
     required this.onUnscheduleTask,

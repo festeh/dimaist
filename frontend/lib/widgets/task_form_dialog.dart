@@ -14,6 +14,7 @@ class TaskFormDialog extends ConsumerStatefulWidget {
   final Project? selectedProject;
   final DateTime? defaultDueDate;
   final Function(Task) onSave;
+  final Function(int)? onDelete;
   final String title;
   final String submitButtonText;
 
@@ -24,6 +25,7 @@ class TaskFormDialog extends ConsumerStatefulWidget {
     this.selectedProject,
     this.defaultDueDate,
     required this.onSave,
+    this.onDelete,
     required this.title,
     required this.submitButtonText,
   });
@@ -219,6 +221,17 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
         ),
       ),
       actions: [
+        if (widget.task != null && widget.onDelete != null)
+          TextButton.icon(
+            onPressed: _confirmDelete,
+            style: TextButton.styleFrom(
+              foregroundColor: colors.error,
+            ),
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Delete'),
+          ),
+        if (widget.task != null && widget.onDelete != null)
+          const Spacer(),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
@@ -573,6 +586,38 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
           _selectedEndDate ??= DateTime.now();
         }
       });
+    }
+  }
+
+  // Delete Handler
+
+  Future<void> _confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete task?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await widget.onDelete!(widget.task!.id!);
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
     }
   }
 

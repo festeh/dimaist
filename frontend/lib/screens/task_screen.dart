@@ -191,6 +191,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
         onSave: (updatedTask) async {
           await taskNotifier.updateTask(task.id!, updatedTask);
         },
+        onDelete: _deleteTask,
         title: 'Edit Task',
         submitButtonText: 'Save',
       ),
@@ -354,7 +355,6 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                   return ScheduleView(
                     tasks: taskData.tasks,
                     onToggleComplete: _toggleComplete,
-                    onDelete: _deleteTask,
                     onEdit: _showEditTaskDialog,
                     onScheduleTask: _scheduleTask,
                     onUnscheduleTask: _unscheduleTask,
@@ -402,7 +402,6 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                             key: Key(task.id.toString()),
                             task: task,
                             onToggleComplete: _toggleComplete,
-                            onDelete: _deleteTask,
                             onEdit: _showEditTaskDialog,
                             showDragHandle: true,
                             dragIndex: index,
@@ -450,7 +449,6 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                             key: Key(task.id.toString()),
                             task: task,
                             onToggleComplete: _toggleComplete,
-                            onDelete: _deleteTask,
                             onEdit: _showEditTaskDialog,
                           );
                         }
@@ -479,7 +477,6 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                             key: Key(task.id.toString()),
                             task: task,
                             onToggleComplete: _toggleComplete,
-                            onDelete: _deleteTask,
                             onEdit: _showEditTaskDialog,
                             showDragHandle: false,
                             dragIndex: null,
@@ -526,7 +523,6 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                             key: Key(task.id.toString()),
                             task: task,
                             onToggleComplete: _toggleComplete,
-                            onDelete: _deleteTask,
                             onEdit: _showEditTaskDialog,
                           );
                         }
