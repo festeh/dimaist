@@ -72,6 +72,21 @@ class ProjectRepository implements IProjectRepository {
         await _database.upsertTask(task);
       }
 
+      // Handle deleted items
+      LoggingService.logger.info(
+        'ProjectRepository: Deleting ${syncResponse.deletedProjectIds.length} projects...',
+      );
+      for (var projectId in syncResponse.deletedProjectIds) {
+        await _database.deleteProject(projectId);
+      }
+
+      LoggingService.logger.info(
+        'ProjectRepository: Deleting ${syncResponse.deletedTaskIds.length} tasks...',
+      );
+      for (var taskId in syncResponse.deletedTaskIds) {
+        await _database.deleteTask(taskId);
+      }
+
       // Save new sync token
       LoggingService.logger.info(
         'ProjectRepository: Saving sync token: ${syncResponse.syncToken}',
