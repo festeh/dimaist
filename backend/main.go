@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"dimaist/ai"
+	"dimaist/calendar"
 	"dimaist/database"
 	"dimaist/env"
 	"dimaist/logger"
@@ -40,8 +41,9 @@ func main() {
 		return
 	}
 
-	// Set environment for ai package
+	// Set environment for packages
 	ai.SetEnv(appEnv)
+	calendar.SetEnv(appEnv)
 
 	// Initialize logger with env config
 	logger.InitLogger(appEnv.LogLevel, appEnv.LogFormat, *verbose)
@@ -195,6 +197,10 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Info("Successfully created task").Uint("task_id", t.ID).Str("description", t.Description).Send()
+
+	// Sync to calendar in background
+	go calendar.SyncTask(&t)
+
 	json.NewEncoder(w).Encode(t)
 }
 
@@ -235,6 +241,15 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Info("Successfully updated task").Uint("task_id", id).Send()
+
+	// Sync to calendar in background - fetch updated task first
+	go func() {
+		var updated database.Task
+		if err := database.DB.Where("id = ? AND deleted_at IS NULL", id).First(&updated).Error; err == nil {
+			calendar.SyncTask(&updated)
+		}
+	}()
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -246,6 +261,10 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fetch task first to get calendar event ID
+	var task database.Task
+	database.DB.Select("google_event_id").First(&task, id)
+
 	result := database.DB.Model(&database.Task{}).Where("id = ?", id).Updates(map[string]any{
 		"deleted_at": time.Now(),
 		"updated_at": time.Now(),
@@ -254,6 +273,11 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 		logger.Error("Failed to delete task").Uint("task_id", id).Err(result.Error).Send()
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// Delete calendar event in background
+	if task.GoogleEventID != nil && *task.GoogleEventID != "" {
+		go calendar.DeleteEvent(*task.GoogleEventID)
 	}
 
 	logger.Info("Successfully deleted task").Uint("task_id", id).Send()

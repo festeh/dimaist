@@ -57,6 +57,7 @@ type Task struct {
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     *time.Time     `gorm:"index" json:"deleted_at,omitempty"`
 	CompletedAt   *time.Time     `json:"completed_at,omitempty"`
+	GoogleEventID *string        `json:"google_event_id,omitempty"`
 }
 
 type Project struct {

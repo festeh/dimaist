@@ -13,6 +13,9 @@ type Env struct {
 	ChutesToken        string
 	OpenrouterEndpoint string
 	OpenrouterToken    string
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRefreshToken string
 }
 
 func New() (*Env, error) {
@@ -52,6 +55,11 @@ func New() (*Env, error) {
 	// Optional environment variables with defaults
 	env.LogLevel = getEnvOrDefault("LOG_LEVEL", "info")
 	env.LogFormat = getEnvOrDefault("LOG_FORMAT", "text")
+
+	// Google Calendar credentials (optional)
+	env.GoogleClientID = os.Getenv("GOOGLE_CLIENT_ID")
+	env.GoogleClientSecret = os.Getenv("GOOGLE_CLIENT_SECRET")
+	env.GoogleRefreshToken = os.Getenv("GOOGLE_REFRESH_TOKEN")
 
 	return env, nil
 }
