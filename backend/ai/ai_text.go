@@ -3,7 +3,6 @@ package ai
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"dimaist/database"
@@ -70,48 +69,22 @@ func buildSystemPrompt(tasks []database.Task, projects []database.Project) (stri
 		return "", fmt.Errorf("failed to marshal projects: %w", err)
 	}
 
-	var toolsDesc strings.Builder
-	toolsDesc.WriteString("Available tools:\n")
+	return fmt.Sprintf(`You are a task management assistant for "Dimaist".
 
-	tools := CreateCRUDTools()
-	for _, tool := range tools {
-		toolsDesc.WriteString(fmt.Sprintf("- %s: %s\n", tool.Function.Name, tool.Function.Description))
+RULES:
+1. Use 'respond' tool for final answers (does NOT modify data)
+2. To modify tasks/projects, use the appropriate tools - never just 'respond'
+3. Task and project data is already provided below - don't fetch it
+4. Only complete tasks when user explicitly says they finished something
+5. To sync a task to Google Calendar, add label "calendar"
 
-		// Add parameter descriptions
-		for param, prop := range tool.Function.Parameters.Properties {
-			requiredText := ""
-			for _, req := range tool.Function.Parameters.Required {
-				if req == param {
-					requiredText = " (required)"
-					break
-				}
-			}
-			toolsDesc.WriteString(fmt.Sprintf("  * %s: %s%s - %s\n", param, prop.Type, requiredText, prop.Description))
-		}
-		toolsDesc.WriteString("\n")
-	}
+Current time: %s
 
-	return fmt.Sprintf(`You are an AI assistant for a task management system called "Dimaist".
-You help users to be more productive.
-
-ALWAYS ADHERE TO THESE RULES:
-1. Use the 'respond' tool to send final answers to the user. This tool DOES NOT MODIFY TASKS OR PROJECTS
-2. If user requests to modify tasks or projects, use MUST use any tools EXCEPT 'respond'
-3. ALL TASK/PROJECT DATA IS ALREADY PROVIDED in the context - you do not need to use tools to retrieve or list existing tasks, projects, or other information
-4. The content of 'respond' tool should ONLY include user-visible text, never put your thoughts in it
-5. You can ONLY complete a task if the user EXPLICITLY asks you to complete a specific task or says they have done it. NEVER auto complete overdue tasks, you will disappoint user if a task that was not actually completed will be marked as completed
-6. When user asks to add a task to their calendar, add the "calendar" label to the task - this will automatically sync it to Google Calendar
-
-Current Local Time: %s
-
-Current System State:
 Tasks: %s
 
 Projects: %s
-
-%s
 `,
-		time.Now().Format("2006-01-02 15:04:05 MST"), tasksJSON, projectsJSON, toolsDesc.String()), nil
+		time.Now().Format("2006-01-02 15:04 MST"), tasksJSON, projectsJSON), nil
 }
 
 func createAIAgent(provider, model string) *Agent {
