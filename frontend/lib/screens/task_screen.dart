@@ -323,6 +323,11 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              IconButton(
+                icon: const Icon(Icons.add),
+                onPressed: _showAddTaskDialog,
+                tooltip: 'Add Task',
+              ),
               ViewOptionsMenu(
                 sortMode: taskData.sortMode,
                 isScheduleView: _isScheduleView,
@@ -533,7 +538,6 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
         ),
         ChatInputWidget(
           onSendMessage: _handleAiMessage,
-          onAddPressed: _showAddTaskDialog,
           isProcessing: _isAiProcessing,
         ),
       ],
