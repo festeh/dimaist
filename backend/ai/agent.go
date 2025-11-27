@@ -511,14 +511,20 @@ func (a *Agent) ExecuteWithWS(messages []ChatCompletionMessage, ws *WSWriter, ct
 				return err
 			}
 
-			// Add tool result to conversation
+			logger.Info("Tool executed successfully").Str("tool", toolCall.Function.Name).Str("result", toolResult).Send()
+
+			// For confirmation-required tools, skip AI response - user already knows what happened
+			if ConfirmationRequiredTools[toolCall.Function.Name] {
+				logger.Info("Skipping AI confirmation response for confirmed tool").Str("tool", toolCall.Function.Name).Send()
+				return nil
+			}
+
+			// Add tool result to conversation for non-confirmed tools
 			messages = append(messages, ChatCompletionMessage{
 				Role:       "tool",
 				Content:    toolResult,
 				ToolCallID: toolCall.ID,
 			})
-
-			logger.Info("Tool executed successfully").Str("tool", toolCall.Function.Name).Str("result", toolResult).Send()
 		}
 	}
 
