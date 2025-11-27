@@ -233,7 +233,9 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := database.DB.Model(&t).Where("id = ? AND deleted_at IS NULL", id).Select("*").Updates(t)
+	// Set ID from URL to prevent overwriting with 0
+	t.ID = id
+	result := database.DB.Model(&t).Where("id = ? AND deleted_at IS NULL", id).Select("*").Omit("id").Updates(t)
 	if result.Error != nil {
 		logger.Error("Failed to update task").Uint("task_id", id).Err(result.Error).Send()
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
