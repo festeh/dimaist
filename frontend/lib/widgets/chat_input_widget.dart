@@ -135,13 +135,12 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
                     focusNode: _focusNode,
                     enabled: !widget.isProcessing,
                     decoration: InputDecoration(
-                      hintText: widget.isProcessing
-                          ? 'Processing...'
-                          : 'Ask AI to help with tasks...',
+                      hintText: widget.isProcessing ? 'Processing...' : null,
                       hintStyle: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                       border: InputBorder.none,
+                      isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 14,

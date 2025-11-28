@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 import '../models/project.dart';
+import '../models/task.dart';
+import 'task_form_dialog.dart';
+import 'task_widget.dart';
 
 enum ToolStatus { pending, confirmed, cancelled }
 
@@ -162,92 +165,51 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
     }
   }
 
+  Task _buildTaskFromArguments() {
+    return Task.fromJson({
+      'project_id': widget.projects.firstOrNull?.id ?? 0,
+      'order': 0,
+      ..._editedArguments,
+    });
+  }
+
   Widget _buildTaskPreview(
     BuildContext context, {
     required bool editable,
     bool isDelete = false,
     bool isComplete = false,
   }) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final colors = Theme.of(context).colorScheme;
+    final task = _buildTaskFromArguments();
 
-    // Parse task from arguments
-    final description = _editedArguments['description'] as String? ?? '';
-    final projectId = _editedArguments['project_id'] as num?;
-    final dueDateStr = _editedArguments['due_date'] as String?;
-    final labels = _editedArguments['labels'] as List<dynamic>? ?? [];
-
-    // Find project name
-    String? projectName;
-    if (projectId != null) {
-      final project = widget.projects.where((p) => p.id == projectId.toInt()).firstOrNull;
-      projectName = project?.name;
-    }
-
+    // Border color based on action type
     final borderColor = isDelete
         ? colors.error
         : isComplete
             ? colors.tertiary
-            : colors.outline;
+            : null;
 
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: borderColor, width: 2),
-        borderRadius: BorderRadius.circular(Radii.md),
-      ),
-      padding: const EdgeInsets.all(Spacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (description.isNotEmpty)
-            Text(description, style: theme.textTheme.bodyLarge),
-          if (projectName != null || dueDateStr != null) ...[
-            const SizedBox(height: Spacing.xs),
-            Row(
-              children: [
-                if (projectName != null) ...[
-                  PhosphorIcon(PhosphorIcons.folder(), size: Sizes.iconXs, color: colors.onSurfaceVariant),
-                  const SizedBox(width: Spacing.xs),
-                  Text(projectName, style: theme.textTheme.bodySmall),
-                ],
-                if (dueDateStr != null) ...[
-                  if (projectName != null) const SizedBox(width: Spacing.md),
-                  PhosphorIcon(PhosphorIcons.calendar(), size: Sizes.iconXs, color: colors.onSurfaceVariant),
-                  const SizedBox(width: Spacing.xs),
-                  Text(dueDateStr, style: theme.textTheme.bodySmall),
-                ],
-              ],
-            ),
-          ],
-          if (labels.isNotEmpty) ...[
-            const SizedBox(height: Spacing.xs),
-            Wrap(
-              spacing: Spacing.xs,
-              runSpacing: Spacing.xs,
-              children: labels.map((label) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: 2),
-                decoration: BoxDecoration(
-                  color: colors.secondaryContainer,
-                  borderRadius: BorderRadius.circular(Radii.xs),
-                ),
-                child: Text(
-                  label.toString(),
-                  style: theme.textTheme.labelSmall?.copyWith(color: colors.onSecondaryContainer),
-                ),
-              )).toList(),
-            ),
-          ],
-          if (editable && widget.status == ToolStatus.pending) ...[
-            const SizedBox(height: Spacing.sm),
-            OutlinedButton.icon(
-              onPressed: () => _openTaskEditDialog(context),
-              icon: PhosphorIcon(PhosphorIcons.pencilSimple(), size: Sizes.iconSm),
-              label: const Text('Edit'),
-            ),
-          ],
-        ],
-      ),
+    Widget taskWidget = TaskWidget(
+      task: task,
+      onToggleComplete: (_) {}, // No-op for preview
+      onEdit: editable && widget.status == ToolStatus.pending
+          ? (_) => _openTaskEditDialog(context)
+          : (_) {}, // No-op if not editable
+      showCheckbox: false,
     );
+
+    // Wrap with border for delete/complete states
+    if (borderColor != null) {
+      taskWidget = Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: borderColor, width: 2),
+          borderRadius: BorderRadius.circular(Radii.md + 2),
+        ),
+        child: taskWidget,
+      );
+    }
+
+    return taskWidget;
   }
 
   Widget _buildProjectPreview(
@@ -355,60 +317,45 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
     );
   }
 
-  void _openTaskEditDialog(BuildContext context) async {
-    final descriptionController = TextEditingController(
-      text: _editedArguments['description'] as String? ?? '',
-    );
-    int? selectedProjectId = (_editedArguments['project_id'] as num?)?.toInt();
+  void _openTaskEditDialog(BuildContext context) {
+    final task = _buildTaskFromArguments();
 
-    final result = await showDialog<Map<String, dynamic>>(
+    showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Task'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: descriptionController,
-              decoration: const InputDecoration(labelText: 'Description'),
-              maxLines: 2,
-            ),
-            const SizedBox(height: Spacing.md),
-            DropdownButtonFormField<int>(
-              initialValue: selectedProjectId,
-              decoration: const InputDecoration(labelText: 'Project'),
-              items: widget.projects.map((p) => DropdownMenuItem(
-                value: p.id,
-                child: Text(p.name),
-              )).toList(),
-              onChanged: (value) => selectedProjectId = value,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, {
-              'description': descriptionController.text,
-              'project_id': selectedProjectId,
-            }),
-            child: const Text('Save'),
-          ),
-        ],
+      builder: (context) => TaskFormDialog(
+        task: task,
+        projects: widget.projects,
+        onSave: (updatedTask) {
+          setState(() {
+            _editedArguments['description'] = updatedTask.description;
+            _editedArguments['project_id'] = updatedTask.projectId;
+
+            // Handle due date - prefer dueDatetime if set, otherwise dueDate
+            if (updatedTask.dueDatetime != null) {
+              _editedArguments['due_date'] = updatedTask.dueDatetime!.toIso8601String();
+            } else if (updatedTask.dueDate != null) {
+              _editedArguments['due_date'] = updatedTask.dueDate!.toIso8601String();
+            } else {
+              _editedArguments.remove('due_date');
+            }
+
+            if (updatedTask.labels.isNotEmpty) {
+              _editedArguments['labels'] = updatedTask.labels;
+            } else {
+              _editedArguments.remove('labels');
+            }
+
+            if (updatedTask.recurrence != null && updatedTask.recurrence!.isNotEmpty) {
+              _editedArguments['recurrence'] = updatedTask.recurrence;
+            } else {
+              _editedArguments.remove('recurrence');
+            }
+          });
+        },
+        title: 'Edit Task',
+        submitButtonText: 'Save',
       ),
     );
-
-    if (result != null) {
-      setState(() {
-        _editedArguments['description'] = result['description'];
-        if (result['project_id'] != null) {
-          _editedArguments['project_id'] = result['project_id'];
-        }
-      });
-    }
   }
 
   void _openProjectEditDialog(BuildContext context) async {

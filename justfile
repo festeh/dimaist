@@ -60,6 +60,14 @@ run-linux-local:
     rm -f frontend/.env.local.tmp
     kill $BACKEND_PID 2>/dev/null || true
 
+# Launch Android emulator
+emulator:
+    flutter emulators --launch Pixel_8_Pro
+
+# Stop Android emulator
+emulator-stop:
+    adb emu kill
+
 # Run the phone app with environment variables
 run-phone:
     @just _run-with-env flutter run --flavor phone -t lib/main.dart

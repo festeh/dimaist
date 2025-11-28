@@ -40,14 +40,15 @@ class DueWidget extends StatelessWidget {
         effectiveDate.day == tomorrow.day;
 
     if (task.dueDatetime != null) {
+      final localDatetime = task.dueDatetime!.toLocal();
       if (isToday) {
-        formattedDate = DateFormat.Hm().format(task.dueDatetime!);
+        formattedDate = DateFormat.Hm().format(localDatetime);
       } else if (isTomorrow) {
         formattedDate =
-            'Tomorrow at ${DateFormat.Hm().format(task.dueDatetime!)}';
+            'Tomorrow at ${DateFormat.Hm().format(localDatetime)}';
       } else {
         formattedDate =
-            '${DateFormat('d MMM').format(task.dueDatetime!)} at ${DateFormat.Hm().format(task.dueDatetime!)}';
+            '${DateFormat('d MMM').format(localDatetime)} at ${DateFormat.Hm().format(localDatetime)}';
       }
     } else {
       if (isToday) {

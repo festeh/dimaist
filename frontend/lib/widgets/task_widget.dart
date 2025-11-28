@@ -10,6 +10,7 @@ class TaskWidget extends StatelessWidget {
   final Function(Task) onEdit;
   final bool showDragHandle;
   final int? dragIndex;
+  final bool showCheckbox;
 
   const TaskWidget({
     super.key,
@@ -18,6 +19,7 @@ class TaskWidget extends StatelessWidget {
     required this.onEdit,
     this.showDragHandle = false,
     this.dragIndex,
+    this.showCheckbox = true,
   });
 
   List<String> get _nonEmptyLabels =>
@@ -60,16 +62,17 @@ class TaskWidget extends StatelessWidget {
               ],
 
               // Checkbox
-              SizedBox(
-                width: Sizes.touchTargetSmall,
-                height: Sizes.touchTargetSmall,
-                child: Checkbox(
-                  value: false,
-                  onChanged: (_) => onToggleComplete(task),
+              if (showCheckbox) ...[
+                SizedBox(
+                  width: Sizes.touchTargetSmall,
+                  height: Sizes.touchTargetSmall,
+                  child: Checkbox(
+                    value: false,
+                    onChanged: (_) => onToggleComplete(task),
+                  ),
                 ),
-              ),
-
-              const SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
+              ],
 
               // Content
               Expanded(

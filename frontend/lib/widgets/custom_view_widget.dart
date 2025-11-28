@@ -61,8 +61,15 @@ class CustomViewWidget extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return Column(
-      children: customViews.map((view) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+      padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(Radii.md),
+      ),
+      child: Column(
+        children: customViews.map((view) {
         final isSelected = selectedView == view.name;
         return Container(
           decoration: BoxDecoration(
@@ -97,7 +104,8 @@ class CustomViewWidget extends StatelessWidget {
             ),
           ),
         );
-      }).toList(),
+        }).toList(),
+      ),
     );
   }
 }

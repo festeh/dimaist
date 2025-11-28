@@ -39,6 +39,7 @@ class TaskScreen extends ConsumerStatefulWidget {
 class TaskScreenState extends ConsumerState<TaskScreen> {
   bool _isScheduleView = false;
   bool _isAiProcessing = false;
+  bool _showCompletedTasks = false;
 
   void _updateAppBarConfig(String title, SortMode sortMode) {
     widget.onAppBarConfigChanged?.call(
@@ -399,7 +400,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                       itemCount:
                           nonCompletedTasks.length +
                           (completedTasks.isNotEmpty
-                              ? completedTasks.length + 1
+                              ? (_showCompletedTasks ? completedTasks.length + 1 : 1)
                               : 0),
                       itemBuilder: (context, index) {
                         if (index < nonCompletedTasks.length) {
@@ -414,36 +415,51 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                           );
                         } else if (index == nonCompletedTasks.length &&
                             completedTasks.isNotEmpty) {
-                          return Padding(
+                          return InkWell(
                             key: const Key('completed_tasks_header'),
-                            padding: const EdgeInsets.symmetric(
-                              vertical: Spacing.lg,
-                              horizontal: Spacing.md,
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Divider(
-                                    thickness: 1,
-                                    color: Theme.of(context).colorScheme.outlineVariant,
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-                                  child: Text(
-                                    'Completed',
-                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            onTap: () => setState(() => _showCompletedTasks = !_showCompletedTasks),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: Spacing.lg,
+                                horizontal: Spacing.md,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Divider(
+                                      thickness: 1,
+                                      color: Theme.of(context).colorScheme.outlineVariant,
                                     ),
                                   ),
-                                ),
-                                Expanded(
-                                  child: Divider(
-                                    thickness: 1,
-                                    color: Theme.of(context).colorScheme.outlineVariant,
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+                                    child: Row(
+                                      children: [
+                                        PhosphorIcon(
+                                          _showCompletedTasks
+                                              ? PhosphorIcons.caretDown()
+                                              : PhosphorIcons.caretRight(),
+                                          size: Sizes.iconSm,
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        ),
+                                        const SizedBox(width: Spacing.xs),
+                                        Text(
+                                          'Completed (${completedTasks.length})',
+                                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
+                                  Expanded(
+                                    child: Divider(
+                                      thickness: 1,
+                                      color: Theme.of(context).colorScheme.outlineVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           );
                         } else {
@@ -474,7 +490,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                       itemCount:
                           nonCompletedTasks.length +
                           (completedTasks.isNotEmpty
-                              ? completedTasks.length + 1
+                              ? (_showCompletedTasks ? completedTasks.length + 1 : 1)
                               : 0),
                       itemBuilder: (context, index) {
                         if (index < nonCompletedTasks.length) {
@@ -489,35 +505,50 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                           );
                         } else if (index == nonCompletedTasks.length &&
                             completedTasks.isNotEmpty) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: Spacing.lg,
-                              horizontal: Spacing.md,
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Divider(
-                                    thickness: 1,
-                                    color: Theme.of(context).colorScheme.outlineVariant,
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-                                  child: Text(
-                                    'Completed',
-                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          return InkWell(
+                            onTap: () => setState(() => _showCompletedTasks = !_showCompletedTasks),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: Spacing.lg,
+                                horizontal: Spacing.md,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Divider(
+                                      thickness: 1,
+                                      color: Theme.of(context).colorScheme.outlineVariant,
                                     ),
                                   ),
-                                ),
-                                Expanded(
-                                  child: Divider(
-                                    thickness: 1,
-                                    color: Theme.of(context).colorScheme.outlineVariant,
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+                                    child: Row(
+                                      children: [
+                                        PhosphorIcon(
+                                          _showCompletedTasks
+                                              ? PhosphorIcons.caretDown()
+                                              : PhosphorIcons.caretRight(),
+                                          size: Sizes.iconSm,
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        ),
+                                        const SizedBox(width: Spacing.xs),
+                                        Text(
+                                          'Completed (${completedTasks.length})',
+                                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
+                                  Expanded(
+                                    child: Divider(
+                                      thickness: 1,
+                                      color: Theme.of(context).colorScheme.outlineVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           );
                         } else {
