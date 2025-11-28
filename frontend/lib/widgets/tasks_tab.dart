@@ -1,4 +1,6 @@
 import 'package:dimaist/widgets/custom_view_widget.dart';
+import 'package:dimaist/widgets/search_bar_widget.dart';
+import 'package:dimaist/widgets/toolbar_menu.dart';
 import 'package:dimaist/config/design_tokens.dart';
 import 'package:flutter/material.dart';
 
@@ -6,6 +8,7 @@ class TasksTab extends StatelessWidget {
   final String? selectedView;
   final Function(String) onCustomViewSelected;
   final VoidCallback onAddProject;
+  final VoidCallback onArrangeProjects;
   final VoidCallback onOpenLabels;
   final VoidCallback onOpenSettings;
   final Widget projectList;
@@ -15,6 +18,7 @@ class TasksTab extends StatelessWidget {
     required this.selectedView,
     required this.onCustomViewSelected,
     required this.onAddProject,
+    required this.onArrangeProjects,
     required this.onOpenLabels,
     required this.onOpenSettings,
     required this.projectList,
@@ -33,33 +37,20 @@ class TasksTab extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Top toolbar with actions
+          // Top toolbar with search bar and menu
           Padding(
             padding: const EdgeInsets.only(
-              left: Spacing.xs,
-              right: Spacing.xs,
-              top: Spacing.xs,
+              left: Spacing.sm,
+              top: Spacing.sm,
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.add_circle_outline),
-                  onPressed: onAddProject,
-                  tooltip: 'Add Project',
-                  iconSize: Sizes.iconSm,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.label_outline),
-                  onPressed: onOpenLabels,
-                  tooltip: 'Labels',
-                  iconSize: Sizes.iconSm,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.settings),
-                  onPressed: onOpenSettings,
-                  tooltip: 'Settings',
-                  iconSize: Sizes.iconSm,
+                const Expanded(child: SearchBarWidget()),
+                ToolbarMenu(
+                  onAddProject: onAddProject,
+                  onArrangeProjects: onArrangeProjects,
+                  onOpenLabels: onOpenLabels,
+                  onOpenSettings: onOpenSettings,
                 ),
               ],
             ),

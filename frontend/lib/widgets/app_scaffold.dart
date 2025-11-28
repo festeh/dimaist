@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/project.dart';
 import '../providers/view_provider.dart';
-import '../providers/project_provider.dart';
 import '../services/dialog_service.dart';
 import '../utils/responsive_utils.dart';
 import '../widgets/left_bar.dart';
 import '../widgets/settings_dialog.dart';
 import '../widgets/label_list_dialog.dart';
 import '../widgets/project_list_widget.dart';
+import '../widgets/arrange_projects_dialog.dart';
 import '../widgets/mobile_layout.dart';
 import '../widgets/desktop_layout.dart';
 import '../widgets/keyboard_shortcuts_handler.dart';
@@ -91,6 +91,17 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
           builder: (context) => const SettingsDialog(),
         );
       },
+      onArrangeProjects: () {
+        if (isMobile) {
+          Navigator.of(context).pop();
+        }
+        showDialog(
+          context: context,
+          builder: (context) => ArrangeProjectsDialog(
+            projects: widget.projects,
+          ),
+        );
+      },
       projectList: ProjectList(
         projects: widget.projects,
         selectedIndex: selectedProjectIndex,
@@ -98,19 +109,6 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
           viewNotifier.selectProject(widget.projects[index]);
           if (isMobile) {
             Navigator.of(context).pop();
-          }
-        },
-        onReorder: (oldIndex, newIndex) async {
-          try {
-            await ref
-                .read(projectProvider.notifier)
-                .reorderProjects(oldIndex, newIndex);
-          } catch (e) {
-            if (!context.mounted) return;
-            DialogService.showErrorDialog(
-              context,
-              error: 'Error reordering projects: $e',
-            );
           }
         },
         onEdit: (project) =>

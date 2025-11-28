@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/project.dart';
 import '../models/task.dart';
 import '../models/sync_response.dart';
+import '../models/search_result.dart';
 import 'logging_service.dart';
 
 class ApiService {
@@ -265,4 +266,31 @@ class ApiService {
     }
   }
 
+  Future<SearchResponse> search(String query) async {
+    _logger.info('Searching for: $query');
+
+    if (query.isEmpty) {
+      return SearchResponse(results: [], count: 0);
+    }
+
+    try {
+      final uri = Uri.parse('$baseUrl/find').replace(
+        queryParameters: {'q': query},
+      );
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final searchResponse = SearchResponse.fromJson(data);
+        _logger.info('Search found ${searchResponse.count} results');
+        return searchResponse;
+      } else {
+        _logger.warning('Failed to search: ${response.statusCode}');
+        throw Exception('Failed to search');
+      }
+    } catch (e) {
+      _logger.severe('Error during search: $e');
+      rethrow;
+    }
+  }
 }

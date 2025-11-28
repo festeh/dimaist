@@ -7,7 +7,7 @@ default:
 
 # Run command with env vars from .env file
 _run-with-env +cmd:
-    @just _run-with-env-file .env {{cmd}}
+    @just _run-with-env-file frontend/.env {{cmd}}
 
 # Run command with env vars from specified file
 _run-with-env-file envfile +cmd:
@@ -18,7 +18,7 @@ _run-with-env-file envfile +cmd:
         exit 1
     fi
     echo "Loading env vars from {{envfile}}"
-    {{cmd}} --dart-define-from-file={{envfile}}
+    cd frontend && {{cmd}} --dart-define-from-file=../{{envfile}}
 
 run-linux:
     @just _run-with-env flutter run -d linux
@@ -43,21 +43,21 @@ run-linux-local:
     fi
 
     echo "Starting backend on port $PORT..."
-    cd ../backend && go run . -port=$PORT &
+    cd backend && go run . -port=$PORT &
     BACKEND_PID=$!
 
     # Wait for backend to start
     sleep 2
 
     # Create temp env file with local URL
-    echo "BASE_URL=http://localhost:$PORT" > .env.local.tmp
-    grep -v "^BASE_URL=" .env >> .env.local.tmp 2>/dev/null || true
+    echo "BASE_URL=http://localhost:$PORT" > frontend/.env.local.tmp
+    grep -v "^BASE_URL=" frontend/.env >> frontend/.env.local.tmp 2>/dev/null || true
 
     echo "Starting frontend with BASE_URL=http://localhost:$PORT"
-    flutter run -d linux --dart-define-from-file=.env.local.tmp
+    cd frontend && flutter run -d linux --dart-define-from-file=.env.local.tmp
 
     # Cleanup
-    rm -f .env.local.tmp
+    rm -f frontend/.env.local.tmp
     kill $BACKEND_PID 2>/dev/null || true
 
 # Run the phone app with environment variables
@@ -70,19 +70,19 @@ run-wear:
 
 # Run flutter analyze
 analyze:
-    flutter analyze
+    cd frontend && flutter analyze
 
 # Run tests
 test:
-    flutter test
+    cd frontend && flutter test
 
 # Get dependencies
 deps:
-    flutter pub get
+    cd frontend && flutter pub get
 
 # Upgrade dependencies
 upgrade:
-    flutter pub upgrade
+    cd frontend && flutter pub upgrade
 
 # Build APK for phone
 build-phone:
@@ -99,11 +99,39 @@ build-linux:
 # Build and install phone APK
 install-phone:
     @just build-phone
-    adb install build/app/outputs/flutter-apk/app-phone-release.apk
+    adb install frontend/build/app/outputs/flutter-apk/app-phone-release.apk
 
 # Clean build artifacts
 clean:
-    flutter clean
+    cd frontend && flutter clean
+
+# =============================================================================
+# Backend recipes
+# =============================================================================
+
+# Run backend server (default port 3000)
+run-backend:
+    cd backend && go run .
+
+# Run backend server on custom port
+run-backend-port port:
+    cd backend && go run . -port={{port}}
+
+# Build backend binary
+build-backend:
+    cd backend && go build -o dimaist .
+
+# Run backend tests
+test-backend:
+    cd backend && go test ./...
+
+# Get/tidy backend dependencies
+deps-backend:
+    cd backend && go mod tidy
+
+# =============================================================================
+# Release
+# =============================================================================
 
 # Create a GitHub release with phone APK
 # Usage: just release 1.1.0
@@ -114,9 +142,9 @@ release version:
     VERSION="{{version}}"
 
     echo "Building phone APK..."
-    flutter build apk --flavor phone -t lib/main.dart --dart-define-from-file=.env
+    cd frontend && flutter build apk --flavor phone -t lib/main.dart --dart-define-from-file=.env
 
-    APK_PATH="build/app/outputs/flutter-apk/app-phone-release.apk"
+    APK_PATH="frontend/build/app/outputs/flutter-apk/app-phone-release.apk"
 
     if [ ! -f "$APK_PATH" ]; then
         echo "ERROR: APK not found at $APK_PATH"
