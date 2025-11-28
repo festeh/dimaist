@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 
 class ToolbarMenu extends StatelessWidget {
@@ -18,7 +19,7 @@ class ToolbarMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert, size: Sizes.iconSm),
+      icon: PhosphorIcon(PhosphorIcons.dotsThreeVertical(), size: Sizes.iconSm),
       tooltip: 'Menu',
       padding: EdgeInsets.zero,
       offset: const Offset(0, 40),
@@ -39,43 +40,43 @@ class ToolbarMenu extends StatelessWidget {
         }
       },
       itemBuilder: (context) => [
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'add_project',
           child: Row(
             children: [
-              Icon(Icons.add_circle_outline, size: Sizes.iconSm),
-              SizedBox(width: Spacing.md),
-              Text('Add Project'),
+              PhosphorIcon(PhosphorIcons.plusCircle(), size: Sizes.iconSm),
+              const SizedBox(width: Spacing.md),
+              const Text('Add Project'),
             ],
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'arrange_projects',
           child: Row(
             children: [
-              Icon(Icons.swap_vert, size: Sizes.iconSm),
-              SizedBox(width: Spacing.md),
-              Text('Arrange Projects'),
+              PhosphorIcon(PhosphorIcons.arrowsDownUp(), size: Sizes.iconSm),
+              const SizedBox(width: Spacing.md),
+              const Text('Arrange Projects'),
             ],
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'labels',
           child: Row(
             children: [
-              Icon(Icons.label_outline, size: Sizes.iconSm),
-              SizedBox(width: Spacing.md),
-              Text('Labels'),
+              PhosphorIcon(PhosphorIcons.tag(), size: Sizes.iconSm),
+              const SizedBox(width: Spacing.md),
+              const Text('Labels'),
             ],
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'settings',
           child: Row(
             children: [
-              Icon(Icons.settings, size: Sizes.iconSm),
-              SizedBox(width: Spacing.md),
-              Text('Settings'),
+              PhosphorIcon(PhosphorIcons.gear(), size: Sizes.iconSm),
+              const SizedBox(width: Spacing.md),
+              const Text('Settings'),
             ],
           ),
         ),

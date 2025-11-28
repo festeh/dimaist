@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../providers/task_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/ai_model_provider.dart';
@@ -172,7 +173,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
           children: [
             Row(
               children: [
-                const Icon(Icons.smart_toy),
+                PhosphorIcon(PhosphorIcons.robot()),
                 const SizedBox(width: 16),
                 const Text(
                   'AI Model:',
@@ -193,7 +194,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                         Expanded(
                           child: ModelDisplay(model: selectedModel),
                         ),
-                        const Icon(Icons.chevron_right, size: 20),
+                        PhosphorIcon(PhosphorIcons.caretRight(), size: 20),
                       ],
                     ),
                   ),
@@ -203,7 +204,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             const SizedBox(height: 24),
             Row(
               children: [
-                const Icon(Icons.palette),
+                PhosphorIcon(PhosphorIcons.palette()),
                 const SizedBox(width: 16),
                 const Text(
                   'Theme:',
@@ -218,7 +219,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             const SizedBox(height: 24),
             Row(
               children: [
-                const Icon(Icons.language),
+                PhosphorIcon(PhosphorIcons.globe()),
                 const SizedBox(width: 16),
                 const Text(
                   'ASR:',
@@ -233,7 +234,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             const SizedBox(height: 24),
             Row(
               children: [
-                const Icon(Icons.sync),
+                PhosphorIcon(PhosphorIcons.arrowsClockwise()),
                 const SizedBox(width: 16),
                 const Text(
                   'Data Sync:',

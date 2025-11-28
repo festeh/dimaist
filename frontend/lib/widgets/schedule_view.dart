@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../models/task.dart';
 import '../utils/value_wrapper.dart';
 
@@ -391,8 +392,8 @@ class _ScheduleViewState extends State<ScheduleView> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.drag_handle,
+            PhosphorIcon(
+              PhosphorIcons.dotsSixVertical(),
               size: 12,
               color: Theme.of(
                 context,
@@ -444,8 +445,8 @@ class _ScheduleViewState extends State<ScheduleView> {
                       ? () => _adjustTaskDuration(task, -30)
                       : null,
                   enabled: canShrink,
-                  child: Icon(
-                    Icons.remove,
+                  child: PhosphorIcon(
+                    PhosphorIcons.minus(),
                     size: 14,
                     color: canShrink
                         ? Theme.of(context).colorScheme.primary
@@ -465,10 +466,10 @@ class _ScheduleViewState extends State<ScheduleView> {
               ],
               GestureDetector(
                 onTap: () => widget.onToggleComplete(task),
-                child: Icon(
+                child: PhosphorIcon(
                   task.completedAt != null
-                      ? Icons.check_circle
-                      : Icons.circle_outlined,
+                      ? PhosphorIcons.checkCircle()
+                      : PhosphorIcons.circle(),
                   size: 16,
                   color: task.completedAt != null
                       ? Theme.of(context).colorScheme.onSurfaceVariant
@@ -476,8 +477,8 @@ class _ScheduleViewState extends State<ScheduleView> {
                 ),
               ),
               const SizedBox(width: 4),
-              Icon(
-                Icons.drag_handle,
+              PhosphorIcon(
+                PhosphorIcons.dotsSixVertical(),
                 size: 12,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -516,8 +517,8 @@ class _ScheduleViewState extends State<ScheduleView> {
                 _HoverButton(
                   onTap: () => _adjustTaskDuration(task, 30),
                   enabled: true,
-                  child: Icon(
-                    Icons.add,
+                  child: PhosphorIcon(
+                    PhosphorIcons.plus(),
                     size: 14,
                     color: Theme.of(context).colorScheme.primary,
                   ),
@@ -581,8 +582,8 @@ class _ScheduleViewState extends State<ScheduleView> {
         ),
         child: Row(
           children: [
-            Icon(
-              Icons.drag_handle,
+            PhosphorIcon(
+              PhosphorIcons.dotsSixVertical(),
               size: 18,
               color: Theme.of(
                 context,
@@ -623,10 +624,10 @@ class _ScheduleViewState extends State<ScheduleView> {
           children: [
             GestureDetector(
               onTap: () => widget.onToggleComplete(task),
-              child: Icon(
+              child: PhosphorIcon(
                 task.completedAt != null
-                    ? Icons.check_circle
-                    : Icons.circle_outlined,
+                    ? PhosphorIcons.checkCircle()
+                    : PhosphorIcons.circle(),
                 size: 18,
                 color: task.completedAt != null
                     ? Theme.of(context).colorScheme.onSurfaceVariant
@@ -634,8 +635,8 @@ class _ScheduleViewState extends State<ScheduleView> {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(
-              Icons.drag_handle,
+            PhosphorIcon(
+              PhosphorIcons.dotsSixVertical(),
               size: 16,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),

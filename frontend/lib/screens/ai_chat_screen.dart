@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 import '../repositories/providers.dart';
 import '../services/logging_service.dart';
@@ -573,8 +574,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
               children: [
                 ModelDisplay(model: selectedModel, iconSize: 20),
                 const SizedBox(width: Spacing.xs),
-                Icon(
-                  Icons.arrow_drop_down,
+                PhosphorIcon(
+                  PhosphorIcons.caretDown(),
                   size: Sizes.iconSm,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

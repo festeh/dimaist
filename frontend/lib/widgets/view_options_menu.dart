@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../enums/sort_mode.dart';
 import '../config/design_tokens.dart';
 
@@ -21,7 +22,7 @@ class ViewOptionsMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert, size: Sizes.iconSm),
+      icon: PhosphorIcon(PhosphorIcons.dotsThreeVertical(), size: Sizes.iconSm),
       tooltip: 'View Options',
       onSelected: (value) {
         switch (value) {
@@ -38,8 +39,8 @@ class ViewOptionsMenu extends StatelessWidget {
           value: 'sort',
           child: Row(
             children: [
-              Icon(
-                sortMode == SortMode.order ? Icons.reorder : Icons.sort,
+              PhosphorIcon(
+                sortMode == SortMode.order ? PhosphorIcons.sortAscending() : PhosphorIcons.calendarBlank(),
                 size: 20,
               ),
               const SizedBox(width: 12),
@@ -56,8 +57,8 @@ class ViewOptionsMenu extends StatelessWidget {
             value: 'schedule',
             child: Row(
               children: [
-                Icon(
-                  isScheduleView ? Icons.list : Icons.calendar_view_day,
+                PhosphorIcon(
+                  isScheduleView ? PhosphorIcons.list() : PhosphorIcons.calendar(),
                   size: 20,
                 ),
                 const SizedBox(width: 12),

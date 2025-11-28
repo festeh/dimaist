@@ -8,6 +8,7 @@ import 'package:dimaist/widgets/view_options_menu.dart';
 import 'package:dimaist/utils/value_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:dimaist/widgets/error_dialog.dart';
 import 'package:dimaist/widgets/task_widget.dart';
 import '../models/task.dart';
@@ -324,7 +325,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               IconButton(
-                icon: const Icon(Icons.add),
+                icon: PhosphorIcon(PhosphorIcons.plus(), size: Sizes.iconSm),
                 onPressed: _showAddTaskDialog,
                 tooltip: 'Add Task',
               ),
@@ -371,7 +372,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.check_circle_outline, size: 64),
+                      PhosphorIcon(PhosphorIcons.checkCircle(), size: 64),
                       const SizedBox(height: 16),
                       Text(
                         widget.customView?.type == BuiltInViewType.today

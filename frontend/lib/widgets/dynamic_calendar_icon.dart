@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class DynamicCalendarIcon extends StatelessWidget {
   const DynamicCalendarIcon({super.key});
@@ -9,7 +10,7 @@ class DynamicCalendarIcon extends StatelessWidget {
     return Stack(
       alignment: Alignment.center,
       children: [
-        const Icon(Icons.calendar_today_outlined, size: 24),
+        PhosphorIcon(PhosphorIcons.calendarBlank(), size: 24),
         Positioned(
           top: 6,
           child: Text(

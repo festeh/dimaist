@@ -1,6 +1,7 @@
 import 'package:dimaist/widgets/recording_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class LongPressFab extends StatefulWidget {
   final VoidCallback onPressed;
@@ -141,7 +142,7 @@ class _LongPressFabState extends State<LongPressFab>
         onPressed: widget.onPressed,
         tooltip:
             null, // Remove tooltip to prevent interference with long press on Android
-        child: const Icon(Icons.add),
+        child: PhosphorIcon(PhosphorIcons.plus()),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../widgets/recording_dialog.dart';
 
 class ChatInputWidget extends StatefulWidget {
@@ -97,8 +98,8 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
                     ).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(24),
                   ),
-                  child: Icon(
-                    Icons.mic,
+                  child: PhosphorIcon(
+                    PhosphorIcons.microphone(),
                     color: widget.isProcessing
                         ? Theme.of(
                             context,
@@ -170,8 +171,8 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
                         : Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(24),
                   ),
-                  child: Icon(
-                    Icons.send,
+                  child: PhosphorIcon(
+                    PhosphorIcons.paperPlaneRight(),
                     color: _hasText && !widget.isProcessing
                         ? Theme.of(context).colorScheme.onPrimary
                         : Theme.of(context).colorScheme.onSurfaceVariant,

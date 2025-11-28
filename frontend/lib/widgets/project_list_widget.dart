@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 import '../models/project.dart';
 import '../utils/color_utils.dart';
@@ -71,8 +72,8 @@ class ProjectList extends StatelessWidget {
                   if (isSelected)
                     PopupMenuButton<String>(
                       padding: EdgeInsets.zero,
-                      icon: Icon(
-                        Icons.more_vert,
+                      icon: PhosphorIcon(
+                        PhosphorIcons.dotsThreeVertical(),
                         size: Sizes.iconSm,
                         color: colors.onSurfaceVariant,
                       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 import '../models/project.dart';
 
@@ -74,7 +75,7 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(icon, color: displayColor, size: Sizes.iconMd),
+        PhosphorIcon(icon, color: displayColor, size: Sizes.iconMd),
         const SizedBox(width: Spacing.sm),
         Text(
           title,
@@ -121,24 +122,24 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
     );
   }
 
-  (IconData, String, Color) _getToolInfo(ColorScheme colors) {
+  (PhosphorIconData, String, Color) _getToolInfo(ColorScheme colors) {
     switch (widget.toolName) {
       case 'create_task':
-        return (Icons.add_task, 'Create Task', colors.primary);
+        return (PhosphorIcons.listPlus(), 'Create Task', colors.primary);
       case 'update_task':
-        return (Icons.edit, 'Update Task', colors.secondary);
+        return (PhosphorIcons.pencilSimple(), 'Update Task', colors.secondary);
       case 'delete_task':
-        return (Icons.delete_outline, 'Delete Task', colors.error);
+        return (PhosphorIcons.trash(), 'Delete Task', colors.error);
       case 'complete_task':
-        return (Icons.check_circle_outline, 'Complete Task', colors.tertiary);
+        return (PhosphorIcons.checkCircle(), 'Complete Task', colors.tertiary);
       case 'create_project':
-        return (Icons.create_new_folder, 'Create Project', colors.primary);
+        return (PhosphorIcons.folderPlus(), 'Create Project', colors.primary);
       case 'update_project':
-        return (Icons.edit, 'Update Project', colors.secondary);
+        return (PhosphorIcons.pencilSimple(), 'Update Project', colors.secondary);
       case 'delete_project':
-        return (Icons.folder_delete, 'Delete Project', colors.error);
+        return (PhosphorIcons.folderMinus(), 'Delete Project', colors.error);
       default:
-        return (Icons.help_outline, 'Unknown Action', colors.onSurface);
+        return (PhosphorIcons.question(), 'Unknown Action', colors.onSurface);
     }
   }
 
@@ -205,13 +206,13 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
             Row(
               children: [
                 if (projectName != null) ...[
-                  Icon(Icons.folder_outlined, size: Sizes.iconXs, color: colors.onSurfaceVariant),
+                  PhosphorIcon(PhosphorIcons.folder(), size: Sizes.iconXs, color: colors.onSurfaceVariant),
                   const SizedBox(width: Spacing.xs),
                   Text(projectName, style: theme.textTheme.bodySmall),
                 ],
                 if (dueDateStr != null) ...[
                   if (projectName != null) const SizedBox(width: Spacing.md),
-                  Icon(Icons.calendar_today, size: Sizes.iconXs, color: colors.onSurfaceVariant),
+                  PhosphorIcon(PhosphorIcons.calendar(), size: Sizes.iconXs, color: colors.onSurfaceVariant),
                   const SizedBox(width: Spacing.xs),
                   Text(dueDateStr, style: theme.textTheme.bodySmall),
                 ],
@@ -240,7 +241,7 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
             const SizedBox(height: Spacing.sm),
             OutlinedButton.icon(
               onPressed: () => _openTaskEditDialog(context),
-              icon: const Icon(Icons.edit, size: Sizes.iconSm),
+              icon: PhosphorIcon(PhosphorIcons.pencilSimple(), size: Sizes.iconSm),
               label: const Text('Edit'),
             ),
           ],
@@ -291,7 +292,7 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
             const SizedBox(height: Spacing.sm),
             OutlinedButton.icon(
               onPressed: () => _openProjectEditDialog(context),
-              icon: const Icon(Icons.edit, size: Sizes.iconSm),
+              icon: PhosphorIcon(PhosphorIcons.pencilSimple(), size: Sizes.iconSm),
               label: const Text('Edit'),
             ),
           ],

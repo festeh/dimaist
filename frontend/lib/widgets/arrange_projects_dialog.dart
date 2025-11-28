@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 import '../models/project.dart';
 import '../providers/project_provider.dart';
@@ -63,7 +64,7 @@ class _ArrangeProjectsDialogState extends ConsumerState<ArrangeProjectsDialog> {
                     style: theme.textTheme.titleLarge,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: PhosphorIcon(PhosphorIcons.x()),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -89,7 +90,7 @@ class _ArrangeProjectsDialogState extends ConsumerState<ArrangeProjectsDialog> {
                       title: Text(project.name),
                       trailing: ReorderableDragStartListener(
                         index: index,
-                        child: const Icon(Icons.drag_handle),
+                        child: PhosphorIcon(PhosphorIcons.dotsSixVertical()),
                       ),
                     );
                   },

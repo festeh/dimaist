@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../models/ai_model.dart';
 import '../providers/ai_model_provider.dart';
 import '../config/design_tokens.dart';
@@ -19,7 +20,7 @@ class ModelListDialog extends ConsumerWidget {
         children: [
           const Text('AI Models'),
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: PhosphorIcon(PhosphorIcons.plus(), size: Sizes.iconSm),
             tooltip: 'Add Model',
             onPressed: () => _showAddEditDialog(context, null),
           ),
@@ -48,10 +49,10 @@ class ModelListDialog extends ConsumerWidget {
                         padding: const EdgeInsets.all(Spacing.md),
                         child: Row(
                           children: [
-                            Icon(
+                            PhosphorIcon(
                               isSelected
-                                  ? Icons.radio_button_checked
-                                  : Icons.radio_button_unchecked,
+                                  ? PhosphorIcons.radioButton(PhosphorIconsStyle.fill)
+                                  : PhosphorIcons.circle(),
                               color: isSelected
                                   ? theme.colorScheme.primary
                                   : theme.colorScheme.onSurfaceVariant,
@@ -88,14 +89,14 @@ class ModelListDialog extends ConsumerWidget {
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.edit, size: Sizes.iconSm),
+                              icon: PhosphorIcon(PhosphorIcons.pencilSimple(), size: Sizes.iconSm),
                               tooltip: 'Edit',
                               onPressed: () => _showAddEditDialog(context, model),
                             ),
                             // Hide delete button if only one model remains
                             if (modelState.models.length > 1)
                               IconButton(
-                                icon: const Icon(Icons.delete, size: Sizes.iconSm),
+                                icon: PhosphorIcon(PhosphorIcons.trash(), size: Sizes.iconSm),
                                 tooltip: 'Delete',
                                 onPressed: () => _confirmDelete(context, ref, model),
                               ),
@@ -120,7 +121,7 @@ class ModelListDialog extends ConsumerWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.smart_toy_outlined, size: 48),
+        PhosphorIcon(PhosphorIcons.robot(), size: 48),
         const SizedBox(height: Spacing.md),
         Text(
           'No models configured',
@@ -136,7 +137,7 @@ class ModelListDialog extends ConsumerWidget {
         const SizedBox(height: Spacing.lg),
         ElevatedButton.icon(
           onPressed: () => _showAddEditDialog(context, null),
-          icon: const Icon(Icons.add),
+          icon: PhosphorIcon(PhosphorIcons.plus(), size: Sizes.iconSm),
           label: const Text('Add Model'),
         ),
       ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 import '../models/search_result.dart';
 import '../providers/search_provider.dart';
@@ -25,8 +26,8 @@ class SearchResultsScreen extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
+            PhosphorIcon(
+              PhosphorIcons.warning(),
               size: 64,
               color: theme.colorScheme.error,
             ),
@@ -52,8 +53,8 @@ class SearchResultsScreen extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.search_off,
+            PhosphorIcon(
+              PhosphorIcons.magnifyingGlass(),
               size: 64,
               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             ),
@@ -114,16 +115,16 @@ class _SearchResultTile extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return ListTile(
-      leading: Icon(
-        result.isTask ? Icons.check_box_outline_blank : Icons.folder_outlined,
+      leading: PhosphorIcon(
+        result.isTask ? PhosphorIcons.square() : PhosphorIcons.folder(),
         color: theme.colorScheme.primary,
       ),
       title: Text(result.title),
       subtitle: result.subtitle != null && result.subtitle!.isNotEmpty
           ? Text(result.subtitle!)
           : null,
-      trailing: Icon(
-        Icons.arrow_forward_ios,
+      trailing: PhosphorIcon(
+        PhosphorIcons.caretRight(),
         size: Sizes.iconXs,
         color: theme.colorScheme.onSurfaceVariant,
       ),

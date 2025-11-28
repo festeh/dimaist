@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../models/task.dart';
 
 class DueWidget extends StatelessWidget {
@@ -62,8 +63,8 @@ class DueWidget extends StatelessWidget {
 
     return Row(
       children: [
-        Icon(
-          Icons.calendar_today,
+        PhosphorIcon(
+          PhosphorIcons.calendar(),
           size: 16,
           color: isMissed
               ? Theme.of(context).colorScheme.error

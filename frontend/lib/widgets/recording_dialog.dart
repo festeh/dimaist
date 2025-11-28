@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:record/record.dart';
 import '../screens/ai_chat_screen.dart';
 
@@ -127,12 +128,12 @@ class _RecordingDialogState extends ConsumerState<RecordingDialog>
           if (_isRecording)
             ScaleTransition(
               scale: _scaleAnimation,
-              child: const Icon(Icons.mic, size: 50),
+              child: PhosphorIcon(PhosphorIcons.microphone(), size: 50),
             )
           else if (_isProcessing)
             ScaleTransition(
               scale: _scaleAnimation,
-              child: const Icon(Icons.hourglass_empty, size: 50),
+              child: PhosphorIcon(PhosphorIcons.hourglass(), size: 50),
             )
           else
             const SizedBox.shrink(),

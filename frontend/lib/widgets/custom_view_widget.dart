@@ -1,16 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 import 'dynamic_calendar_icon.dart';
 
 enum BuiltInViewType {
-  today('Today', Icons.today),
-  upcoming('Upcoming', Icons.calendar_today),
-  next('Next', Icons.arrow_forward);
+  today('Today'),
+  upcoming('Upcoming'),
+  next('Next');
 
-  const BuiltInViewType(this.displayName, this.icon);
+  const BuiltInViewType(this.displayName);
 
   final String displayName;
-  final IconData icon;
+
+  PhosphorIconData get icon {
+    switch (this) {
+      case BuiltInViewType.today:
+        return PhosphorIcons.calendarCheck();
+      case BuiltInViewType.upcoming:
+        return PhosphorIcons.clockCountdown();
+      case BuiltInViewType.next:
+        return PhosphorIcons.play();
+    }
+  }
 }
 
 class CustomView {
@@ -19,7 +30,7 @@ class CustomView {
   const CustomView(this.type);
 
   String get name => type.displayName;
-  IconData get icon => type.icon;
+  PhosphorIconData get icon => type.icon;
 
   @override
   bool operator ==(Object other) =>
@@ -71,7 +82,7 @@ class CustomViewWidget extends StatelessWidget {
                   if (view.type == BuiltInViewType.today)
                     const DynamicCalendarIcon()
                   else
-                    Icon(view.icon, size: Sizes.iconMd),
+                    PhosphorIcon(view.icon, size: Sizes.iconMd),
                   const SizedBox(width: Spacing.lg),
                   Expanded(
                     child: Text(

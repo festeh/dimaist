@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../models/project.dart';
 import '../models/app_bar_config.dart';
 import '../providers/view_provider.dart';
@@ -54,7 +55,7 @@ class _MobileLayoutState extends ConsumerState<MobileLayout> {
         title: _appBarConfig!.title,
         actions: _appBarConfig!.actions,
         leading: IconButton(
-          icon: const Icon(Icons.menu),
+          icon: PhosphorIcon(PhosphorIcons.list()),
           onPressed: () {
             scaffoldKey.currentState?.openDrawer();
           },
@@ -80,7 +81,7 @@ class _MobileLayoutState extends ConsumerState<MobileLayout> {
     return AppBar(
       title: Text(title),
       leading: IconButton(
-        icon: const Icon(Icons.menu),
+        icon: PhosphorIcon(PhosphorIcons.list()),
         onPressed: () {
           scaffoldKey.currentState?.openDrawer();
         },

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:dimaist/models/project.dart';
 import 'package:dimaist/models/task.dart';
 import 'package:dimaist/services/app_database.dart';
@@ -135,7 +136,7 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
               style: TextButton.styleFrom(
                 foregroundColor: colors.error,
               ),
-              icon: const Icon(Icons.delete_outline, size: Sizes.iconSm),
+              icon: PhosphorIcon(PhosphorIcons.trash(), size: Sizes.iconSm),
               label: const Text('Delete'),
             ),
         ],
@@ -266,8 +267,8 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
                 padding: const EdgeInsets.all(Spacing.md),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.calendar_today,
+                    PhosphorIcon(
+                      PhosphorIcons.calendar(),
                       size: Sizes.iconSm,
                       color: colors.onSurfaceVariant,
                     ),
@@ -309,8 +310,8 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.access_time,
+                  PhosphorIcon(
+                    PhosphorIcons.clock(),
                     size: Sizes.iconSm,
                     color: colors.onSurfaceVariant,
                   ),
@@ -333,7 +334,7 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
           // Clear button
           if (_selectedDate != null)
             IconButton(
-              icon: Icon(Icons.clear, size: Sizes.iconSm),
+              icon: PhosphorIcon(PhosphorIcons.x(), size: Sizes.iconSm),
               onPressed: _clearDateTime,
               padding: const EdgeInsets.all(Spacing.sm),
               constraints: const BoxConstraints(),
@@ -437,7 +438,7 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
             ),
             if (_selectedStartDate != null || _selectedEndDate != null)
               IconButton(
-                icon: Icon(Icons.clear, size: Sizes.iconSm),
+                icon: PhosphorIcon(PhosphorIcons.x(), size: Sizes.iconSm),
                 onPressed: _clearSchedule,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -461,8 +462,8 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
-              child: Icon(
-                Icons.arrow_forward,
+              child: PhosphorIcon(
+                PhosphorIcons.arrowRight(),
                 size: Sizes.iconSm,
                 color: colors.onSurfaceVariant,
               ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 import '../models/task.dart';
 import 'due_widget.dart';
@@ -49,8 +50,8 @@ class TaskWidget extends StatelessWidget {
               if (showDragHandle && dragIndex != null) ...[
                 ReorderableDragStartListener(
                   index: dragIndex!,
-                  child: Icon(
-                    Icons.drag_handle,
+                  child: PhosphorIcon(
+                    PhosphorIcons.dotsSixVertical(),
                     size: Sizes.iconSm,
                     color: colors.onSurfaceVariant,
                   ),
@@ -105,8 +106,8 @@ class TaskWidget extends StatelessWidget {
       children: [
         // Recurrence indicator
         if (task.recurrence != null && task.recurrence!.isNotEmpty) ...[
-          Icon(
-            Icons.repeat,
+          PhosphorIcon(
+            PhosphorIcons.arrowsClockwise(),
             size: Sizes.iconXs,
             color: colors.onSurfaceVariant,
           ),

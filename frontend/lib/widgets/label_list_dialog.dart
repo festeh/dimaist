@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../models/label.dart';
 import '../providers/label_provider.dart';
 import '../config/design_tokens.dart';
@@ -71,7 +72,7 @@ class _LabelListDialogState extends ConsumerState<LabelListDialog> {
         children: [
           const Text('Labels'),
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: PhosphorIcon(PhosphorIcons.plus(), size: Sizes.iconSm),
             tooltip: 'Add Label',
             onPressed: _editingLabelId == null ? _startAdding : null,
           ),
@@ -134,12 +135,12 @@ class _LabelListDialogState extends ConsumerState<LabelListDialog> {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.edit, size: Sizes.iconSm),
+              icon: PhosphorIcon(PhosphorIcons.pencilSimple(), size: Sizes.iconSm),
               tooltip: 'Edit',
               onPressed: () => _startEditing(label),
             ),
             IconButton(
-              icon: const Icon(Icons.delete, size: Sizes.iconSm),
+              icon: PhosphorIcon(PhosphorIcons.trash(), size: Sizes.iconSm),
               tooltip: 'Delete',
               onPressed: () => _confirmDelete(label),
             ),
@@ -222,7 +223,7 @@ class _LabelListDialogState extends ConsumerState<LabelListDialog> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.label_outline, size: 48),
+        PhosphorIcon(PhosphorIcons.tag(), size: 48),
         const SizedBox(height: Spacing.md),
         Text(
           'No labels yet',
@@ -238,7 +239,7 @@ class _LabelListDialogState extends ConsumerState<LabelListDialog> {
         const SizedBox(height: Spacing.lg),
         ElevatedButton.icon(
           onPressed: _startAdding,
-          icon: const Icon(Icons.add),
+          icon: PhosphorIcon(PhosphorIcons.plus(), size: Sizes.iconSm),
           label: const Text('Add Label'),
         ),
       ],

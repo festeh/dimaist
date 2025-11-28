@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'dart:async';
 import '../config/design_tokens.dart';
 import '../providers/search_provider.dart';
@@ -58,8 +59,8 @@ class _SearchBarWidgetState extends ConsumerState<SearchBarWidget> {
           ),
           prefixIcon: Padding(
             padding: const EdgeInsets.only(left: Spacing.md, right: Spacing.sm),
-            child: Icon(
-              Icons.search,
+            child: PhosphorIcon(
+              PhosphorIcons.magnifyingGlass(),
               size: Sizes.iconSm,
               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
@@ -70,7 +71,7 @@ class _SearchBarWidgetState extends ConsumerState<SearchBarWidget> {
           ),
           suffixIcon: searchState.query.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.clear, size: Sizes.iconSm),
+                  icon: PhosphorIcon(PhosphorIcons.x(), size: Sizes.iconSm),
                   onPressed: _clearSearch,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
