@@ -114,9 +114,10 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
             // Text input field
             Expanded(
               child: Container(
+                constraints: const BoxConstraints(maxHeight: 120),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(28),
                 ),
                 child: KeyboardListener(
                   focusNode: FocusNode(),
@@ -145,9 +146,9 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
                         vertical: 14,
                       ),
                     ),
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sendMessage(),
-                    maxLines: 1,
+                    textInputAction: TextInputAction.newline,
+                    minLines: 1,
+                    maxLines: 5,
                   ),
                 ),
               ),
