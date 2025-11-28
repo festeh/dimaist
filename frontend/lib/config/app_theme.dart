@@ -5,10 +5,10 @@ import 'design_tokens.dart';
 class AppTheme {
   AppTheme._();
 
-  /// Creates a ThemeData for the specified theme mode
-  static ThemeData create(AppThemeMode mode) {
+  /// Creates a ThemeData for the specified theme mode and font
+  static ThemeData create(AppThemeMode mode, [AppFont font = AppFont.inter]) {
     final colors = AppColors.forTheme(mode);
-    final textTheme = _buildTextTheme(colors);
+    final textTheme = _buildTextTheme(colors, font);
 
     return ThemeData(
       brightness: Brightness.dark,
@@ -164,7 +164,7 @@ class AppTheme {
           borderRadius: BorderRadius.circular(Radii.lg),
           side: BorderSide(color: colors.border),
         ),
-        titleTextStyle: GoogleFonts.inter(
+        titleTextStyle: _getFontTextStyle(font).copyWith(
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: colors.textPrimary,
@@ -214,92 +214,131 @@ class AppTheme {
     );
   }
 
-  static TextTheme _buildTextTheme(BaseColors colors) {
-    return GoogleFonts.interTextTheme().copyWith(
+  static TextStyle _getFontTextStyle(AppFont font) {
+    switch (font) {
+      case AppFont.inter:
+        return GoogleFonts.inter();
+      case AppFont.plusJakartaSans:
+        return GoogleFonts.plusJakartaSans();
+      case AppFont.nunito:
+        return GoogleFonts.nunito();
+      case AppFont.dmSans:
+        return GoogleFonts.dmSans();
+      case AppFont.outfit:
+        return GoogleFonts.outfit();
+      case AppFont.figtree:
+        return GoogleFonts.figtree();
+      case AppFont.spaceGrotesk:
+        return GoogleFonts.spaceGrotesk();
+    }
+  }
+
+  static TextTheme _getBaseTextTheme(AppFont font) {
+    switch (font) {
+      case AppFont.inter:
+        return GoogleFonts.interTextTheme();
+      case AppFont.plusJakartaSans:
+        return GoogleFonts.plusJakartaSansTextTheme();
+      case AppFont.nunito:
+        return GoogleFonts.nunitoTextTheme();
+      case AppFont.dmSans:
+        return GoogleFonts.dmSansTextTheme();
+      case AppFont.outfit:
+        return GoogleFonts.outfitTextTheme();
+      case AppFont.figtree:
+        return GoogleFonts.figtreeTextTheme();
+      case AppFont.spaceGrotesk:
+        return GoogleFonts.spaceGroteskTextTheme();
+    }
+  }
+
+  static TextTheme _buildTextTheme(BaseColors colors, AppFont font) {
+    final base = _getBaseTextTheme(font);
+    return base.copyWith(
       // Display
-      displayLarge: TextStyle(
+      displayLarge: base.displayLarge?.copyWith(
         fontSize: 57,
         fontWeight: FontWeight.w400,
         color: colors.textPrimary,
         letterSpacing: -0.25,
       ),
-      displayMedium: TextStyle(
+      displayMedium: base.displayMedium?.copyWith(
         fontSize: 45,
         fontWeight: FontWeight.w400,
         color: colors.textPrimary,
       ),
-      displaySmall: TextStyle(
+      displaySmall: base.displaySmall?.copyWith(
         fontSize: 36,
         fontWeight: FontWeight.w400,
         color: colors.textPrimary,
       ),
       // Headline
-      headlineLarge: TextStyle(
+      headlineLarge: base.headlineLarge?.copyWith(
         fontSize: 32,
         fontWeight: FontWeight.w600,
         color: colors.textPrimary,
       ),
-      headlineMedium: TextStyle(
+      headlineMedium: base.headlineMedium?.copyWith(
         fontSize: 28,
         fontWeight: FontWeight.w600,
         color: colors.textPrimary,
       ),
-      headlineSmall: TextStyle(
+      headlineSmall: base.headlineSmall?.copyWith(
         fontSize: 24,
         fontWeight: FontWeight.w600,
         color: colors.textPrimary,
       ),
       // Title
-      titleLarge: TextStyle(
+      titleLarge: base.titleLarge?.copyWith(
         fontSize: 22,
         fontWeight: FontWeight.w500,
         color: colors.textPrimary,
       ),
-      titleMedium: TextStyle(
+      titleMedium: base.titleMedium?.copyWith(
         fontSize: 16,
         fontWeight: FontWeight.w500,
         color: colors.textPrimary,
         letterSpacing: 0.15,
       ),
-      titleSmall: TextStyle(
+      titleSmall: base.titleSmall?.copyWith(
         fontSize: 14,
         fontWeight: FontWeight.w500,
         color: colors.textPrimary,
         letterSpacing: 0.1,
       ),
       // Body
-      bodyLarge: TextStyle(
+      bodyLarge: base.bodyLarge?.copyWith(
         fontSize: 16,
         fontWeight: FontWeight.w400,
         color: colors.textPrimary,
         letterSpacing: 0.5,
       ),
-      bodyMedium: TextStyle(
+      bodyMedium: base.bodyMedium?.copyWith(
         fontSize: 14,
         fontWeight: FontWeight.w400,
         color: colors.textPrimary,
         letterSpacing: 0.25,
       ),
-      bodySmall: TextStyle(
+      bodySmall: base.bodySmall?.copyWith(
         fontSize: 12,
         fontWeight: FontWeight.w400,
         color: colors.textSecondary,
         letterSpacing: 0.4,
       ),
       // Label
-      labelLarge: TextStyle(
+      labelLarge: base.labelLarge?.copyWith(
         fontSize: 14,
         fontWeight: FontWeight.w500,
         color: colors.textPrimary,
         letterSpacing: 0.1,
       ),
-      labelMedium: TextStyle(
+      labelMedium: base.labelMedium?.copyWith(
         fontSize: 12,
         fontWeight: FontWeight.w500,
         color: colors.textSecondary,
         letterSpacing: 0.5,
       ),
-      labelSmall: TextStyle(
+      labelSmall: base.labelSmall?.copyWith(
         fontSize: 11,
         fontWeight: FontWeight.w500,
         color: colors.textMuted,

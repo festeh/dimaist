@@ -9,6 +9,7 @@ import 'services/tray_service.dart';
 import 'services/settings_service.dart';
 import 'providers/project_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/font_provider.dart';
 import 'widgets/app_scaffold.dart';
 
 void main() async {
@@ -31,11 +32,12 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeProvider);
+    final font = ref.watch(fontProvider);
 
     return MaterialApp(
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.create(themeMode),
+      theme: AppTheme.create(themeMode, font),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,

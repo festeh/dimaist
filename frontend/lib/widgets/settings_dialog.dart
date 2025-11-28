@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../providers/task_provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/font_provider.dart';
 import '../providers/ai_model_provider.dart';
 import '../providers/asr_language_provider.dart';
 import '../services/logging_service.dart';
@@ -119,6 +121,68 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     );
   }
 
+  TextStyle _getFontStyle(AppFont font) {
+    switch (font) {
+      case AppFont.inter:
+        return GoogleFonts.inter();
+      case AppFont.plusJakartaSans:
+        return GoogleFonts.plusJakartaSans();
+      case AppFont.nunito:
+        return GoogleFonts.nunito();
+      case AppFont.dmSans:
+        return GoogleFonts.dmSans();
+      case AppFont.outfit:
+        return GoogleFonts.outfit();
+      case AppFont.figtree:
+        return GoogleFonts.figtree();
+      case AppFont.spaceGrotesk:
+        return GoogleFonts.spaceGrotesk();
+    }
+  }
+
+  Widget _buildFontSelector() {
+    final currentFont = ref.watch(fontProvider);
+    final currentTheme = ref.watch(themeProvider);
+    final colors = AppColors.forTheme(currentTheme);
+
+    return Wrap(
+      spacing: Spacing.sm,
+      runSpacing: Spacing.sm,
+      children: AppFont.values.map((font) {
+        final isSelected = font == currentFont;
+
+        return Tooltip(
+          message: font.description,
+          child: InkWell(
+            onTap: () => ref.read(fontProvider.notifier).setFont(font),
+            borderRadius: BorderRadius.circular(Radii.sm),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.md,
+                vertical: Spacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: isSelected ? colors.primary.withValues(alpha: 0.2) : null,
+                border: Border.all(
+                  color: isSelected ? colors.primary : colors.border,
+                  width: isSelected ? 2 : 1,
+                ),
+                borderRadius: BorderRadius.circular(Radii.sm),
+              ),
+              child: Text(
+                font.displayName,
+                style: _getFontStyle(font).copyWith(
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected ? colors.primary : null,
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildAsrLanguageSelector() {
     final currentLanguage = ref.watch(asrLanguageProvider);
     final currentTheme = ref.watch(themeProvider);
@@ -213,6 +277,28 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildThemeSelector(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: Spacing.sm),
+                  child: PhosphorIcon(PhosphorIcons.textAa()),
+                ),
+                const SizedBox(width: 16),
+                const Padding(
+                  padding: EdgeInsets.only(top: Spacing.sm),
+                  child: Text(
+                    'Font:',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildFontSelector(),
                 ),
               ],
             ),

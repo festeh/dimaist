@@ -62,6 +62,22 @@ class Durations {
   static const Duration slower = Duration(milliseconds: 500);
 }
 
+/// App font options
+enum AppFont {
+  inter('Inter', 'Clean & professional'),
+  plusJakartaSans('Plus Jakarta Sans', 'Modern & trendy'),
+  nunito('Nunito', 'Friendly & rounded'),
+  dmSans('DM Sans', 'Geometric & clean'),
+  outfit('Outfit', 'Contemporary'),
+  figtree('Figtree', 'Designed for UI'),
+  spaceGrotesk('Space Grotesk', 'Techy & unique');
+
+  final String displayName;
+  final String description;
+
+  const AppFont(this.displayName, this.description);
+}
+
 /// App theme identifiers
 enum AppThemeMode {
   midnight('Midnight', 'Deep navy with cyan accents'),

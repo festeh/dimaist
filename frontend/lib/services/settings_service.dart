@@ -3,6 +3,7 @@ import '../config/design_tokens.dart';
 
 class SettingsService {
   static const String _themeKey = 'app_theme';
+  static const String _fontKey = 'app_font';
   static const String _asrLanguageKey = 'asr_language';
 
   static SettingsService? _instance;
@@ -30,6 +31,19 @@ class SettingsService {
 
   Future<void> setThemeMode(AppThemeMode mode) async {
     await _prefs?.setString(_themeKey, mode.name);
+  }
+
+  AppFont get font {
+    final fontString = _prefs?.getString(_fontKey);
+    if (fontString == null) return AppFont.inter;
+    return AppFont.values.firstWhere(
+      (font) => font.name == fontString,
+      orElse: () => AppFont.inter,
+    );
+  }
+
+  Future<void> setFont(AppFont font) async {
+    await _prefs?.setString(_fontKey, font.name);
   }
 
   String get asrLanguage {
