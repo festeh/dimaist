@@ -24,7 +24,7 @@ run-linux:
     @just _run-with-env flutter run -d linux
 
 # Run Linux app with local backend (starts backend automatically)
-run-linux-local:
+run-linux-local verbose="":
     #!/usr/bin/env bash
     set -e
 
@@ -42,8 +42,14 @@ run-linux-local:
         exit 1
     fi
 
-    echo "Starting backend on port $PORT..."
-    cd backend && go run . -port=$PORT &
+    VERBOSE_FLAG=""
+    if [ "{{verbose}}" = "verbose" ]; then
+        VERBOSE_FLAG="--verbose"
+        echo "Starting backend on port $PORT with verbose logging..."
+    else
+        echo "Starting backend on port $PORT..."
+    fi
+    cd backend && go run . -port=$PORT $VERBOSE_FLAG &
     BACKEND_PID=$!
 
     # Wait for backend to start

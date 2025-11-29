@@ -6,18 +6,15 @@ import '../models/ai_model.dart';
 class AiModelState {
   final List<AiModel> models;
   final String? selectedModelId;
-  final bool isLoading;
 
   const AiModelState({
     required this.models,
     this.selectedModelId,
-    this.isLoading = false,
   });
 
-  /// Returns the selected model. Always returns a model since we guarantee at least one exists.
+  /// Returns the selected model - always valid after init
   AiModel get selectedModel {
     if (models.isEmpty) {
-      // This should never happen, but fallback to a default
       return AiModelNotifier._defaultModels.first;
     }
     if (selectedModelId == null) {
@@ -33,13 +30,11 @@ class AiModelState {
   AiModelState copyWith({
     List<AiModel>? models,
     String? selectedModelId,
-    bool? isLoading,
     bool clearSelectedModel = false,
   }) {
     return AiModelState(
       models: models ?? this.models,
       selectedModelId: clearSelectedModel ? null : (selectedModelId ?? this.selectedModelId),
-      isLoading: isLoading ?? this.isLoading,
     );
   }
 }
@@ -56,14 +51,16 @@ class AiModelNotifier extends StateNotifier<AiModelState> {
     AiModel(id: 'default_5', modelName: 'z-ai/glm-4.6:turbo', provider: AiProvider.openrouter),
   ];
 
-  SharedPreferences? _prefs;
+  static SharedPreferences? _prefs;
 
-  AiModelNotifier() : super(const AiModelState(models: [], isLoading: true)) {
-    _loadModels();
+  /// Must be called before app starts
+  static Future<void> init() async {
+    _prefs = await SharedPreferences.getInstance();
   }
 
-  Future<void> _loadModels() async {
-    _prefs = await SharedPreferences.getInstance();
+  AiModelNotifier() : super(_loadInitialState());
+
+  static AiModelState _loadInitialState() {
     final modelsJson = _prefs?.getString(_modelsKey);
     final selectedId = _prefs?.getString(_selectedKey);
 
@@ -73,18 +70,23 @@ class AiModelNotifier extends StateNotifier<AiModelState> {
         final List<dynamic> decoded = jsonDecode(modelsJson);
         models = decoded.map((e) => AiModel.fromJson(e)).toList();
       } catch (_) {
-        // Invalid JSON, use defaults
         models = List.from(_defaultModels);
       }
     } else {
-      // No saved models, use defaults
       models = List.from(_defaultModels);
     }
 
-    state = AiModelState(
+    // Validate selectedId exists in models
+    String? validSelectedId;
+    if (selectedId != null && models.any((m) => m.id == selectedId)) {
+      validSelectedId = selectedId;
+    } else if (models.isNotEmpty) {
+      validSelectedId = models.first.id;
+    }
+
+    return AiModelState(
       models: models,
-      selectedModelId: selectedId ?? (models.isNotEmpty ? models.first.id : null),
-      isLoading: false,
+      selectedModelId: validSelectedId,
     );
   }
 

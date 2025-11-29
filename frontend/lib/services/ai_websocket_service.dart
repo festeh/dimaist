@@ -35,11 +35,7 @@ class AiWebSocketService {
       return;
     }
 
-    _logger.info('Starting AI conversation', {
-      'messages_count': messages.length,
-      'provider': provider,
-      'model': model,
-    });
+    _logger.info('Starting AI conversation with provider: $provider, model: $model');
 
     // Send start message
     final startMessage = {

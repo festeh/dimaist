@@ -23,7 +23,7 @@ func LoadRecentTasks(limit int) ([]database.Task, error) {
 	// Get date 30 days ago for filtering completed tasks
 	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
 
-	result := database.DB.Preload("Project").
+	result := database.DB.
 		Where("deleted_at IS NULL").
 		Where("completed_at IS NULL OR completed_at > ?", thirtyDaysAgo).
 		Order("updated_at DESC").
@@ -41,10 +41,7 @@ func LoadRecentTasks(limit int) ([]database.Task, error) {
 func LoadRecentProjects(limit int) ([]database.Project, error) {
 	var projects []database.Project
 
-	// Get date 30 days ago for filtering completed tasks
-	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
-
-	result := database.DB.Preload("Tasks", "deleted_at IS NULL AND (completed_at IS NULL OR completed_at > ?)", thirtyDaysAgo).
+	result := database.DB.
 		Where("deleted_at IS NULL").
 		Order("updated_at DESC").
 		Limit(limit).

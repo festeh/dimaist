@@ -291,6 +291,9 @@ func (a *Agent) executeSingleRequestStructured(ctx context.Context, requestBody 
 		return nil, fmt.Errorf("no choices in response")
 	}
 
+	// Debug: Log full response (only visible with --verbose flag)
+	logger.Debug("AI response").Interface("response", response).Send()
+
 	return &response, nil
 }
 

@@ -239,8 +239,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     _scrollToBottom();
 
     try {
-      final modelState = ref.read(aiModelProvider);
-      final selectedModel = modelState.selectedModel;
+      final selectedModel = ref.read(aiModelProvider).selectedModel;
       final provider = selectedModel.provider.name;
       final model = selectedModel.modelName;
 
@@ -558,6 +557,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     final selectedModel = modelState.selectedModel;
     final projectsAsync = ref.watch(projectProvider);
     final projects = projectsAsync.valueOrNull ?? [];
+
 
     return Scaffold(
       appBar: AppBar(
