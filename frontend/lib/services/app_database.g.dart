@@ -50,8 +50,17 @@ class $ProjectsTable extends Projects
     requiredDuringInsert: false,
     defaultValue: const Constant('grey'),
   );
+  static const VerificationMeta _iconMeta = const VerificationMeta('icon');
   @override
-  List<GeneratedColumn> get $columns => [id, name, order, color];
+  late final GeneratedColumn<String> icon = GeneratedColumn<String>(
+    'icon',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name, order, color, icon];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -89,6 +98,12 @@ class $ProjectsTable extends Projects
         color.isAcceptableOrUnknown(data['color']!, _colorMeta),
       );
     }
+    if (data.containsKey('icon')) {
+      context.handle(
+        _iconMeta,
+        icon.isAcceptableOrUnknown(data['icon']!, _iconMeta),
+      );
+    }
     return context;
   }
 
@@ -114,6 +129,10 @@ class $ProjectsTable extends Projects
         DriftSqlType.string,
         data['${effectivePrefix}color'],
       )!,
+      icon: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}icon'],
+      ),
     );
   }
 
@@ -128,17 +147,20 @@ class ProjectsCompanion extends UpdateCompanion<project_model.Project> {
   final Value<String> name;
   final Value<int> order;
   final Value<String> color;
+  final Value<String?> icon;
   const ProjectsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.order = const Value.absent(),
     this.color = const Value.absent(),
+    this.icon = const Value.absent(),
   });
   ProjectsCompanion.insert({
     this.id = const Value.absent(),
     required String name,
     required int order,
     this.color = const Value.absent(),
+    this.icon = const Value.absent(),
   }) : name = Value(name),
        order = Value(order);
   static Insertable<project_model.Project> custom({
@@ -146,12 +168,14 @@ class ProjectsCompanion extends UpdateCompanion<project_model.Project> {
     Expression<String>? name,
     Expression<int>? order,
     Expression<String>? color,
+    Expression<String>? icon,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (order != null) 'order': order,
       if (color != null) 'color': color,
+      if (icon != null) 'icon': icon,
     });
   }
 
@@ -160,12 +184,14 @@ class ProjectsCompanion extends UpdateCompanion<project_model.Project> {
     Value<String>? name,
     Value<int>? order,
     Value<String>? color,
+    Value<String?>? icon,
   }) {
     return ProjectsCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       order: order ?? this.order,
       color: color ?? this.color,
+      icon: icon ?? this.icon,
     );
   }
 
@@ -184,6 +210,9 @@ class ProjectsCompanion extends UpdateCompanion<project_model.Project> {
     if (color.present) {
       map['color'] = Variable<String>(color.value);
     }
+    if (icon.present) {
+      map['icon'] = Variable<String>(icon.value);
+    }
     return map;
   }
 
@@ -193,7 +222,8 @@ class ProjectsCompanion extends UpdateCompanion<project_model.Project> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('order: $order, ')
-          ..write('color: $color')
+          ..write('color: $color, ')
+          ..write('icon: $icon')
           ..write(')'))
         .toString();
   }
@@ -700,6 +730,7 @@ typedef $$ProjectsTableCreateCompanionBuilder =
       required String name,
       required int order,
       Value<String> color,
+      Value<String?> icon,
     });
 typedef $$ProjectsTableUpdateCompanionBuilder =
     ProjectsCompanion Function({
@@ -707,6 +738,7 @@ typedef $$ProjectsTableUpdateCompanionBuilder =
       Value<String> name,
       Value<int> order,
       Value<String> color,
+      Value<String?> icon,
     });
 
 class $$ProjectsTableFilterComposer
@@ -735,6 +767,11 @@ class $$ProjectsTableFilterComposer
 
   ColumnFilters<String> get color => $composableBuilder(
     column: $table.color,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get icon => $composableBuilder(
+    column: $table.icon,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -767,6 +804,11 @@ class $$ProjectsTableOrderingComposer
     column: $table.color,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get icon => $composableBuilder(
+    column: $table.icon,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ProjectsTableAnnotationComposer
@@ -789,6 +831,9 @@ class $$ProjectsTableAnnotationComposer
 
   GeneratedColumn<String> get color =>
       $composableBuilder(column: $table.color, builder: (column) => column);
+
+  GeneratedColumn<String> get icon =>
+      $composableBuilder(column: $table.icon, builder: (column) => column);
 }
 
 class $$ProjectsTableTableManager
@@ -830,11 +875,13 @@ class $$ProjectsTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<int> order = const Value.absent(),
                 Value<String> color = const Value.absent(),
+                Value<String?> icon = const Value.absent(),
               }) => ProjectsCompanion(
                 id: id,
                 name: name,
                 order: order,
                 color: color,
+                icon: icon,
               ),
           createCompanionCallback:
               ({
@@ -842,11 +889,13 @@ class $$ProjectsTableTableManager
                 required String name,
                 required int order,
                 Value<String> color = const Value.absent(),
+                Value<String?> icon = const Value.absent(),
               }) => ProjectsCompanion.insert(
                 id: id,
                 name: name,
                 order: order,
                 color: color,
+                icon: icon,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

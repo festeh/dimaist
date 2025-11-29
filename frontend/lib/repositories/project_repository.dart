@@ -107,7 +107,7 @@ class ProjectRepository implements IProjectRepository {
   }
 
   @override
-  Future<Project> createProject(String name, String color) async {
+  Future<Project> createProject(String name, String color, String? icon) async {
     LoggingService.logger.info(
       'ProjectRepository: Creating project "$name"...',
     );
@@ -116,6 +116,7 @@ class ProjectRepository implements IProjectRepository {
       final newProject = Project(
         name: name,
         color: color,
+        icon: icon,
         order: (await _database.allProjects).length,
       );
 

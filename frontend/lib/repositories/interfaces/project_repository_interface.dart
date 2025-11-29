@@ -9,7 +9,7 @@ abstract class IProjectRepository {
   Future<List<Project>> syncAndGetProjects();
 
   /// Create a new project
-  Future<Project> createProject(String name, String color);
+  Future<Project> createProject(String name, String color, String? icon);
 
   /// Update an existing project
   Future<void> updateProject(Project project);

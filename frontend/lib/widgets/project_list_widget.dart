@@ -3,6 +3,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 import '../models/project.dart';
 import '../utils/color_utils.dart';
+import '../utils/icon_utils.dart';
 
 class ProjectList extends StatelessWidget {
   final List<Project> projects;
@@ -47,15 +48,22 @@ class ProjectList extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  // Color dot
-                  Container(
-                    width: Sizes.avatarSm * 2,
-                    height: Sizes.avatarSm * 2,
-                    decoration: BoxDecoration(
+                  // Icon or color dot
+                  if (project.icon != null && project.icon!.isNotEmpty)
+                    PhosphorIcon(
+                      getIcon(project.icon),
                       color: getColor(project.color),
-                      shape: BoxShape.circle,
+                      size: Sizes.avatarSm * 2,
+                    )
+                  else
+                    Container(
+                      width: Sizes.avatarSm * 2,
+                      height: Sizes.avatarSm * 2,
+                      decoration: BoxDecoration(
+                        color: getColor(project.color),
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
                   const SizedBox(width: Spacing.md),
 
                   // Project name

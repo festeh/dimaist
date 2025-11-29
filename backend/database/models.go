@@ -64,6 +64,7 @@ type Project struct {
 	ID        uint       `gorm:"primaryKey" json:"id"`
 	Name      string     `gorm:"not null" json:"name"`
 	Color     string     `gorm:"default:'gray'" json:"color,omitempty"`
+	Icon      *string    `json:"icon,omitempty"`
 	Order     int        `gorm:"default:0" json:"order"`
 	Tasks     []Task     `gorm:"foreignKey:ProjectID" json:"tasks,omitempty"`
 	CreatedAt time.Time  `json:"created_at"`

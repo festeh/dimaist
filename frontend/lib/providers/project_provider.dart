@@ -16,9 +16,9 @@ class ProjectNotifier extends AsyncNotifier<List<Project>> {
     state = await AsyncValue.guard(() => _repository.getAllProjects());
   }
 
-  Future<void> addProject(String name, String color) async {
+  Future<void> addProject(String name, String color, String? icon) async {
     state = await AsyncValue.guard(() async {
-      final createdProject = await _repository.createProject(name, color);
+      final createdProject = await _repository.createProject(name, color, icon);
       final currentProjects = state.valueOrNull ?? [];
       return [...currentProjects, createdProject];
     });

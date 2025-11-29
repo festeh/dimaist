@@ -24,6 +24,7 @@ class Projects extends Table {
   TextColumn get name => text()();
   IntColumn get order => integer()();
   TextColumn get color => text().withDefault(const Constant('grey'))();
+  TextColumn get icon => text().nullable()();
 }
 
 class ListOfStringConverter extends TypeConverter<List<String>?, String?> {
@@ -156,7 +157,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -176,6 +177,10 @@ class AppDatabase extends _$AppDatabase {
       if (from == 4) {
         // Migration from 4 to 5, createdAt and updatedAt are now nullable
       }
+      if (from < 6) {
+        // Migration to 6: Add icon column to projects
+        await m.addColumn(projects, projects.icon);
+      }
     },
   );
 
@@ -190,6 +195,7 @@ class AppDatabase extends _$AppDatabase {
       name: Value(project.name),
       order: Value(project.order),
       color: Value(project.color),
+      icon: Value(project.icon),
     );
   }
 
