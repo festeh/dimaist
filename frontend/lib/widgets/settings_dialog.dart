@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
@@ -60,63 +59,6 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     }
   }
 
-  Widget _buildThemeSelector() {
-    final currentTheme = ref.watch(themeProvider);
-    final colors = AppColors.forTheme(currentTheme);
-
-    return Wrap(
-      spacing: Spacing.sm,
-      runSpacing: Spacing.sm,
-      children: AppThemeMode.values.map((mode) {
-        final isSelected = mode == currentTheme;
-        final modeColors = AppColors.forTheme(mode);
-
-        return Tooltip(
-          message: mode.description,
-          child: InkWell(
-            onTap: () => ref.read(themeProvider.notifier).setTheme(mode),
-            borderRadius: BorderRadius.circular(Radii.sm),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.md,
-                vertical: Spacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: isSelected ? colors.primary.withValues(alpha: 0.2) : null,
-                border: Border.all(
-                  color: isSelected ? colors.primary : colors.border,
-                  width: isSelected ? 2 : 1,
-                ),
-                borderRadius: BorderRadius.circular(Radii.sm),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: modeColors.primary,
-                      borderRadius: BorderRadius.circular(Radii.xs),
-                    ),
-                  ),
-                  const SizedBox(width: Spacing.sm),
-                  Text(
-                    mode.displayName,
-                    style: TextStyle(
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                      color: isSelected ? colors.primary : null,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
   void _openModelManager() {
     showDialog(
       context: context,
@@ -124,105 +66,112 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     );
   }
 
-  TextStyle _getFontStyle(AppFont font) {
-    switch (font) {
-      case AppFont.inter:
-        return GoogleFonts.inter();
-      case AppFont.plusJakartaSans:
-        return GoogleFonts.plusJakartaSans();
-      case AppFont.nunito:
-        return GoogleFonts.nunito();
-      case AppFont.dmSans:
-        return GoogleFonts.dmSans();
-      case AppFont.outfit:
-        return GoogleFonts.outfit();
-      case AppFont.figtree:
-        return GoogleFonts.figtree();
-      case AppFont.spaceGrotesk:
-        return GoogleFonts.spaceGrotesk();
-    }
-  }
-
-  Widget _buildFontSelector() {
-    final currentFont = ref.watch(fontProvider);
-    final currentTheme = ref.watch(themeProvider);
-    final colors = AppColors.forTheme(currentTheme);
-
-    return Wrap(
-      spacing: Spacing.sm,
-      runSpacing: Spacing.sm,
-      children: AppFont.values.map((font) {
-        final isSelected = font == currentFont;
-
-        return Tooltip(
-          message: font.description,
-          child: InkWell(
-            onTap: () => ref.read(fontProvider.notifier).setFont(font),
-            borderRadius: BorderRadius.circular(Radii.sm),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.md,
-                vertical: Spacing.sm,
-              ),
+  void _openThemeSelector() {
+    final currentTheme = ref.read(themeProvider);
+    showDialog(
+      context: context,
+      builder: (context) => _SelectionDialog<AppThemeMode>(
+        title: 'Select Theme',
+        values: AppThemeMode.values,
+        currentValue: currentTheme,
+        onSelect: (mode) => ref.read(themeProvider.notifier).setTheme(mode),
+        itemBuilder: (mode, isSelected, colors) => Row(
+          children: [
+            Container(
+              width: 16,
+              height: 16,
               decoration: BoxDecoration(
-                color: isSelected ? colors.primary.withValues(alpha: 0.2) : null,
-                border: Border.all(
-                  color: isSelected ? colors.primary : colors.border,
-                  width: isSelected ? 2 : 1,
-                ),
-                borderRadius: BorderRadius.circular(Radii.sm),
-              ),
-              child: Text(
-                font.displayName,
-                style: _getFontStyle(font).copyWith(
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  color: isSelected ? colors.primary : null,
-                ),
+                color: AppColors.forTheme(mode).primary,
+                borderRadius: BorderRadius.circular(Radii.xs),
               ),
             ),
-          ),
-        );
-      }).toList(),
+            const SizedBox(width: Spacing.md),
+            Text(
+              mode.displayName,
+              style: TextStyle(
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildAsrLanguageSelector() {
-    final currentLanguage = ref.watch(asrLanguageProvider);
-    final currentTheme = ref.watch(themeProvider);
-    final colors = AppColors.forTheme(currentTheme);
-
-    return Wrap(
-      spacing: Spacing.sm,
-      runSpacing: Spacing.sm,
-      children: AsrLanguage.values.map((lang) {
-        final isSelected = lang == currentLanguage;
-
-        return InkWell(
-          onTap: () => ref.read(asrLanguageProvider.notifier).setLanguage(lang),
-          borderRadius: BorderRadius.circular(Radii.sm),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Spacing.md,
-              vertical: Spacing.sm,
-            ),
-            decoration: BoxDecoration(
-              color: isSelected ? colors.primary.withValues(alpha: 0.2) : null,
-              border: Border.all(
-                color: isSelected ? colors.primary : colors.border,
-                width: isSelected ? 2 : 1,
-              ),
-              borderRadius: BorderRadius.circular(Radii.sm),
-            ),
-            child: Text(
-              lang.displayName,
-              style: TextStyle(
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected ? colors.primary : null,
-              ),
-            ),
+  void _openFontSelector() {
+    final currentFont = ref.read(fontProvider);
+    showDialog(
+      context: context,
+      builder: (context) => _SelectionDialog<AppFont>(
+        title: 'Select Font',
+        values: AppFont.values,
+        currentValue: currentFont,
+        onSelect: (font) => ref.read(fontProvider.notifier).setFont(font),
+        itemBuilder: (font, isSelected, colors) => Text(
+          font.displayName,
+          style: TextStyle(
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
           ),
-        );
-      }).toList(),
+        ),
+      ),
+    );
+  }
+
+  void _openAsrLanguageSelector() {
+    final currentLanguage = ref.read(asrLanguageProvider);
+    showDialog(
+      context: context,
+      builder: (context) => _SelectionDialog<AsrLanguage>(
+        title: 'Select ASR Language',
+        values: AsrLanguage.values,
+        currentValue: currentLanguage,
+        onSelect: (lang) => ref.read(asrLanguageProvider.notifier).setLanguage(lang),
+        itemBuilder: (lang, isSelected, colors) => Text(
+          lang.displayName,
+          style: TextStyle(
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingRow({
+    required PhosphorIconData icon,
+    required String label,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(Radii.sm),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+        child: Row(
+          children: [
+            PhosphorIcon(icon, size: Sizes.iconMd),
+            const SizedBox(width: Spacing.md),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
+            Text(
+              value,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: Spacing.xs),
+            PhosphorIcon(
+              PhosphorIcons.caretRight(),
+              size: Sizes.iconSm,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -230,128 +179,89 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   Widget build(BuildContext context) {
     final modelState = ref.watch(aiModelProvider);
     final selectedModel = modelState.selectedModel;
+    final currentTheme = ref.watch(themeProvider);
+    final currentFont = ref.watch(fontProvider);
+    final currentLanguage = ref.watch(asrLanguageProvider);
 
     return AlertDialog(
       title: const Text('Settings'),
       content: SizedBox(
-        width: 300,
+        width: 280,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                PhosphorIcon(PhosphorIcons.robot()),
-                const SizedBox(width: 16),
-                const Text(
-                  'AI Model:',
-                  style: TextStyle(fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _openModelManager,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
+            // AI Model
+            InkWell(
+              onTap: _openModelManager,
+              borderRadius: BorderRadius.circular(Radii.sm),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+                child: Row(
+                  children: [
+                    PhosphorIcon(PhosphorIcons.robot(), size: Sizes.iconMd),
+                    const SizedBox(width: Spacing.md),
+                    const Expanded(
+                      child: Text(
+                        'AI Model',
+                        style: TextStyle(fontWeight: FontWeight.w500),
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: ModelDisplay(model: selectedModel),
-                        ),
-                        PhosphorIcon(PhosphorIcons.caretRight(), size: 20),
-                      ],
+                    Flexible(
+                      child: ModelDisplay(model: selectedModel),
                     ),
-                  ),
+                    const SizedBox(width: Spacing.xs),
+                    PhosphorIcon(
+                      PhosphorIcons.caretRight(),
+                      size: Sizes.iconSm,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                PhosphorIcon(PhosphorIcons.palette()),
-                const SizedBox(width: 16),
-                const Text(
-                  'Theme:',
-                  style: TextStyle(fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildThemeSelector(),
-                ),
-              ],
+
+            // Theme
+            _buildSettingRow(
+              icon: PhosphorIcons.palette(),
+              label: 'Theme',
+              value: currentTheme.displayName,
+              onTap: _openThemeSelector,
             ),
-            const SizedBox(height: 24),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: Spacing.sm),
-                  child: PhosphorIcon(PhosphorIcons.textAa()),
-                ),
-                const SizedBox(width: 16),
-                const Padding(
-                  padding: EdgeInsets.only(top: Spacing.sm),
-                  child: Text(
-                    'Font:',
-                    style: TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildFontSelector(),
-                ),
-              ],
+
+            // Font
+            _buildSettingRow(
+              icon: PhosphorIcons.textAa(),
+              label: 'Font',
+              value: currentFont.displayName,
+              onTap: _openFontSelector,
             ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                PhosphorIcon(PhosphorIcons.globe()),
-                const SizedBox(width: 16),
-                const Text(
-                  'ASR:',
-                  style: TextStyle(fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildAsrLanguageSelector(),
-                ),
-              ],
+
+            // ASR Language
+            _buildSettingRow(
+              icon: PhosphorIcons.globe(),
+              label: 'ASR Language',
+              value: currentLanguage.displayName,
+              onTap: _openAsrLanguageSelector,
             ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                PhosphorIcon(PhosphorIcons.arrowsClockwise()),
-                const SizedBox(width: 16),
-                const Text(
-                  'Data Sync:',
-                  style: TextStyle(fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isSyncing ? null : _triggerSync,
-                    child: _isSyncing
-                        ? const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                              SizedBox(width: 8),
-                              Text('Syncing...'),
-                            ],
-                          )
-                        : const Text('Sync Now'),
-                  ),
-                ),
-              ],
+
+            const SizedBox(height: Spacing.md),
+            const Divider(),
+            const SizedBox(height: Spacing.sm),
+
+            // Sync button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isSyncing ? null : _triggerSync,
+                icon: _isSyncing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : PhosphorIcon(PhosphorIcons.arrowsClockwise(), size: Sizes.iconSm),
+                label: Text(_isSyncing ? 'Syncing...' : 'Sync Now'),
+              ),
             ),
           ],
         ),
@@ -362,6 +272,70 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
           child: const Text('Close'),
         ),
       ],
+    );
+  }
+}
+
+/// Generic selection dialog for settings options
+class _SelectionDialog<T> extends StatelessWidget {
+  final String title;
+  final List<T> values;
+  final T currentValue;
+  final void Function(T) onSelect;
+  final Widget Function(T value, bool isSelected, ColorScheme colors) itemBuilder;
+
+  const _SelectionDialog({
+    required this.title,
+    required this.values,
+    required this.currentValue,
+    required this.onSelect,
+    required this.itemBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return AlertDialog(
+      title: Text(title),
+      content: SizedBox(
+        width: 250,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: values.map((value) {
+            final isSelected = value == currentValue;
+            return InkWell(
+              onTap: () {
+                onSelect(value);
+                Navigator.of(context).pop();
+              },
+              borderRadius: BorderRadius.circular(Radii.sm),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.md,
+                  vertical: Spacing.md,
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected ? colors.primary.withValues(alpha: 0.1) : null,
+                  borderRadius: BorderRadius.circular(Radii.sm),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(child: itemBuilder(value, isSelected, colors)),
+                    if (isSelected)
+                      PhosphorIcon(
+                        PhosphorIcons.check(),
+                        size: Sizes.iconSm,
+                        color: colors.primary,
+                      ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
     );
   }
 }
