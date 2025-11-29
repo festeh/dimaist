@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../providers/task_provider.dart';
+import '../providers/project_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/font_provider.dart';
 import '../providers/ai_model_provider.dart';
@@ -28,7 +29,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     });
 
     try {
+      // Sync both tasks and projects
       await ref.read(taskProvider.notifier).syncData();
+      ref.invalidate(projectProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
