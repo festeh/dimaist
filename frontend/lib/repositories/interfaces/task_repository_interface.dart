@@ -36,6 +36,9 @@ abstract class ITaskRepository {
   /// Sync all tasks with server
   Future<void> syncTasks();
 
+  /// Full resync: clear local DB and fetch everything fresh from server
+  Future<void> fullResync();
+
   /// Get default project for creating new tasks (e.g., Inbox)
   Future<Project?> getDefaultProjectForToday();
 }

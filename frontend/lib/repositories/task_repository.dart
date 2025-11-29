@@ -207,4 +207,46 @@ class TaskRepository implements ITaskRepository {
 
     throw Exception('No projects found');
   }
+
+  @override
+  Future<void> fullResync() async {
+    LoggingService.logger.info('TaskRepository: Starting full resync...');
+
+    try {
+      // Clear local database
+      await _database.clearDatabase();
+      LoggingService.logger.info('TaskRepository: Local database cleared');
+
+      // Clear sync token to force full sync
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('sync_token');
+      LoggingService.logger.info('TaskRepository: Sync token cleared');
+
+      // Fetch all data from server
+      final syncResponse = await _apiService.fetchSyncData(null);
+
+      // Insert all projects
+      LoggingService.logger.info(
+        'TaskRepository: Inserting ${syncResponse.projects.length} projects...',
+      );
+      for (var project in syncResponse.projects) {
+        await _database.upsertProject(project);
+      }
+
+      // Insert all tasks
+      LoggingService.logger.info(
+        'TaskRepository: Inserting ${syncResponse.tasks.length} tasks...',
+      );
+      for (var task in syncResponse.tasks) {
+        await _database.upsertTask(task);
+      }
+
+      // Save new sync token
+      await prefs.setString('sync_token', syncResponse.syncToken);
+      LoggingService.logger.info('TaskRepository: Full resync completed');
+    } catch (e) {
+      LoggingService.logger.severe('TaskRepository: Error during full resync: $e');
+      rethrow;
+    }
+  }
 }

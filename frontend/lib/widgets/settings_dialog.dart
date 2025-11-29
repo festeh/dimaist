@@ -29,8 +29,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     });
 
     try {
-      // Sync both tasks and projects
-      await ref.read(taskProvider.notifier).syncData();
+      // Full resync: clear local DB and fetch everything from server
+      await ref.read(taskProvider.notifier).fullResync();
       ref.invalidate(projectProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -167,6 +167,11 @@ class TaskNotifier extends AsyncNotifier<TaskViewData> {
     await _reloadCurrentTasks();
   }
 
+  Future<void> fullResync() async {
+    await _repository.fullResync();
+    await _reloadCurrentTasks();
+  }
+
   Future<Project?> getDefaultProjectForToday() async {
     return _repository.getDefaultProjectForToday();
   }

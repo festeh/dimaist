@@ -109,6 +109,10 @@ install-phone:
     @just build-phone
     adb install frontend/build/app/outputs/flutter-apk/app-phone-release.apk
 
+# Copy phone APK to pCloud
+deploy-phone:
+    cp frontend/build/app/outputs/flutter-apk/app-phone-release.apk ~/pCloudDrive/android-apps/dimaist/
+
 # Clean build artifacts
 clean:
     cd frontend && flutter clean
