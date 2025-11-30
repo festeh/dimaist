@@ -241,7 +241,7 @@ class AppDatabase extends _$AppDatabase {
         (t) =>
             t.completedAt.isNull() &
             t.dueDate.isNotNull() &
-            t.dueDate.isBetweenValues(DateTime(1900), todayEnd),
+            t.dueDate.isSmallerThan(Variable(todayEnd)),
       );
 
     if (sortMode == SortMode.dueDate) {
