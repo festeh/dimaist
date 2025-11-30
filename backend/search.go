@@ -36,8 +36,8 @@ func findItems(w http.ResponseWriter, r *http.Request) {
 	// Search tasks
 	var tasks []database.Task
 	taskResult := database.DB.Preload("Project").
-		Where("LOWER(description) LIKE LOWER(?) OR LOWER(notes) LIKE LOWER(?) OR array_to_string(labels, ',') ILIKE ?",
-			"%"+query+"%", "%"+query+"%", "%"+query+"%").
+		Where("LOWER(description) LIKE LOWER(?) OR array_to_string(labels, ',') ILIKE ?",
+			"%"+query+"%", "%"+query+"%").
 		Find(&tasks)
 
 	if taskResult.Error != nil {

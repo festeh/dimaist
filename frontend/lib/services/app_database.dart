@@ -166,10 +166,7 @@ class AppDatabase extends _$AppDatabase {
     },
     onUpgrade: (m, from, to) async {
       if (from < 3) {
-        // await m.createTable(notes);
-        // await m.addColumn(notes, notes.audioId);
-        // await m.addColumn(notes, notes.createdAt);
-        // await m.addColumn(notes, notes.updatedAt);
+        // Migration removed - notes feature was killed
       }
       if (from == 3) {
         // Migration from 3 to .dart, id is now auto-increment

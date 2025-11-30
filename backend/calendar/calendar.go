@@ -136,8 +136,7 @@ func clearEventID(taskID uint) {
 
 func buildEvent(task *database.Task) *calendar.Event {
 	event := &calendar.Event{
-		Summary:     task.Description,
-		Description: task.Notes,
+		Summary: task.Description,
 	}
 
 	// Determine start/end times

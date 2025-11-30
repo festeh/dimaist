@@ -9,6 +9,24 @@ import (
 	"github.com/lib/pq"
 )
 
+// parseDatetime tries multiple formats to parse datetime strings from AI
+// For formats without timezone, assumes local timezone
+func parseDatetime(s string) (time.Time, error) {
+	// Formats with timezone
+	for _, f := range []string{time.RFC3339, "2006-01-02T15:04Z07:00", "2006-01-02T15:04:05Z07:00"} {
+		if t, err := time.Parse(f, s); err == nil {
+			return t, nil
+		}
+	}
+	// Formats without timezone - parse in local timezone
+	for _, f := range []string{"2006-01-02T15:04", "2006-01-02 15:04"} {
+		if t, err := time.ParseInLocation(f, s, time.Local); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unable to parse datetime: %s", s)
+}
+
 func CreateCRUDTools() []Tool {
 	return []Tool{
 		// Special tool to end conversation
@@ -287,27 +305,27 @@ func createTaskCRUDTool(args map[string]any) (string, error) {
 
 	// Optional due datetime
 	if dueDatetimeStr, ok := args["due_datetime"].(string); ok {
-		dueDatetime, err := time.Parse(time.RFC3339, dueDatetimeStr)
+		dueDatetime, err := parseDatetime(dueDatetimeStr)
 		if err != nil {
-			return "", fmt.Errorf("invalid due_datetime format, use RFC3339: %w", err)
+			return "", fmt.Errorf("invalid due_datetime format: %w", err)
 		}
 		task.DueDatetime = &dueDatetime
 	}
 
 	// Optional start datetime
 	if startDatetimeStr, ok := args["start_datetime"].(string); ok {
-		startDatetime, err := time.Parse(time.RFC3339, startDatetimeStr)
+		startDatetime, err := parseDatetime(startDatetimeStr)
 		if err != nil {
-			return "", fmt.Errorf("invalid start_datetime format, use RFC3339: %w", err)
+			return "", fmt.Errorf("invalid start_datetime format: %w", err)
 		}
 		task.StartDatetime = &startDatetime
 	}
 
 	// Optional end datetime
 	if endDatetimeStr, ok := args["end_datetime"].(string); ok {
-		endDatetime, err := time.Parse(time.RFC3339, endDatetimeStr)
+		endDatetime, err := parseDatetime(endDatetimeStr)
 		if err != nil {
-			return "", fmt.Errorf("invalid end_datetime format, use RFC3339: %w", err)
+			return "", fmt.Errorf("invalid end_datetime format: %w", err)
 		}
 		task.EndDatetime = &endDatetime
 	}
@@ -330,13 +348,13 @@ func createTaskCRUDTool(args map[string]any) (string, error) {
 		reminders := make(database.TimeArray, len(remindersInterface))
 		for i, reminder := range remindersInterface {
 			if reminderStr, ok := reminder.(string); ok {
-				reminderTime, err := time.Parse(time.RFC3339, reminderStr)
+				reminderTime, err := parseDatetime(reminderStr)
 				if err != nil {
-					return "", fmt.Errorf("invalid reminder format, use RFC3339: %w", err)
+					return "", fmt.Errorf("invalid reminder format: %w", err)
 				}
 				reminders[i] = reminderTime
 			} else {
-				return "", fmt.Errorf("all reminders must be RFC3339 strings")
+				return "", fmt.Errorf("all reminders must be datetime strings")
 			}
 		}
 		task.Reminders = reminders
@@ -403,7 +421,7 @@ func updateTaskCRUDTool(args map[string]any) (string, error) {
 	}
 
 	if dueDatetimeStr, ok := args["due_datetime"].(string); ok {
-		dueDatetime, err := time.Parse(time.RFC3339, dueDatetimeStr)
+		dueDatetime, err := parseDatetime(dueDatetimeStr)
 		if err != nil {
 			return "", fmt.Errorf("invalid due_datetime format: %w", err)
 		}
@@ -411,7 +429,7 @@ func updateTaskCRUDTool(args map[string]any) (string, error) {
 	}
 
 	if startDatetimeStr, ok := args["start_datetime"].(string); ok {
-		startDatetime, err := time.Parse(time.RFC3339, startDatetimeStr)
+		startDatetime, err := parseDatetime(startDatetimeStr)
 		if err != nil {
 			return "", fmt.Errorf("invalid start_datetime format: %w", err)
 		}
@@ -419,7 +437,7 @@ func updateTaskCRUDTool(args map[string]any) (string, error) {
 	}
 
 	if endDatetimeStr, ok := args["end_datetime"].(string); ok {
-		endDatetime, err := time.Parse(time.RFC3339, endDatetimeStr)
+		endDatetime, err := parseDatetime(endDatetimeStr)
 		if err != nil {
 			return "", fmt.Errorf("invalid end_datetime format: %w", err)
 		}
@@ -442,13 +460,13 @@ func updateTaskCRUDTool(args map[string]any) (string, error) {
 		reminders := make(database.TimeArray, len(remindersInterface))
 		for i, reminder := range remindersInterface {
 			if reminderStr, ok := reminder.(string); ok {
-				reminderTime, err := time.Parse(time.RFC3339, reminderStr)
+				reminderTime, err := parseDatetime(reminderStr)
 				if err != nil {
 					return "", fmt.Errorf("invalid reminder format: %w", err)
 				}
 				reminders[i] = reminderTime
 			} else {
-				return "", fmt.Errorf("all reminders must be RFC3339 strings")
+				return "", fmt.Errorf("all reminders must be datetime strings")
 			}
 		}
 		updates["reminders"] = reminders

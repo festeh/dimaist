@@ -8,7 +8,36 @@ import (
 	"dimaist/database"
 	"dimaist/env"
 	"dimaist/logger"
+
+	"github.com/lib/pq"
 )
+
+// timeMinutes marshals time.Time to local time with minute precision (no seconds/tz)
+type timeMinutes time.Time
+
+func (t timeMinutes) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + time.Time(t).Local().Format("2006-01-02T15:04") + `"`), nil
+}
+
+// Slim DTOs for AI context (excludes created_at/updated_at to reduce token usage)
+type taskForAI struct {
+	ID            uint               `json:"id"`
+	Description   string             `json:"description"`
+	ProjectID     *uint              `json:"project_id,omitempty"`
+	DueDate       *timeMinutes       `json:"due_date,omitempty"`
+	DueDatetime   *timeMinutes       `json:"due_datetime,omitempty"`
+	Labels        pq.StringArray     `json:"labels,omitempty"`
+	Reminders     database.TimeArray `json:"reminders,omitempty"`
+	Recurrence    string             `json:"recurrence,omitempty"`
+	Order         int                `json:"order"`
+	CompletedAt   *timeMinutes       `json:"completed_at,omitempty"`
+}
+
+type projectForAI struct {
+	ID    uint   `json:"id"`
+	Name  string `json:"name"`
+	Order int    `json:"order"`
+}
 
 var appEnv *env.Env
 
@@ -55,17 +84,52 @@ func LoadRecentProjects(limit int) ([]database.Project, error) {
 	return projects, nil
 }
 
+func toTimeMinutes(t *time.Time) *timeMinutes {
+	if t == nil {
+		return nil
+	}
+	tm := timeMinutes(*t)
+	return &tm
+}
+
 func buildSystemPrompt(tasks []database.Task, projects []database.Project) (string, error) {
-	tasksJSON, err := json.Marshal(tasks)
+	// Convert to slim DTOs to reduce token usage
+	slimTasks := make([]taskForAI, len(tasks))
+	for i, t := range tasks {
+		slimTasks[i] = taskForAI{
+			ID:          t.ID,
+			Description: t.Description,
+			ProjectID:   t.ProjectID,
+			DueDate:     toTimeMinutes(t.DueDate),
+			DueDatetime: toTimeMinutes(t.DueDatetime),
+			Labels:      t.Labels,
+			Reminders:   t.Reminders,
+			Recurrence:  t.Recurrence,
+			Order:       t.Order,
+			CompletedAt: toTimeMinutes(t.CompletedAt),
+		}
+	}
+
+	slimProjects := make([]projectForAI, len(projects))
+	for i, p := range projects {
+		slimProjects[i] = projectForAI{
+			ID:    p.ID,
+			Name:  p.Name,
+			Order: p.Order,
+		}
+	}
+
+	tasksJSON, err := json.Marshal(slimTasks)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal tasks: %w", err)
 	}
 
-	projectsJSON, err := json.Marshal(projects)
+	projectsJSON, err := json.Marshal(slimProjects)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal projects: %w", err)
 	}
 
+	tz, _ := time.Now().Zone()
 	return fmt.Sprintf(`You are a task management assistant for "Dimaist".
 
 RULES:
@@ -74,6 +138,7 @@ RULES:
 3. Task and project data is already provided below - don't fetch it
 4. Only complete tasks when user explicitly says they finished something
 5. To sync a task to Google Calendar, add label "calendar"
+6. All datetimes are in %s timezone
 
 Current time: %s
 
@@ -81,7 +146,7 @@ Tasks: %s
 
 Projects: %s
 `,
-		time.Now().Format("2006-01-02 15:04 MST"), tasksJSON, projectsJSON), nil
+		tz, time.Now().Format("2006-01-02T15:04"), tasksJSON, projectsJSON), nil
 }
 
 func createAIAgent(provider, model string) *Agent {
