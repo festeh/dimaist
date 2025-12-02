@@ -237,8 +237,8 @@ class AppDatabase extends _$AppDatabase {
       ..where(
         (t) =>
             t.completedAt.isNull() &
-            t.dueDate.isNotNull() &
-            t.dueDate.isSmallerThan(Variable(todayEnd)),
+            ((t.dueDate.isNotNull() & t.dueDate.isSmallerThan(Variable(todayEnd))) |
+             (t.dueDatetime.isNotNull() & t.dueDatetime.isSmallerThan(Variable(todayEnd)))),
       );
 
     if (sortMode == SortMode.dueDate) {
