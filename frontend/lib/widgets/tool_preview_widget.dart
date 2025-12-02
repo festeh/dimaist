@@ -189,6 +189,9 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
             ? colors.tertiary
             : null;
 
+    // Find project for task
+    final project = widget.projects.where((p) => p.id == task.projectId).firstOrNull;
+
     Widget taskWidget = TaskWidget(
       task: task,
       onToggleComplete: (_) {}, // No-op for preview
@@ -196,6 +199,7 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
           ? (_) => _openTaskEditDialog(context)
           : (_) {}, // No-op if not editable
       showCheckbox: false,
+      project: project,
     );
 
     // Wrap with border for delete/complete states

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
+import '../models/project.dart';
 import '../models/task.dart';
+import '../utils/color_utils.dart';
+import '../utils/icon_utils.dart';
 import 'due_widget.dart';
 
 class TaskWidget extends StatelessWidget {
@@ -11,6 +14,7 @@ class TaskWidget extends StatelessWidget {
   final bool showDragHandle;
   final int? dragIndex;
   final bool showCheckbox;
+  final Project? project;
 
   const TaskWidget({
     super.key,
@@ -20,6 +24,7 @@ class TaskWidget extends StatelessWidget {
     this.showDragHandle = false,
     this.dragIndex,
     this.showCheckbox = true,
+    this.project,
   });
 
   List<String> get _nonEmptyLabels =>
@@ -80,10 +85,20 @@ class TaskWidget extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Title
-                    Text(
-                      task.description,
-                      style: theme.textTheme.bodyLarge,
+                    // Title row with project indicator
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            task.description,
+                            style: theme.textTheme.bodyLarge,
+                          ),
+                        ),
+                        if (project != null) ...[
+                          const SizedBox(width: Spacing.sm),
+                          _buildProjectIndicator(context),
+                        ],
+                      ],
                     ),
 
                     // Metadata row
@@ -98,6 +113,39 @@ class TaskWidget extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildProjectIndicator(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (project!.icon != null && project!.icon!.isNotEmpty)
+          PhosphorIcon(
+            getIcon(project!.icon),
+            size: Sizes.iconXs,
+            color: getColor(project!.color),
+          )
+        else
+          Container(
+            width: Sizes.iconXs,
+            height: Sizes.iconXs,
+            decoration: BoxDecoration(
+              color: getColor(project!.color),
+              shape: BoxShape.circle,
+            ),
+          ),
+        const SizedBox(width: Spacing.xs),
+        Text(
+          project!.name,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 

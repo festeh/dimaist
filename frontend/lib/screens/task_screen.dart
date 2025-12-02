@@ -313,6 +313,16 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
         ? <Task>[]
         : taskData.completedTasks;
 
+    // Get projects for lookup (only needed in custom views)
+    final projects = widget.customView != null
+        ? (ref.read(projectProvider).valueOrNull ?? <Project>[])
+        : <Project>[];
+
+    Project? findProject(Task task) {
+      if (widget.customView == null) return null;
+      return projects.where((p) => p.id == task.projectId).firstOrNull;
+    }
+
     return Column(
       children: [
         // Inline toolbar
@@ -412,6 +422,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                             onEdit: _showEditTaskDialog,
                             showDragHandle: true,
                             dragIndex: index,
+                            project: findProject(task),
                           );
                         } else if (index == nonCompletedTasks.length &&
                             completedTasks.isNotEmpty) {
@@ -472,6 +483,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                             task: task,
                             onToggleComplete: _toggleComplete,
                             onEdit: _showEditTaskDialog,
+                            project: findProject(task),
                           );
                         }
                       },
@@ -502,6 +514,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                             onEdit: _showEditTaskDialog,
                             showDragHandle: false,
                             dragIndex: null,
+                            project: findProject(task),
                           );
                         } else if (index == nonCompletedTasks.length &&
                             completedTasks.isNotEmpty) {
@@ -561,6 +574,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                             task: task,
                             onToggleComplete: _toggleComplete,
                             onEdit: _showEditTaskDialog,
+                            project: findProject(task),
                           );
                         }
                       },
