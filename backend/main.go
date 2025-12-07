@@ -186,7 +186,7 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate recurrence pattern
-	if err := utils.ValidateTaskRecurrence(t.Recurrence, t.DueDate, t.DueDatetime); err != nil {
+	if err := utils.ValidateTaskRecurrence(t.Recurrence, t.Due()); err != nil {
 		logger.Error("Invalid task recurrence").Str("recurrence", t.Recurrence).Err(err).Send()
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
@@ -243,7 +243,7 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate recurrence pattern
-	if err := utils.ValidateTaskRecurrence(t.Recurrence, t.DueDate, t.DueDatetime); err != nil {
+	if err := utils.ValidateTaskRecurrence(t.Recurrence, t.Due()); err != nil {
 		logger.Error("Invalid task recurrence").Str("recurrence", t.Recurrence).Err(err).Send()
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
@@ -337,15 +337,8 @@ func completeTask(w http.ResponseWriter, r *http.Request) {
 
 	// Handle recurring tasks
 	if task.Recurrence != "" {
-		// Calculate next due date/datetime
-		var currentDue *time.Time
-		if task.DueDatetime != nil {
-			currentDue = task.DueDatetime
-		} else if task.DueDate != nil {
-			currentDue = task.DueDate
-		}
-
-		nextDue, err := utils.CalculateNextDueDate(task.Recurrence, currentDue)
+		// Calculate next due date/datetime using unified getter
+		nextDue, err := utils.CalculateNextDueDate(task.Recurrence, task.Due())
 		if err != nil {
 			logger.Error("Failed to calculate next due date").Str("recurrence", task.Recurrence).Err(err).Send()
 			http.Error(w, fmt.Sprintf("Failed to calculate next due date: %s", err.Error()), http.StatusInternalServerError)
@@ -353,10 +346,10 @@ func completeTask(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if nextDue != nil {
-			// Update the appropriate due field
-			if task.DueDatetime != nil {
+			// Update the appropriate due field based on whether original had time
+			if task.HasTime() {
 				updates["due_datetime"] = nextDue
-			} else if task.DueDate != nil {
+			} else {
 				// For date-only, set to date part only
 				dateOnly := time.Date(nextDue.Year(), nextDue.Month(), nextDue.Day(), 0, 0, 0, 0, nextDue.Location())
 				updates["due_date"] = &dateOnly

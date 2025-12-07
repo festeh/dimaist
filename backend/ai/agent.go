@@ -535,8 +535,12 @@ func resolveToolDefaults(toolName string, args map[string]any) map[string]any {
 				if task.ProjectID != nil {
 					result["project_id"] = float64(*task.ProjectID)
 				}
-				if task.DueDate != nil {
-					result["due_date"] = task.DueDate.Format("2006-01-02")
+				if task.Due() != nil {
+					if task.HasTime() {
+						result["due_datetime"] = task.Due().Format(time.RFC3339)
+					} else {
+						result["due_date"] = task.Due().Format("2006-01-02")
+					}
 				}
 				if len(task.Labels) > 0 {
 					result["labels"] = task.Labels

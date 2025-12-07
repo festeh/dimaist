@@ -141,6 +141,7 @@ RULES:
 4. Only complete tasks when user explicitly says they finished something
 5. To sync a task to Google Calendar, add label "calendar"
 6. All datetimes are in %s timezone
+7. When making tool calls, do NOT include any text output - only use tool calls
 
 Current time: %s
 

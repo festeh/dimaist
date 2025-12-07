@@ -31,8 +31,7 @@ class TaskWidget extends StatelessWidget {
       task.labels.where((l) => l.trim().isNotEmpty).toList();
 
   bool get _hasMetadata =>
-      task.dueDate != null ||
-      task.dueDatetime != null ||
+      task.due != null ||
       task.recurrence != null ||
       _nonEmptyLabels.isNotEmpty;
 
@@ -166,7 +165,7 @@ class TaskWidget extends StatelessWidget {
         ],
 
         // Due date
-        if (task.dueDate != null || task.dueDatetime != null) ...[
+        if (task.due != null) ...[
           DueWidget(task: task),
           const SizedBox(width: Spacing.sm),
         ],

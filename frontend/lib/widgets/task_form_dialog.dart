@@ -70,11 +70,11 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
     _selectedLabels = List<String>.from(task?.labels ?? []);
     _selectedProjectId = task?.projectId ?? widget.selectedProject?.id;
     if (task != null) {
-      if (task.dueDatetime != null) {
-        _selectedDate = task.dueDatetime;
-        _selectedTime = TimeOfDay.fromDateTime(task.dueDatetime!);
-      } else if (task.dueDate != null) {
-        _selectedDate = task.dueDate;
+      if (task.due != null) {
+        _selectedDate = task.due;
+        if (task.hasTime) {
+          _selectedTime = TimeOfDay.fromDateTime(task.due!);
+        }
       }
       if (task.startDatetime != null) {
         _selectedStartDate = task.startDatetime;
@@ -89,7 +89,7 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
             .map(
               (e) => _reminderStringFromDateTime(
                 e,
-                task.dueDatetime ?? task.dueDate!,
+                task.due!,
               ),
             )
             .toList();
@@ -170,7 +170,7 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
                   // Project dropdown
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      value: _selectedProjectId,
+                      initialValue: _selectedProjectId,
                       decoration: const InputDecoration(
                         labelText: 'Project',
                         contentPadding: EdgeInsets.symmetric(

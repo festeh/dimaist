@@ -305,12 +305,23 @@ class AppDatabase extends _$AppDatabase {
       (select(tasks)..where((t) => t.id.equals(id))).getSingleOrNull();
 
   TasksCompanion _taskToCompanion(task_model.Task task) {
+    // Derive dueDate/dueDatetime from unified getters
+    DateTime? dueDate;
+    DateTime? dueDatetime;
+    if (task.due != null) {
+      if (task.hasTime) {
+        dueDatetime = task.due;
+      } else {
+        dueDate = task.due;
+      }
+    }
+
     return TasksCompanion(
       id: task.id != null ? Value(task.id!) : const Value.absent(),
       description: Value(task.description),
       projectId: Value(task.projectId),
-      dueDate: Value(task.dueDate),
-      dueDatetime: Value(task.dueDatetime),
+      dueDate: Value(dueDate),
+      dueDatetime: Value(dueDatetime),
       startDatetime: Value(task.startDatetime),
       endDatetime: Value(task.endDatetime),
       labels: Value(task.labels),

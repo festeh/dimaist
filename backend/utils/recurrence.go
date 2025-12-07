@@ -84,10 +84,11 @@ func ValidateRecurrence(recurrence string) error {
 }
 
 // ValidateTaskRecurrence validates task recurrence including due date requirements
-func ValidateTaskRecurrence(recurrence string, dueDate, dueDatetime *time.Time) error {
+// Uses unified due parameter (call with task.Due())
+func ValidateTaskRecurrence(recurrence string, due *time.Time) error {
 	if recurrence != "" {
-		// Check that at least one due date field is provided for recurring tasks
-		if dueDate == nil && dueDatetime == nil {
+		// Check that due date is provided for recurring tasks
+		if due == nil {
 			return fmt.Errorf("recurring tasks must have a due date. Please set either a due date or due datetime to schedule the recurrence")
 		}
 

@@ -87,7 +87,7 @@ class AddProjectDialogState extends ConsumerState<AddProjectDialog> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedColor,
+                    initialValue: _selectedColor,
                     decoration: const InputDecoration(labelText: 'Color'),
                     items: colorMap.keys.map((String colorName) {
                       return DropdownMenuItem<String>(

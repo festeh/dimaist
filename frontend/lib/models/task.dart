@@ -5,8 +5,8 @@ class Task {
   final int? id;
   final String description;
   final int projectId;
-  final DateTime? dueDate;
-  final DateTime? dueDatetime;
+  final DateTime? _dueDate;      // Private - use due/hasTime getters
+  final DateTime? _dueDatetime;  // Private - use due/hasTime getters
   final DateTime? startDatetime;
   final DateTime? endDatetime;
   final List<String>? _labels;
@@ -19,8 +19,8 @@ class Task {
     this.id,
     required this.description,
     required this.projectId,
-    this.dueDate,
-    this.dueDatetime,
+    DateTime? dueDate,
+    DateTime? dueDatetime,
     this.startDatetime,
     this.endDatetime,
     List<String>? labels,
@@ -28,12 +28,18 @@ class Task {
     this.completedAt,
     List<DateTime>? reminders,
     this.recurrence,
-  }) : _labels = labels,
+  }) : _dueDate = dueDate,
+       _dueDatetime = dueDatetime,
+       _labels = labels,
        _reminders = reminders,
        assert(
          dueDate == null || dueDatetime == null,
          'Cannot have both dueDate and dueDatetime',
        );
+
+  // Unified getters - THE ONLY PUBLIC INTERFACE for due dates
+  DateTime? get due => _dueDatetime ?? _dueDate;
+  bool get hasTime => _dueDatetime != null;
 
   List<String> get labels => _labels ?? [];
   List<DateTime> get reminders => _reminders ?? [];
@@ -153,8 +159,8 @@ class Task {
       'id': id,
       'description': description,
       'project_id': projectId,
-      'due_date': dueDate?.toUtc().toIso8601String(),
-      'due_datetime': dueDatetime?.toUtc().toIso8601String(),
+      'due_date': _dueDate?.toUtc().toIso8601String(),
+      'due_datetime': _dueDatetime?.toUtc().toIso8601String(),
       'start_datetime': startDatetime?.toUtc().toIso8601String(),
       'end_datetime': endDatetime?.toUtc().toIso8601String(),
       'labels': labels,
@@ -169,8 +175,8 @@ class Task {
     int? id,
     String? description,
     int? projectId,
-    ValueWrapper<DateTime?>? dueDate,
-    ValueWrapper<DateTime?>? dueDatetime,
+    ValueWrapper<DateTime?>? due,  // Unified due parameter
+    bool? hasTime,                  // Whether due has specific time
     ValueWrapper<DateTime?>? startDatetime,
     ValueWrapper<DateTime?>? endDatetime,
     List<String>? labels,
@@ -179,12 +185,31 @@ class Task {
     List<DateTime>? reminders,
     String? recurrence,
   }) {
+    // Determine new due date/datetime values
+    DateTime? newDueDate;
+    DateTime? newDueDatetime;
+
+    if (due != null) {
+      // due parameter provided - use hasTime to determine which field
+      final newHasTime = hasTime ?? this.hasTime;
+      if (due.value != null && newHasTime) {
+        newDueDatetime = due.value;
+      } else if (due.value != null) {
+        newDueDate = due.value;
+      }
+      // If due.value is null, both stay null (clearing due date)
+    } else {
+      // No due parameter - preserve existing values
+      newDueDate = _dueDate;
+      newDueDatetime = _dueDatetime;
+    }
+
     return Task(
       id: id ?? this.id,
       description: description ?? this.description,
       projectId: projectId ?? this.projectId,
-      dueDate: dueDate != null ? dueDate.value : this.dueDate,
-      dueDatetime: dueDatetime != null ? dueDatetime.value : this.dueDatetime,
+      dueDate: newDueDate,
+      dueDatetime: newDueDatetime,
       startDatetime: startDatetime != null
           ? startDatetime.value
           : this.startDatetime,

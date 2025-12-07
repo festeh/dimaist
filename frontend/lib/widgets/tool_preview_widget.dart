@@ -334,11 +334,9 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
             _editedArguments['description'] = updatedTask.description;
             _editedArguments['project_id'] = updatedTask.projectId;
 
-            // Handle due date - prefer dueDatetime if set, otherwise dueDate
-            if (updatedTask.dueDatetime != null) {
-              _editedArguments['due_date'] = updatedTask.dueDatetime!.toIso8601String();
-            } else if (updatedTask.dueDate != null) {
-              _editedArguments['due_date'] = updatedTask.dueDate!.toIso8601String();
+            // Handle due date using unified getter
+            if (updatedTask.due != null) {
+              _editedArguments['due_date'] = updatedTask.due!.toIso8601String();
             } else {
               _editedArguments.remove('due_date');
             }

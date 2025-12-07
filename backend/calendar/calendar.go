@@ -148,21 +148,24 @@ func buildEvent(task *database.Task) *calendar.Event {
 		event.End = &calendar.EventDateTime{
 			DateTime: task.EndDatetime.Format(time.RFC3339),
 		}
-	} else if task.DueDatetime != nil {
-		// Timed event: due datetime with 1 hour duration
-		event.Start = &calendar.EventDateTime{
-			DateTime: task.DueDatetime.Format(time.RFC3339),
-		}
-		event.End = &calendar.EventDateTime{
-			DateTime: task.DueDatetime.Add(time.Hour).Format(time.RFC3339),
-		}
-	} else if task.DueDate != nil {
-		// All-day event
-		event.Start = &calendar.EventDateTime{
-			Date: task.DueDate.Format("2006-01-02"),
-		}
-		event.End = &calendar.EventDateTime{
-			Date: task.DueDate.Format("2006-01-02"),
+	} else if task.Due() != nil {
+		due := task.Due()
+		if task.HasTime() {
+			// Timed event: due datetime with 1 hour duration
+			event.Start = &calendar.EventDateTime{
+				DateTime: due.Format(time.RFC3339),
+			}
+			event.End = &calendar.EventDateTime{
+				DateTime: due.Add(time.Hour).Format(time.RFC3339),
+			}
+		} else {
+			// All-day event
+			event.Start = &calendar.EventDateTime{
+				Date: due.Format("2006-01-02"),
+			}
+			event.End = &calendar.EventDateTime{
+				Date: due.Format("2006-01-02"),
+			}
 		}
 	} else {
 		// No date - use today as all-day event

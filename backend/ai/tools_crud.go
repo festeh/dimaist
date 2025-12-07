@@ -394,7 +394,7 @@ func createTaskCRUDTool(args map[string]any) (string, error) {
 	}
 
 	// Validate recurrence pattern
-	if err := utils.ValidateTaskRecurrence(task.Recurrence, task.DueDate, task.DueDatetime); err != nil {
+	if err := utils.ValidateTaskRecurrence(task.Recurrence, task.Due()); err != nil {
 		return "", fmt.Errorf("invalid recurrence pattern: %w", err)
 	}
 
@@ -562,22 +562,15 @@ func completeTaskCRUDTool(args map[string]any) (string, error) {
 
 	// Handle recurring tasks
 	if task.Recurrence != "" {
-		var currentDue *time.Time
-		if task.DueDatetime != nil {
-			currentDue = task.DueDatetime
-		} else if task.DueDate != nil {
-			currentDue = task.DueDate
-		}
-
-		nextDue, err := utils.CalculateNextDueDate(task.Recurrence, currentDue)
+		nextDue, err := utils.CalculateNextDueDate(task.Recurrence, task.Due())
 		if err != nil {
 			return "", fmt.Errorf("failed to calculate next due date: %w", err)
 		}
 
 		if nextDue != nil {
-			if task.DueDatetime != nil {
+			if task.HasTime() {
 				updates["due_datetime"] = nextDue
-			} else if task.DueDate != nil {
+			} else {
 				dateOnly := time.Date(nextDue.Year(), nextDue.Month(), nextDue.Day(), 0, 0, 0, 0, nextDue.Location())
 				updates["due_date"] = &dateOnly
 			}

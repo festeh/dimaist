@@ -59,6 +59,35 @@ type Task struct {
 	GoogleEventID *string        `json:"google_event_id,omitempty"`
 }
 
+// Due returns the effective due date/datetime (DueDatetime takes precedence)
+func (t *Task) Due() *time.Time {
+	if t.DueDatetime != nil {
+		return t.DueDatetime
+	}
+	return t.DueDate
+}
+
+// HasTime returns true if task has a specific time (DueDatetime) vs date-only
+func (t *Task) HasTime() bool {
+	return t.DueDatetime != nil
+}
+
+// SetDue sets the appropriate due field based on hasTime flag
+func (t *Task) SetDue(due *time.Time, hasTime bool) {
+	if due == nil {
+		t.DueDate = nil
+		t.DueDatetime = nil
+		return
+	}
+	if hasTime {
+		t.DueDatetime = due
+		t.DueDate = nil
+	} else {
+		t.DueDate = due
+		t.DueDatetime = nil
+	}
+}
+
 type Project struct {
 	ID        uint       `gorm:"primaryKey" json:"id"`
 	Name      string     `gorm:"not null" json:"name"`

@@ -14,19 +14,19 @@ class DueWidget extends StatelessWidget {
     final today = DateTime(now.year, now.month, now.day);
     final tomorrow = today.add(const Duration(days: 1));
 
-    DateTime? effectiveDate;
-    if (task.dueDate != null) {
-      // For date-only tasks, set to end of day (23:59:59)
-      // so they're not marked as missed during the day
-      final date = task.dueDate!;
-      effectiveDate = DateTime(date.year, date.month, date.day, 23, 59, 59);
-    } else if (task.dueDatetime != null) {
-      // For datetime tasks, use exact time
-      effectiveDate = task.dueDatetime;
+    if (task.due == null) {
+      return const SizedBox.shrink();
     }
 
-    if (effectiveDate == null) {
-      return const SizedBox.shrink();
+    DateTime effectiveDate;
+    if (task.hasTime) {
+      // For datetime tasks, use exact time
+      effectiveDate = task.due!;
+    } else {
+      // For date-only tasks, set to end of day (23:59:59)
+      // so they're not marked as missed during the day
+      final date = task.due!;
+      effectiveDate = DateTime(date.year, date.month, date.day, 23, 59, 59);
     }
 
     String formattedDate;
@@ -39,8 +39,8 @@ class DueWidget extends StatelessWidget {
         effectiveDate.month == tomorrow.month &&
         effectiveDate.day == tomorrow.day;
 
-    if (task.dueDatetime != null) {
-      final localDatetime = task.dueDatetime!.toLocal();
+    if (task.hasTime) {
+      final localDatetime = task.due!.toLocal();
       if (isToday) {
         formattedDate = DateFormat.Hm().format(localDatetime);
       } else if (isTomorrow) {
