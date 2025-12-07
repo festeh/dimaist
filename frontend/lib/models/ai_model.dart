@@ -1,6 +1,7 @@
 enum AiProvider {
   chutes,
-  openrouter;
+  openrouter,
+  google;
 
   String get displayName {
     switch (this) {
@@ -8,6 +9,8 @@ enum AiProvider {
         return 'Chutes';
       case AiProvider.openrouter:
         return 'OpenRouter';
+      case AiProvider.google:
+        return 'Google';
     }
   }
 
@@ -17,6 +20,8 @@ enum AiProvider {
         return 'assets/icons/chutes.png';
       case AiProvider.openrouter:
         return 'assets/icons/openrouter.png';
+      case AiProvider.google:
+        return 'assets/icons/google.png';
     }
   }
 }

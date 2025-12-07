@@ -49,6 +49,10 @@ class AiModelNotifier extends StateNotifier<AiModelState> {
     AiModel(id: 'default_3', modelName: 'MiniMaxAI/MiniMax-M2', provider: AiProvider.chutes),
     AiModel(id: 'default_4', modelName: 'deepseek-ai/DeepSeek-V3.1-Terminus', provider: AiProvider.chutes),
     AiModel(id: 'default_5', modelName: 'z-ai/glm-4.6:turbo', provider: AiProvider.openrouter),
+    // Google Gemini free tier models
+    AiModel(id: 'default_6', modelName: 'gemini-2.5-flash', provider: AiProvider.google),
+    AiModel(id: 'default_7', modelName: 'gemini-2.5-pro', provider: AiProvider.google),
+    AiModel(id: 'default_8', modelName: 'gemini-2.5-flash-lite', provider: AiProvider.google),
   ];
 
   static SharedPreferences? _prefs;

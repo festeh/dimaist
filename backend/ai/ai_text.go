@@ -157,10 +157,14 @@ func createAIAgent(provider, model string) *Agent {
 
 	// Select endpoint and token based on provider
 	var apiKey, endpoint string
-	if provider == "chutes" {
+	switch provider {
+	case "chutes":
 		apiKey = appEnv.ChutesToken
 		endpoint = appEnv.ChutesEndpoint
-	} else {
+	case "google":
+		apiKey = appEnv.GoogleAIToken
+		endpoint = appEnv.GoogleAIEndpoint
+	default: // openrouter
 		apiKey = appEnv.OpenrouterToken
 		endpoint = appEnv.OpenrouterEndpoint
 	}

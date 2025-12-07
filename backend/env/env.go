@@ -13,6 +13,8 @@ type Env struct {
 	ChutesToken        string
 	OpenrouterEndpoint string
 	OpenrouterToken    string
+	GoogleAIEndpoint   string
+	GoogleAIToken      string
 	GoogleClientID     string
 	GoogleClientSecret string
 	GoogleRefreshToken string
@@ -55,6 +57,10 @@ func New() (*Env, error) {
 	// Optional environment variables with defaults
 	env.LogLevel = getEnvOrDefault("LOG_LEVEL", "info")
 	env.LogFormat = getEnvOrDefault("LOG_FORMAT", "text")
+
+	// Google AI API credentials (optional - for Gemini models)
+	env.GoogleAIEndpoint = getEnvOrDefault("GOOGLE_AI_ENDPOINT", "https://generativelanguage.googleapis.com/v1beta/openai")
+	env.GoogleAIToken = os.Getenv("GOOGLE_AI_TOKEN")
 
 	// Google Calendar credentials (optional)
 	env.GoogleClientID = os.Getenv("GOOGLE_CLIENT_ID")

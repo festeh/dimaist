@@ -237,16 +237,22 @@ func findTargetIndex(targets []general.Target, target general.Target) int {
 
 // getProvider returns the provider configuration for a given provider name
 func getProvider(providerName string) general.Provider {
-	if providerName == "chutes" {
+	switch providerName {
+	case "chutes":
 		return general.Provider{
 			Endpoint: appEnv.ChutesEndpoint,
 			APIKey:   appEnv.ChutesToken,
 		}
-	}
-	// Default to OpenRouter
-	return general.Provider{
-		Endpoint: appEnv.OpenrouterEndpoint,
-		APIKey:   appEnv.OpenrouterToken,
+	case "google":
+		return general.Provider{
+			Endpoint: appEnv.GoogleAIEndpoint,
+			APIKey:   appEnv.GoogleAIToken,
+		}
+	default: // openrouter
+		return general.Provider{
+			Endpoint: appEnv.OpenrouterEndpoint,
+			APIKey:   appEnv.OpenrouterToken,
+		}
 	}
 }
 
