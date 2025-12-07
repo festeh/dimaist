@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/ws_message_type.dart';
 
 /// Response status for parallel mode
@@ -101,7 +102,28 @@ class ParallelAiState {
 
 /// Notifier for parallel AI state management
 class ParallelAiNotifier extends StateNotifier<ParallelAiState> {
-  ParallelAiNotifier() : super(const ParallelAiState());
+  static const String _selectedKey = 'selected_model_ids';
+  static SharedPreferences? _prefs;
+
+  /// Initialize SharedPreferences - call before app starts
+  static Future<void> init() async {
+    _prefs = await SharedPreferences.getInstance();
+  }
+
+  ParallelAiNotifier() : super(_loadInitialState());
+
+  static ParallelAiState _loadInitialState() {
+    final savedIds = _prefs?.getStringList(_selectedKey);
+    if (savedIds != null && savedIds.isNotEmpty) {
+      return ParallelAiState(selectedModelIds: savedIds.toSet());
+    }
+    // Default to first model if nothing saved
+    return const ParallelAiState(selectedModelIds: {'chutes_1'});
+  }
+
+  Future<void> _saveSelection() async {
+    await _prefs?.setStringList(_selectedKey, state.selectedModelIds.toList());
+  }
 
   /// Toggle a model's selection for parallel mode
   void toggleModelSelection(String modelId) {
@@ -112,11 +134,13 @@ class ParallelAiNotifier extends StateNotifier<ParallelAiState> {
       newSet.add(modelId);
     }
     state = state.copyWith(selectedModelIds: newSet);
+    _saveSelection();
   }
 
   /// Set the selected models
   void setSelectedModels(Set<String> modelIds) {
     state = state.copyWith(selectedModelIds: modelIds);
+    _saveSelection();
   }
 
   /// Start a parallel request session
@@ -177,6 +201,7 @@ class ParallelAiNotifier extends StateNotifier<ParallelAiState> {
   /// Clear selection completely
   void clearSelection() {
     state = const ParallelAiState();
+    _saveSelection();
   }
 }
 
