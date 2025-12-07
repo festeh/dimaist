@@ -48,11 +48,15 @@ class AiModelNotifier extends StateNotifier<AiModelState> {
     AiModel(id: 'default_2', modelName: 'moonshotai/Kimi-K2-Thinking', provider: AiProvider.chutes),
     AiModel(id: 'default_3', modelName: 'MiniMaxAI/MiniMax-M2', provider: AiProvider.chutes),
     AiModel(id: 'default_4', modelName: 'deepseek-ai/DeepSeek-V3.1-Terminus', provider: AiProvider.chutes),
-    AiModel(id: 'default_5', modelName: 'z-ai/glm-4.6:turbo', provider: AiProvider.openrouter),
+    AiModel(id: 'default_5', modelName: 'deepseek-ai/DeepSeek-V3.2', provider: AiProvider.chutes),
+    AiModel(id: 'default_6', modelName: 'z-ai/glm-4.6:turbo', provider: AiProvider.openrouter),
     // Google Gemini free tier models
-    AiModel(id: 'default_6', modelName: 'gemini-2.5-flash', provider: AiProvider.google),
-    AiModel(id: 'default_7', modelName: 'gemini-2.5-pro', provider: AiProvider.google),
-    AiModel(id: 'default_8', modelName: 'gemini-2.5-flash-lite', provider: AiProvider.google),
+    AiModel(id: 'default_7', modelName: 'gemini-2.5-flash', provider: AiProvider.google),
+    AiModel(id: 'default_8', modelName: 'gemini-2.5-pro', provider: AiProvider.google),
+    AiModel(id: 'default_9', modelName: 'gemini-2.5-flash-lite', provider: AiProvider.google),
+    // Groq models
+    AiModel(id: 'default_10', modelName: 'qwen/qwen3-32b', provider: AiProvider.groq),
+    AiModel(id: 'default_11', modelName: 'moonshotai/kimi-k2-instruct-0905', provider: AiProvider.groq),
   ];
 
   static SharedPreferences? _prefs;

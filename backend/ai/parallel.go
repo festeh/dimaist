@@ -248,6 +248,11 @@ func getProvider(providerName string) general.Provider {
 			Endpoint: appEnv.GoogleAIEndpoint,
 			APIKey:   appEnv.GoogleAIToken,
 		}
+	case "groq":
+		return general.Provider{
+			Endpoint: appEnv.GroqEndpoint,
+			APIKey:   appEnv.GroqToken,
+		}
 	default: // openrouter
 		return general.Provider{
 			Endpoint: appEnv.OpenrouterEndpoint,

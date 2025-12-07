@@ -164,6 +164,9 @@ func createAIAgent(provider, model string) *Agent {
 	case "google":
 		apiKey = appEnv.GoogleAIToken
 		endpoint = appEnv.GoogleAIEndpoint
+	case "groq":
+		apiKey = appEnv.GroqToken
+		endpoint = appEnv.GroqEndpoint
 	default: // openrouter
 		apiKey = appEnv.OpenrouterToken
 		endpoint = appEnv.OpenrouterEndpoint

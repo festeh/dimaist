@@ -15,6 +15,8 @@ type Env struct {
 	OpenrouterToken    string
 	GoogleAIEndpoint   string
 	GoogleAIToken      string
+	GroqEndpoint       string
+	GroqToken          string
 	GoogleClientID     string
 	GoogleClientSecret string
 	GoogleRefreshToken string
@@ -60,6 +62,13 @@ func New() (*Env, error) {
 	}
 	env.GoogleAIToken = googleAIToken
 	env.GoogleAIEndpoint = getEnvOrDefault("GOOGLE_AI_ENDPOINT", "https://generativelanguage.googleapis.com/v1beta/openai")
+
+	groqToken := os.Getenv("GROQ_TOKEN")
+	if groqToken == "" {
+		return nil, fmt.Errorf("GROQ_TOKEN environment variable is required")
+	}
+	env.GroqToken = groqToken
+	env.GroqEndpoint = getEnvOrDefault("GROQ_ENDPOINT", "https://api.groq.com/openai/v1")
 
 	// Optional environment variables with defaults
 	env.LogLevel = getEnvOrDefault("LOG_LEVEL", "info")
