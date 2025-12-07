@@ -114,7 +114,7 @@ func HandleAIWithWS(ws *WSWriter, messages []ChatCompletionMessage, provider, mo
 	contextDuration := time.Since(contextStartTime).Seconds()
 
 	// Build system prompt and prepend to messages
-	systemPrompt, err := buildSystemPrompt(tasks, projects)
+	systemPrompt, err := BuildSystemPrompt(tasks, projects)
 	if err != nil {
 		logger.Error("Failed to build system prompt").Err(err).Send()
 		ws.SendError("Failed to build system prompt: " + err.Error())

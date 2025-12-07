@@ -19,24 +19,22 @@ func (t timeMinutes) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + time.Time(t).Local().Format("2006-01-02T15:04") + `"`), nil
 }
 
-// Slim DTOs for AI context (excludes created_at/updated_at to reduce token usage)
+// Slim DTOs for AI context (excludes created_at/updated_at/order to reduce token usage)
 type taskForAI struct {
-	ID            uint               `json:"id"`
-	Description   string             `json:"description"`
-	ProjectID     *uint              `json:"project_id,omitempty"`
-	DueDate       *timeMinutes       `json:"due_date,omitempty"`
-	DueDatetime   *timeMinutes       `json:"due_datetime,omitempty"`
-	Labels        pq.StringArray     `json:"labels,omitempty"`
-	Reminders     database.TimeArray `json:"reminders,omitempty"`
-	Recurrence    string             `json:"recurrence,omitempty"`
-	Order         int                `json:"order"`
-	CompletedAt   *timeMinutes       `json:"completed_at,omitempty"`
+	ID          uint               `json:"id"`
+	Description string             `json:"description"`
+	ProjectID   *uint              `json:"project_id,omitempty"`
+	DueDate     *timeMinutes       `json:"due_date,omitempty"`
+	DueDatetime *timeMinutes       `json:"due_datetime,omitempty"`
+	Labels      pq.StringArray     `json:"labels,omitempty"`
+	Reminders   database.TimeArray `json:"reminders,omitempty"`
+	Recurrence  string             `json:"recurrence,omitempty"`
+	CompletedAt *timeMinutes       `json:"completed_at,omitempty"`
 }
 
 type projectForAI struct {
-	ID    uint   `json:"id"`
-	Name  string `json:"name"`
-	Order int    `json:"order"`
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
 }
 
 var appEnv *env.Env
@@ -92,20 +90,27 @@ func toTimeMinutes(t *time.Time) *timeMinutes {
 	return &tm
 }
 
-func buildSystemPrompt(tasks []database.Task, projects []database.Project) (string, error) {
+func BuildSystemPrompt(tasks []database.Task, projects []database.Project) (string, error) {
 	// Convert to slim DTOs to reduce token usage
 	slimTasks := make([]taskForAI, len(tasks))
 	for i, t := range tasks {
+		// Filter out empty labels
+		var labels pq.StringArray
+		for _, l := range t.Labels {
+			if l != "" {
+				labels = append(labels, l)
+			}
+		}
+
 		slimTasks[i] = taskForAI{
 			ID:          t.ID,
 			Description: t.Description,
 			ProjectID:   t.ProjectID,
 			DueDate:     toTimeMinutes(t.DueDate),
 			DueDatetime: toTimeMinutes(t.DueDatetime),
-			Labels:      t.Labels,
+			Labels:      labels,
 			Reminders:   t.Reminders,
 			Recurrence:  t.Recurrence,
-			Order:       t.Order,
 			CompletedAt: toTimeMinutes(t.CompletedAt),
 		}
 	}
@@ -113,9 +118,8 @@ func buildSystemPrompt(tasks []database.Task, projects []database.Project) (stri
 	slimProjects := make([]projectForAI, len(projects))
 	for i, p := range projects {
 		slimProjects[i] = projectForAI{
-			ID:    p.ID,
-			Name:  p.Name,
-			Order: p.Order,
+			ID:   p.ID,
+			Name: p.Name,
 		}
 	}
 

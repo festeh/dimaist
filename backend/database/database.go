@@ -9,6 +9,18 @@ import (
 
 var DB *gorm.DB
 
+// InitDBLight connects to database without running migrations (for CLI tools)
+func InitDBLight(databaseURL string) error {
+	var err error
+	DB, err = gorm.Open(postgres.Open(databaseURL), &gorm.Config{
+		PrepareStmt: false,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func InitDB(databaseURL string) error {
 
 	logger.Info("Connecting to database").Send()

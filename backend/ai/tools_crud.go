@@ -29,6 +29,16 @@ func parseDatetime(s string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("unable to parse datetime: %s", s)
 }
 
+// GetToolDefinitions returns tool definitions without handlers (for API requests)
+func GetToolDefinitions() []general.Tool {
+	tools := CreateCRUDTools()
+	defs := make([]general.Tool, len(tools))
+	for i, t := range tools {
+		defs[i] = t.Tool
+	}
+	return defs
+}
+
 func CreateCRUDTools() []Tool {
 	return []Tool{
 		// Special tool to end conversation
