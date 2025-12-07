@@ -62,22 +62,16 @@ class ModelListDialog extends ConsumerWidget {
                         padding: const EdgeInsets.all(Spacing.md),
                         child: Row(
                           children: [
-                            if (multiSelectMode)
-                              Checkbox(
-                                value: isSelected,
-                                onChanged: (_) => ref
-                                    .read(parallelAiProvider.notifier)
-                                    .toggleModelSelection(model.id),
-                              )
-                            else
-                              PhosphorIcon(
-                                isSelected
-                                    ? PhosphorIcons.radioButton(PhosphorIconsStyle.fill)
-                                    : PhosphorIcons.circle(),
-                                color: isSelected
-                                    ? theme.colorScheme.primary
-                                    : theme.colorScheme.onSurfaceVariant,
-                              ),
+                            Checkbox(
+                              value: isSelected,
+                              onChanged: (_) {
+                                if (multiSelectMode) {
+                                  ref.read(parallelAiProvider.notifier).toggleModelSelection(model.id);
+                                } else {
+                                  ref.read(aiModelProvider.notifier).selectModel(model.id);
+                                }
+                              },
+                            ),
                             const SizedBox(width: Spacing.sm),
                             Expanded(
                               child: Column(
