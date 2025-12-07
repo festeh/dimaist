@@ -6,6 +6,8 @@ import (
 
 	"dimaist/database"
 	"dimaist/utils"
+
+	"github.com/festeh/general"
 	"github.com/lib/pq"
 )
 
@@ -31,19 +33,21 @@ func CreateCRUDTools() []Tool {
 	return []Tool{
 		// Special tool to end conversation
 		{
-			Type: "function",
-			Function: ToolFunc{
-				Name:        "respond",
-				Description: "Send final response to user and end conversation",
-				Parameters: ToolParameters{
-					Type: "object",
-					Properties: map[string]ToolParameterProperty{
-						"text": {
-							Type:        "string",
-							Description: "The message to send to the user",
+			Tool: general.Tool{
+				Type: "function",
+				Function: general.ToolFunc{
+					Name:        "respond",
+					Description: "Send final response to user and end conversation",
+					Parameters: general.ToolParameters{
+						Type: "object",
+						Properties: map[string]general.ToolParameterProperty{
+							"text": {
+								Type:        "string",
+								Description: "The message to send to the user",
+							},
 						},
+						Required: []string{"text"},
 					},
-					Required: []string{"text"},
 				},
 			},
 			Handler: respondTool,
@@ -51,141 +55,149 @@ func CreateCRUDTools() []Tool {
 
 		// Task CRUD operations
 		{
-			Type: "function",
-			Function: ToolFunc{
-				Name:        "create_task",
-				Description: "Create a new task",
-				Parameters: ToolParameters{
-					Type: "object",
-					Properties: map[string]ToolParameterProperty{
-						"description": {
-							Type:        "string",
-							Description: "Task description",
+			Tool: general.Tool{
+				Type: "function",
+				Function: general.ToolFunc{
+					Name:        "create_task",
+					Description: "Create a new task",
+					Parameters: general.ToolParameters{
+						Type: "object",
+						Properties: map[string]general.ToolParameterProperty{
+							"description": {
+								Type:        "string",
+								Description: "Task description",
+							},
+							"project_id": {
+								Type:        "number",
+								Description: "Project ID to assign task to",
+							},
+							"due_date": {
+								Type:        "string",
+								Description: "Due date in YYYY-MM-DD format",
+							},
+							"due_datetime": {
+								Type:        "string",
+								Description: "Due datetime in RFC3339 format",
+							},
+							"start_datetime": {
+								Type:        "string",
+								Description: "Start datetime in RFC3339 format",
+							},
+							"end_datetime": {
+								Type:        "string",
+								Description: "End datetime in RFC3339 format",
+							},
+							"labels": {
+								Type:        "array",
+								Description: "Task labels",
+							},
+							"reminders": {
+								Type:        "array",
+								Description: "Reminder times in RFC3339 format",
+							},
+							"recurrence": {
+								Type:        "string",
+								Description: "Recurrence pattern",
+							},
 						},
-						"project_id": {
-							Type:        "number",
-							Description: "Project ID to assign task to",
-						},
-						"due_date": {
-							Type:        "string",
-							Description: "Due date in YYYY-MM-DD format",
-						},
-						"due_datetime": {
-							Type:        "string",
-							Description: "Due datetime in RFC3339 format",
-						},
-						"start_datetime": {
-							Type:        "string",
-							Description: "Start datetime in RFC3339 format",
-						},
-						"end_datetime": {
-							Type:        "string",
-							Description: "End datetime in RFC3339 format",
-						},
-						"labels": {
-							Type:        "array",
-							Description: "Task labels",
-						},
-						"reminders": {
-							Type:        "array",
-							Description: "Reminder times in RFC3339 format",
-						},
-						"recurrence": {
-							Type:        "string",
-							Description: "Recurrence pattern",
-						},
+						Required: []string{"description"},
 					},
-					Required: []string{"description"},
 				},
 			},
 			Handler: createTaskCRUDTool,
 		},
 		{
-			Type: "function",
-			Function: ToolFunc{
-				Name:        "update_task",
-				Description: "Update an existing task",
-				Parameters: ToolParameters{
-					Type: "object",
-					Properties: map[string]ToolParameterProperty{
-						"task_id": {
-							Type:        "number",
-							Description: "ID of the task to update",
+			Tool: general.Tool{
+				Type: "function",
+				Function: general.ToolFunc{
+					Name:        "update_task",
+					Description: "Update an existing task",
+					Parameters: general.ToolParameters{
+						Type: "object",
+						Properties: map[string]general.ToolParameterProperty{
+							"task_id": {
+								Type:        "number",
+								Description: "ID of the task to update",
+							},
+							"description": {
+								Type:        "string",
+								Description: "New task description",
+							},
+							"project_id": {
+								Type:        "number",
+								Description: "New project ID",
+							},
+							"due_date": {
+								Type:        "string",
+								Description: "New due date in YYYY-MM-DD format",
+							},
+							"due_datetime": {
+								Type:        "string",
+								Description: "New due datetime in RFC3339 format",
+							},
+							"start_datetime": {
+								Type:        "string",
+								Description: "New start datetime in RFC3339 format",
+							},
+							"end_datetime": {
+								Type:        "string",
+								Description: "New end datetime in RFC3339 format",
+							},
+							"labels": {
+								Type:        "array",
+								Description: "New task labels",
+							},
+							"reminders": {
+								Type:        "array",
+								Description: "New reminder times in RFC3339 format",
+							},
+							"recurrence": {
+								Type:        "string",
+								Description: "New recurrence pattern",
+							},
 						},
-						"description": {
-							Type:        "string",
-							Description: "New task description",
-						},
-						"project_id": {
-							Type:        "number",
-							Description: "New project ID",
-						},
-						"due_date": {
-							Type:        "string",
-							Description: "New due date in YYYY-MM-DD format",
-						},
-						"due_datetime": {
-							Type:        "string",
-							Description: "New due datetime in RFC3339 format",
-						},
-						"start_datetime": {
-							Type:        "string",
-							Description: "New start datetime in RFC3339 format",
-						},
-						"end_datetime": {
-							Type:        "string",
-							Description: "New end datetime in RFC3339 format",
-						},
-						"labels": {
-							Type:        "array",
-							Description: "New task labels",
-						},
-						"reminders": {
-							Type:        "array",
-							Description: "New reminder times in RFC3339 format",
-						},
-						"recurrence": {
-							Type:        "string",
-							Description: "New recurrence pattern",
-						},
+						Required: []string{"task_id"},
 					},
-					Required: []string{"task_id"},
 				},
 			},
 			Handler: updateTaskCRUDTool,
 		},
 		{
-			Type: "function",
-			Function: ToolFunc{
-				Name:        "delete_task",
-				Description: "Delete a task (soft delete)",
-				Parameters: ToolParameters{
-					Type: "object",
-					Properties: map[string]ToolParameterProperty{
-						"task_id": {
-							Type:        "number",
-							Description: "ID of the task to delete",
+			Tool: general.Tool{
+				Type: "function",
+				Function: general.ToolFunc{
+					Name:        "delete_task",
+					Description: "Delete a task (soft delete)",
+					Parameters: general.ToolParameters{
+						Type: "object",
+						Properties: map[string]general.ToolParameterProperty{
+							"task_id": {
+								Type:        "number",
+								Description: "ID of the task to delete",
+							},
 						},
+						Required: []string{"task_id"},
 					},
-					Required: []string{"task_id"},
 				},
 			},
 			Handler: deleteTaskCRUDTool,
 		},
 		{
-			Type: "function",
-			Function: ToolFunc{
-				Name:        "complete_task",
-				Description: "Mark a task as completed (handles recurring tasks)",
-				Parameters: ToolParameters{
-					Type: "object",
-					Properties: map[string]ToolParameterProperty{
-						"task_id": {
-							Type:        "number",
-							Description: "ID of the task to complete",
+			Tool: general.Tool{
+				Type: "function",
+				Function: general.ToolFunc{
+					Name:        "complete_task",
+					Description: "Mark a task as completed (handles recurring tasks)",
+					Parameters: general.ToolParameters{
+						Type: "object",
+						Properties: map[string]general.ToolParameterProperty{
+							"task_id": {
+								Type:        "number",
+								Description: "ID of the task to complete",
+							},
 						},
+						Required: []string{"task_id"},
 					},
-					Required: []string{"task_id"},
 				},
 			},
 			Handler: completeTaskCRUDTool,
@@ -193,67 +205,73 @@ func CreateCRUDTools() []Tool {
 
 		// Project CRUD operations
 		{
-			Type: "function",
-			Function: ToolFunc{
-				Name:        "create_project",
-				Description: "Create a new project",
-				Parameters: ToolParameters{
-					Type: "object",
-					Properties: map[string]ToolParameterProperty{
-						"name": {
-							Type:        "string",
-							Description: "Project name",
+			Tool: general.Tool{
+				Type: "function",
+				Function: general.ToolFunc{
+					Name:        "create_project",
+					Description: "Create a new project",
+					Parameters: general.ToolParameters{
+						Type: "object",
+						Properties: map[string]general.ToolParameterProperty{
+							"name": {
+								Type:        "string",
+								Description: "Project name",
+							},
+							"color": {
+								Type:        "string",
+								Description: "Project color",
+							},
 						},
-						"color": {
-							Type:        "string",
-							Description: "Project color",
-						},
+						Required: []string{"name"},
 					},
-					Required: []string{"name"},
 				},
 			},
 			Handler: createProjectCRUDTool,
 		},
 		{
-			Type: "function",
-			Function: ToolFunc{
-				Name:        "update_project",
-				Description: "Update an existing project",
-				Parameters: ToolParameters{
-					Type: "object",
-					Properties: map[string]ToolParameterProperty{
-						"project_id": {
-							Type:        "number",
-							Description: "ID of the project to update",
+			Tool: general.Tool{
+				Type: "function",
+				Function: general.ToolFunc{
+					Name:        "update_project",
+					Description: "Update an existing project",
+					Parameters: general.ToolParameters{
+						Type: "object",
+						Properties: map[string]general.ToolParameterProperty{
+							"project_id": {
+								Type:        "number",
+								Description: "ID of the project to update",
+							},
+							"name": {
+								Type:        "string",
+								Description: "New project name",
+							},
+							"color": {
+								Type:        "string",
+								Description: "New project color",
+							},
 						},
-						"name": {
-							Type:        "string",
-							Description: "New project name",
-						},
-						"color": {
-							Type:        "string",
-							Description: "New project color",
-						},
+						Required: []string{"project_id"},
 					},
-					Required: []string{"project_id"},
 				},
 			},
 			Handler: updateProjectCRUDTool,
 		},
 		{
-			Type: "function",
-			Function: ToolFunc{
-				Name:        "delete_project",
-				Description: "Delete a project (soft delete)",
-				Parameters: ToolParameters{
-					Type: "object",
-					Properties: map[string]ToolParameterProperty{
-						"project_id": {
-							Type:        "number",
-							Description: "ID of the project to delete",
+			Tool: general.Tool{
+				Type: "function",
+				Function: general.ToolFunc{
+					Name:        "delete_project",
+					Description: "Delete a project (soft delete)",
+					Parameters: general.ToolParameters{
+						Type: "object",
+						Properties: map[string]general.ToolParameterProperty{
+							"project_id": {
+								Type:        "number",
+								Description: "ID of the project to delete",
+							},
 						},
+						Required: []string{"project_id"},
 					},
-					Required: []string{"project_id"},
 				},
 			},
 			Handler: deleteProjectCRUDTool,
