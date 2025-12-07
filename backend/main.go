@@ -158,6 +158,16 @@ func getTask(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(task)
 }
 
+// validateLabels returns error if labels contain empty strings
+func validateLabels(labels []string) error {
+	for _, label := range labels {
+		if label == "" {
+			return fmt.Errorf("labels cannot contain empty strings")
+		}
+	}
+	return nil
+}
+
 func createTask(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Creating new task").Send()
 
@@ -165,6 +175,12 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&t)
 	if err != nil {
 		logger.Error("Failed to decode task request").Err(err).Send()
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := validateLabels(t.Labels); err != nil {
+		logger.Error("Invalid labels").Err(err).Send()
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -216,6 +232,12 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Updating task").Uint("task_id", id).Interface("task", t).Send()
 	if err != nil {
 		logger.Error("Failed to decode task update request").Err(err).Send()
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := validateLabels(t.Labels); err != nil {
+		logger.Error("Invalid labels").Err(err).Send()
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

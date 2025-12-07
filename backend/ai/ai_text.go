@@ -94,21 +94,13 @@ func BuildSystemPrompt(tasks []database.Task, projects []database.Project) (stri
 	// Convert to slim DTOs to reduce token usage
 	slimTasks := make([]taskForAI, len(tasks))
 	for i, t := range tasks {
-		// Filter out empty labels
-		var labels pq.StringArray
-		for _, l := range t.Labels {
-			if l != "" {
-				labels = append(labels, l)
-			}
-		}
-
 		slimTasks[i] = taskForAI{
 			ID:          t.ID,
 			Description: t.Description,
 			ProjectID:   t.ProjectID,
 			DueDate:     toTimeMinutes(t.DueDate),
 			DueDatetime: toTimeMinutes(t.DueDatetime),
-			Labels:      labels,
+			Labels:      t.Labels,
 			Reminders:   t.Reminders,
 			Recurrence:  t.Recurrence,
 			CompletedAt: toTimeMinutes(t.CompletedAt),
