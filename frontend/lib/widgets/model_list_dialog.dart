@@ -115,7 +115,6 @@ class ModelListDialog extends ConsumerWidget {
               color: theme.colorScheme.error,
             ),
           ),
-        const Spacer(),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Close'),
