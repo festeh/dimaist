@@ -113,6 +113,24 @@ class AiWebSocketService {
     _channel!.sink.add(jsonEncode(message));
   }
 
+  /// Send batch confirmation for multiple tools
+  void batchConfirm(List<ToolStatus> statuses, {String? newMessage}) {
+    if (_channel == null) {
+      _logger.warning('Cannot batch confirm: WebSocket not connected');
+      return;
+    }
+
+    final message = <String, dynamic>{
+      'type': WSMessageType.batchConfirm.toJson(),
+      'statuses': statuses.map((s) => s.toJson()).toList(),
+    };
+    if (newMessage != null && newMessage.isNotEmpty) {
+      message['new_message'] = newMessage;
+    }
+    _logger.info('Sending batch confirmation', statuses);
+    _channel!.sink.add(jsonEncode(message));
+  }
+
   /// Close the WebSocket connection
   void close() {
     _logger.info('Closing WebSocket connection');

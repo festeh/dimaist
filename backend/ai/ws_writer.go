@@ -34,12 +34,21 @@ func (w *WSWriter) SendThinking(message string, duration float64) error {
 	})
 }
 
-// SendToolPending sends a tool pending message requesting user confirmation
+// SendToolPending sends a tool pending message requesting user confirmation (legacy single tool)
 func (w *WSWriter) SendToolPending(tool string, args map[string]any, duration float64) error {
 	return w.write(WSMessage{
 		Type:      WSMsgToolPending,
 		Tool:      tool,
 		Arguments: args,
+		Duration:  duration,
+	})
+}
+
+// SendToolsPending sends multiple tools at once for batch confirmation
+func (w *WSWriter) SendToolsPending(tools []PendingToolCall, duration float64) error {
+	return w.write(WSMessage{
+		Type:      WSMsgToolsPending,
+		ToolCalls: tools,
 		Duration:  duration,
 	})
 }
@@ -78,7 +87,7 @@ func (w *WSWriter) SendCancelled() error {
 	})
 }
 
-// WaitForConfirmation blocks until user confirms or rejects
+// WaitForConfirmation blocks until user confirms or rejects (legacy single tool)
 // Returns: confirmed (bool), modifiedArgs (if user edited), error
 func (w *WSWriter) WaitForConfirmation() (bool, map[string]any, error) {
 	var msg WSMessage
@@ -93,5 +102,21 @@ func (w *WSWriter) WaitForConfirmation() (bool, map[string]any, error) {
 		return false, nil, nil
 	default:
 		return false, nil, fmt.Errorf("unexpected message type: %s", msg.Type)
+	}
+}
+
+// WaitForBatchConfirmation blocks until user confirms/rejects tools or sends a new message
+// Returns: statuses for each tool, optional new message, error
+func (w *WSWriter) WaitForBatchConfirmation() ([]ToolStatus, string, error) {
+	var msg WSMessage
+	if err := w.conn.ReadJSON(&msg); err != nil {
+		return nil, "", fmt.Errorf("failed to read batch confirmation: %w", err)
+	}
+
+	switch msg.Type {
+	case WSMsgBatchConfirm:
+		return msg.Statuses, msg.NewMessage, nil
+	default:
+		return nil, "", fmt.Errorf("unexpected message type: %s", msg.Type)
 	}
 }

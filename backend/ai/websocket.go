@@ -13,6 +13,13 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
+// PendingToolCall represents a tool call awaiting user confirmation
+type PendingToolCall struct {
+	ToolCallID string         `json:"tool_call_id"`
+	Name       string         `json:"name"`
+	Arguments  map[string]any `json:"arguments"`
+}
+
 // WSMessage represents a WebSocket message for AI chat
 type WSMessage struct {
 	Type WSMessageType `json:"type"`
@@ -23,9 +30,16 @@ type WSMessage struct {
 	Model            string                  `json:"model,omitempty"`
 	IncludeCompleted bool                    `json:"include_completed,omitempty"`
 
-	// Tool pending fields (server → client)
+	// Tool pending fields (server → client) - single tool (legacy)
 	Tool      string         `json:"tool,omitempty"`
 	Arguments map[string]any `json:"arguments,omitempty"`
+
+	// Batch tool fields (server → client)
+	ToolCalls []PendingToolCall `json:"tool_calls,omitempty"`
+
+	// Batch confirmation fields (client → server)
+	Statuses   []ToolStatus `json:"statuses,omitempty"`
+	NewMessage string       `json:"new_message,omitempty"`
 
 	// Response fields (server → client)
 	Message  string  `json:"message,omitempty"`

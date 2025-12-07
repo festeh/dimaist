@@ -6,7 +6,7 @@ import '../models/task.dart';
 import 'task_form_dialog.dart';
 import 'task_widget.dart';
 
-enum ToolStatus { pending, confirmed, cancelled }
+enum ToolPreviewStatus { pending, confirmed, cancelled }
 
 /// Widget that shows a preview of a tool action and allows confirmation/rejection
 class ToolPreviewWidget extends StatefulWidget {
@@ -15,7 +15,7 @@ class ToolPreviewWidget extends StatefulWidget {
   final void Function(Map<String, dynamic>) onConfirm;
   final VoidCallback onReject;
   final List<Project> projects;
-  final ToolStatus status;
+  final ToolPreviewStatus status;
   final String? duration;
 
   const ToolPreviewWidget({
@@ -25,7 +25,7 @@ class ToolPreviewWidget extends StatefulWidget {
     required this.onConfirm,
     required this.onReject,
     required this.projects,
-    this.status = ToolStatus.pending,
+    this.status = ToolPreviewStatus.pending,
     this.duration,
   });
 
@@ -61,7 +61,7 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
           _buildHeader(theme, colors),
           const SizedBox(height: Spacing.md),
           _buildPreview(context),
-          if (widget.status == ToolStatus.pending) ...[
+          if (widget.status == ToolPreviewStatus.pending) ...[
             const SizedBox(height: Spacing.md),
             _buildActions(colors),
           ],
@@ -72,7 +72,7 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
 
   Widget _buildHeader(ThemeData theme, ColorScheme colors) {
     final (icon, title, color) = _getToolInfo(colors);
-    final isCompleted = widget.status != ToolStatus.pending;
+    final isCompleted = widget.status != ToolPreviewStatus.pending;
     final displayColor = isCompleted ? colors.onSurfaceVariant : color;
 
     return Row(
@@ -93,7 +93,7 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
             ),
           ),
         ],
-        if (widget.status == ToolStatus.confirmed) ...[
+        if (widget.status == ToolPreviewStatus.confirmed) ...[
           const SizedBox(width: Spacing.sm),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: 2),
@@ -107,7 +107,7 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
             ),
           ),
         ],
-        if (widget.status == ToolStatus.cancelled) ...[
+        if (widget.status == ToolPreviewStatus.cancelled) ...[
           const SizedBox(width: Spacing.sm),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: 2),
@@ -195,7 +195,7 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
     Widget taskWidget = TaskWidget(
       task: task,
       onToggleComplete: (_) {}, // No-op for preview
-      onEdit: editable && widget.status == ToolStatus.pending
+      onEdit: editable && widget.status == ToolPreviewStatus.pending
           ? (_) => _openTaskEditDialog(context)
           : (_) {}, // No-op if not editable
       showCheckbox: false,
@@ -254,7 +254,7 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
               ),
             ],
           ),
-          if (editable && widget.status == ToolStatus.pending) ...[
+          if (editable && widget.status == ToolPreviewStatus.pending) ...[
             const SizedBox(height: Spacing.sm),
             OutlinedButton.icon(
               onPressed: () => _openProjectEditDialog(context),
@@ -285,7 +285,7 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
 
   Widget _buildActions(ColorScheme colors) {
     // Don't show actions when read-only
-    if (widget.status != ToolStatus.pending) {
+    if (widget.status != ToolPreviewStatus.pending) {
       return const SizedBox.shrink();
     }
 

@@ -5,18 +5,27 @@ type WSMessageType string
 
 const (
 	// Client → Server message types
-	WSMsgStart   WSMessageType = "start"
-	WSMsgConfirm WSMessageType = "confirm"
-	WSMsgReject  WSMessageType = "reject"
+	WSMsgStart        WSMessageType = "start"
+	WSMsgConfirm      WSMessageType = "confirm"
+	WSMsgReject       WSMessageType = "reject"
+	WSMsgBatchConfirm WSMessageType = "batch_confirm" // Batch tool confirmation with statuses
 
 	// Server → Client message types
 	WSMsgThinking      WSMessageType = "thinking"
-	WSMsgToolPending   WSMessageType = "tool_pending"
+	WSMsgToolPending   WSMessageType = "tool_pending"   // Single tool (legacy)
+	WSMsgToolsPending  WSMessageType = "tools_pending"  // Batch tools
 	WSMsgToolResult    WSMessageType = "tool_result"
 	WSMsgFinalResponse WSMessageType = "final_response"
 	WSMsgCancelled     WSMessageType = "cancelled"
 	WSMsgError         WSMessageType = "error"
 )
+
+// ToolStatus represents the user's decision on a single tool in a batch
+type ToolStatus struct {
+	ToolCallID string         `json:"tool_call_id"`
+	Status     string         `json:"status"` // "confirmed", "rejected"
+	Arguments  map[string]any `json:"arguments,omitempty"`
+}
 
 // ConfirmationRequiredTools lists tools that require user confirmation before execution
 var ConfirmationRequiredTools = map[string]bool{

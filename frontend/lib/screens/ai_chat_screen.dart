@@ -14,10 +14,11 @@ import '../providers/asr_language_provider.dart';
 import '../providers/include_completed_provider.dart';
 import '../widgets/chat_input_widget.dart';
 import '../widgets/tool_preview_widget.dart';
+import '../widgets/batch_tool_preview_widget.dart';
 import '../widgets/model_display.dart';
 import '../widgets/model_list_dialog.dart';
 
-enum MessageType { normal, toolCall, toolResult, toolPreview }
+enum MessageType { normal, toolCall, toolResult, toolPreview, batchToolPreview }
 
 class ChatMessage {
   final String text;
@@ -89,8 +90,11 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   bool _isProcessing = false;
   bool _hasText = false;
 
-  // Index of the pending tool preview message (if any)
+  // Index of the pending tool preview message (if any) - legacy single tool
   int? _pendingToolMessageIndex;
+
+  // Index of batch tool preview message (if any)
+  int? _batchToolMessageIndex;
 
   @override
   void initState() {
@@ -235,6 +239,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       }
       _isProcessing = true;
       _pendingToolMessageIndex = null;
+      _batchToolMessageIndex = null;
     });
 
     _scrollToBottom();
@@ -266,6 +271,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           setState(() {
             _isProcessing = false;
             _pendingToolMessageIndex = null;
+            _batchToolMessageIndex = null;
           });
           _wsService.close();
           try {
@@ -314,6 +320,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         break;
 
       case WSMessageType.toolPending:
+        // Legacy single tool - still supported for backwards compatibility
         final toolName = data['tool'] as String?;
         final arguments = data['arguments'] as Map<String, dynamic>?;
         final duration = data['duration'] as double?;
@@ -333,6 +340,39 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             ),
           );
           _pendingToolMessageIndex = _messages.length - 1;
+          _isProcessing = false; // Allow interaction with preview
+        });
+        _scrollToBottom();
+        break;
+
+      case WSMessageType.toolsPending:
+        // New batch tools
+        final toolCallsJson = data['tool_calls'] as List<dynamic>?;
+        final duration = data['duration'] as double?;
+        if (toolCallsJson == null || toolCallsJson.isEmpty) {
+          LoggingService.logger.warning('Received tools_pending with no tools');
+          break;
+        }
+
+        final toolCalls = toolCallsJson
+            .map((tc) => PendingToolCall.fromJson(tc as Map<String, dynamic>))
+            .toList();
+
+        setState(() {
+          _messages.add(
+            ChatMessage(
+              text: '${toolCalls.length} actions pending',
+              role: 'assistant',
+              timestamp: DateTime.now(),
+              type: MessageType.batchToolPreview,
+              metadata: {
+                'tool_calls': toolCallsJson,
+                'status': 'pending',
+              },
+              duration: duration,
+            ),
+          );
+          _batchToolMessageIndex = _messages.length - 1;
           _isProcessing = false; // Allow interaction with preview
         });
         _scrollToBottom();
@@ -427,9 +467,69 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     _wsService.reject();
   }
 
+  void _batchConfirm(List<ToolStatus> statuses) {
+    if (_batchToolMessageIndex == null) return;
+
+    // Mark the batch preview as completed
+    final oldMessage = _messages[_batchToolMessageIndex!];
+    final newMetadata = Map<String, dynamic>.from(oldMessage.metadata ?? {});
+    newMetadata['status'] = 'completed';
+    newMetadata['statuses'] = statuses.map((s) => s.toJson()).toList();
+
+    setState(() {
+      _messages[_batchToolMessageIndex!] = ChatMessage(
+        text: oldMessage.text,
+        role: oldMessage.role,
+        timestamp: oldMessage.timestamp,
+        type: oldMessage.type,
+        metadata: newMetadata,
+        duration: oldMessage.duration,
+      );
+      _batchToolMessageIndex = null;
+      _isProcessing = true;
+    });
+
+    _wsService.batchConfirm(statuses);
+  }
+
+  void _batchConfirmWithMessage(List<ToolStatus> statuses, String message) {
+    if (_batchToolMessageIndex == null) return;
+
+    // Mark the batch preview as completed
+    final oldMessage = _messages[_batchToolMessageIndex!];
+    final newMetadata = Map<String, dynamic>.from(oldMessage.metadata ?? {});
+    newMetadata['status'] = 'completed';
+    newMetadata['statuses'] = statuses.map((s) => s.toJson()).toList();
+
+    setState(() {
+      _messages[_batchToolMessageIndex!] = ChatMessage(
+        text: oldMessage.text,
+        role: oldMessage.role,
+        timestamp: oldMessage.timestamp,
+        type: oldMessage.type,
+        metadata: newMetadata,
+        duration: oldMessage.duration,
+      );
+      // Add user message
+      _messages.add(
+        ChatMessage(text: message, role: 'user', timestamp: DateTime.now()),
+      );
+      _batchToolMessageIndex = null;
+      _isProcessing = true;
+    });
+
+    _wsService.batchConfirm(statuses, newMessage: message);
+    _scrollToBottom();
+  }
+
   Widget _buildMessage(ChatMessage message, List<dynamic> projects) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+
+    // Handle batch tool preview messages
+    if (message.type == MessageType.batchToolPreview) {
+      return _buildBatchToolPreviewMessage(message, projects);
+    }
 
     // Handle tool preview messages
     if (message.type == MessageType.toolPreview) {
@@ -522,9 +622,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     final arguments = message.metadata?['arguments'] as Map<String, dynamic>? ?? {};
     final statusStr = message.metadata?['status'] as String? ?? 'pending';
     final status = switch (statusStr) {
-      'confirmed' => ToolStatus.confirmed,
-      'cancelled' => ToolStatus.cancelled,
-      _ => ToolStatus.pending,
+      'confirmed' => ToolPreviewStatus.confirmed,
+      'cancelled' => ToolPreviewStatus.cancelled,
+      _ => ToolPreviewStatus.pending,
     };
     final messageIndex = _messages.indexOf(message);
     final isPending = messageIndex == _pendingToolMessageIndex;
@@ -536,6 +636,64 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       onReject: isPending ? _rejectTool : () {},
       projects: projects.cast(),
       status: status,
+      duration: message.formattedDuration,
+    );
+  }
+
+  Widget _buildBatchToolPreviewMessage(ChatMessage message, List<dynamic> projects) {
+    final toolCallsJson = message.metadata?['tool_calls'] as List<dynamic>? ?? [];
+    final statusStr = message.metadata?['status'] as String? ?? 'pending';
+    final messageIndex = _messages.indexOf(message);
+    final isPending = messageIndex == _batchToolMessageIndex;
+
+    // If completed, show a summary instead of interactive widget
+    if (statusStr == 'completed') {
+      final statuses = message.metadata?['statuses'] as List<dynamic>? ?? [];
+      final confirmed = statuses.where((s) => s['status'] == 'confirmed').length;
+      final rejected = statuses.where((s) => s['status'] == 'rejected').length;
+
+      final theme = Theme.of(context);
+      final colors = theme.colorScheme;
+
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
+        padding: const EdgeInsets.all(Spacing.lg),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(Radii.lg),
+        ),
+        child: Row(
+          children: [
+            PhosphorIcon(PhosphorIcons.stack(), color: colors.onSurfaceVariant, size: Sizes.iconMd),
+            const SizedBox(width: Spacing.sm),
+            Text(
+              '${toolCallsJson.length} actions: $confirmed confirmed, $rejected rejected',
+              style: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
+            ),
+            if (message.formattedDuration != null) ...[
+              const SizedBox(width: Spacing.xs),
+              Text(
+                message.formattedDuration!,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
+    // Parse tool calls
+    final toolCalls = toolCallsJson
+        .map((tc) => PendingToolCall.fromJson(tc as Map<String, dynamic>))
+        .toList();
+
+    return BatchToolPreviewWidget(
+      toolCalls: toolCalls,
+      projects: projects.cast(),
+      onBatchConfirm: isPending ? _batchConfirm : (_) {},
+      onSendWithMessage: isPending ? _batchConfirmWithMessage : (statuses, msg) {},
       duration: message.formattedDuration,
     );
   }
@@ -606,7 +764,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           ChatInputWidget(
             onSendMessage: _sendTextMessage,
             onAudioRecorded: _processAudioMessage,
-            isProcessing: _isProcessing || _pendingToolMessageIndex != null,
+            isProcessing: _isProcessing || _pendingToolMessageIndex != null || _batchToolMessageIndex != null,
           ),
         ],
       ),

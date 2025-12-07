@@ -284,30 +284,61 @@ func (a *Agent) ExecuteWithWS(messages []ChatCompletionMessage, ws *WSWriter, ct
 		// Process tool calls
 		messages = append(messages, response.Choices[0].Message)
 
+		// Separate tools into categories
+		var pendingTools []PendingToolCall
+		var autoExecuteTools []ToolCall
+		var respondTool *ToolCall
+
 		for _, toolCall := range response.Choices[0].Message.ToolCalls {
 			logger.Info("Tool call detected").
 				Str("tool", toolCall.Function.Name).
 				Str("arguments", toolCall.Function.Arguments).
 				Send()
 
-			// Check for respond tool (final response)
 			if toolCall.Function.Name == "respond" {
+				respondTool = &toolCall
+			} else if ConfirmationRequiredTools[toolCall.Function.Name] {
+				// Parse and resolve args for preview
 				var args map[string]any
-				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err == nil {
-					if text, ok := args["text"].(string); ok {
-						if err := ws.SendFinalResponse(text, modelDuration); err != nil {
-							logger.Error("Failed to send final_response event").Err(err).Send()
-							return err
-						}
-						logger.Info("Agent execution completed with respond tool").Send()
-						return nil
-					}
+				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
+					logger.Error("Failed to parse tool arguments").Err(err).Send()
+					messages = append(messages, ChatCompletionMessage{
+						Role:       "tool",
+						Content:    fmt.Sprintf("Error: failed to parse arguments: %v", err),
+						ToolCallID: toolCall.ID,
+					})
+					continue
 				}
-				ws.SendFinalResponse("Invalid response format", modelDuration)
-				return nil
+				argsForPreview := resolveToolDefaults(toolCall.Function.Name, args)
+				pendingTools = append(pendingTools, PendingToolCall{
+					ToolCallID: toolCall.ID,
+					Name:       toolCall.Function.Name,
+					Arguments:  argsForPreview,
+				})
+			} else {
+				autoExecuteTools = append(autoExecuteTools, toolCall)
 			}
+		}
 
-			// Parse tool arguments
+		// Handle respond tool - final response
+		if respondTool != nil {
+			var args map[string]any
+			if err := json.Unmarshal([]byte(respondTool.Function.Arguments), &args); err == nil {
+				if text, ok := args["text"].(string); ok {
+					if err := ws.SendFinalResponse(text, modelDuration); err != nil {
+						logger.Error("Failed to send final_response event").Err(err).Send()
+						return err
+					}
+					logger.Info("Agent execution completed with respond tool").Send()
+					return nil
+				}
+			}
+			ws.SendFinalResponse("Invalid response format", modelDuration)
+			return nil
+		}
+
+		// Execute auto-execute tools immediately
+		for _, toolCall := range autoExecuteTools {
 			var args map[string]any
 			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
 				logger.Error("Failed to parse tool arguments").Err(err).Send()
@@ -319,48 +350,12 @@ func (a *Agent) ExecuteWithWS(messages []ChatCompletionMessage, ws *WSWriter, ct
 				continue
 			}
 
-			// Check if confirmation is required for this tool
-			if ConfirmationRequiredTools[toolCall.Function.Name] {
-				logger.Info("Tool requires confirmation").Str("tool", toolCall.Function.Name).Send()
-
-				// Resolve defaults before sending to frontend
-				argsForPreview := resolveToolDefaults(toolCall.Function.Name, args)
-
-				// Send tool pending event with LLM duration
-				if err := ws.SendToolPending(toolCall.Function.Name, argsForPreview, modelDuration); err != nil {
-					logger.Error("Failed to send tool_pending event").Err(err).Send()
-					return err
-				}
-
-				// Wait for user confirmation
-				confirmed, modifiedArgs, err := ws.WaitForConfirmation()
-				if err != nil {
-					logger.Error("Failed to wait for confirmation").Err(err).Send()
-					return err
-				}
-
-				if !confirmed {
-					logger.Info("Tool execution rejected by user").Str("tool", toolCall.Function.Name).Send()
-					ws.SendCancelled()
-					return nil
-				}
-
-				// Use modified args if provided
-				if modifiedArgs != nil {
-					args = modifiedArgs
-					logger.Info("Using modified arguments from user").Interface("args", args).Send()
-				}
-			}
-
-			// Execute tool
 			toolStartTime := time.Now()
 			toolResult, err := a.executeToolWithArgs(toolCall.Function.Name, args)
 			toolDuration := time.Since(toolStartTime).Seconds()
 
 			if err != nil {
 				logger.Error("Tool execution failed").Str("tool", toolCall.Function.Name).Err(err).Send()
-
-				// Add error to conversation for recovery
 				messages = append(messages, ChatCompletionMessage{
 					Role:       "tool",
 					Content:    fmt.Sprintf("Error: %v", err),
@@ -369,26 +364,105 @@ func (a *Agent) ExecuteWithWS(messages []ChatCompletionMessage, ws *WSWriter, ct
 				continue
 			}
 
-			// Send tool result event
 			if err := ws.SendToolResult(toolResult, toolDuration); err != nil {
 				logger.Error("Failed to send tool_result event").Err(err).Send()
 				return err
 			}
 
 			logger.Info("Tool executed successfully").Str("tool", toolCall.Function.Name).Str("result", toolResult).Send()
-
-			// For confirmation-required tools, skip AI response - user already knows what happened
-			if ConfirmationRequiredTools[toolCall.Function.Name] {
-				logger.Info("Skipping AI confirmation response for confirmed tool").Str("tool", toolCall.Function.Name).Send()
-				return nil
-			}
-
-			// Add tool result to conversation for non-confirmed tools
 			messages = append(messages, ChatCompletionMessage{
 				Role:       "tool",
 				Content:    toolResult,
 				ToolCallID: toolCall.ID,
 			})
+		}
+
+		// Handle batch confirmation for pending tools
+		if len(pendingTools) > 0 {
+			logger.Info("Sending batch tool confirmation request").Int("tools_count", len(pendingTools)).Send()
+
+			if err := ws.SendToolsPending(pendingTools, modelDuration); err != nil {
+				logger.Error("Failed to send tools_pending event").Err(err).Send()
+				return err
+			}
+
+			// Wait for batch confirmation
+			statuses, newMessage, err := ws.WaitForBatchConfirmation()
+			if err != nil {
+				logger.Error("Failed to wait for batch confirmation").Err(err).Send()
+				return err
+			}
+
+			// Process each tool based on status
+			for _, status := range statuses {
+				// Find the pending tool
+				var pendingTool *PendingToolCall
+				for _, pt := range pendingTools {
+					if pt.ToolCallID == status.ToolCallID {
+						pendingTool = &pt
+						break
+					}
+				}
+				if pendingTool == nil {
+					logger.Error("Unknown tool_call_id in status").Str("tool_call_id", status.ToolCallID).Send()
+					continue
+				}
+
+				if status.Status == "confirmed" {
+					// Use modified args if provided, otherwise use original
+					args := pendingTool.Arguments
+					if status.Arguments != nil {
+						args = status.Arguments
+						logger.Info("Using modified arguments from user").Str("tool", pendingTool.Name).Interface("args", args).Send()
+					}
+
+					// Execute the tool
+					toolStartTime := time.Now()
+					toolResult, err := a.executeToolWithArgs(pendingTool.Name, args)
+					toolDuration := time.Since(toolStartTime).Seconds()
+
+					if err != nil {
+						logger.Error("Tool execution failed").Str("tool", pendingTool.Name).Err(err).Send()
+						messages = append(messages, ChatCompletionMessage{
+							Role:       "tool",
+							Content:    fmt.Sprintf("Error: %v", err),
+							ToolCallID: status.ToolCallID,
+						})
+						continue
+					}
+
+					if err := ws.SendToolResult(toolResult, toolDuration); err != nil {
+						logger.Error("Failed to send tool_result event").Err(err).Send()
+						return err
+					}
+
+					logger.Info("Tool executed successfully").Str("tool", pendingTool.Name).Str("result", toolResult).Send()
+					messages = append(messages, ChatCompletionMessage{
+						Role:       "tool",
+						Content:    toolResult,
+						ToolCallID: status.ToolCallID,
+					})
+				} else {
+					// Rejected - inform AI
+					logger.Info("Tool rejected by user").Str("tool", pendingTool.Name).Send()
+					messages = append(messages, ChatCompletionMessage{
+						Role:       "tool",
+						Content:    "User rejected this action",
+						ToolCallID: status.ToolCallID,
+					})
+				}
+			}
+
+			// If user sent a new message, add it to conversation
+			if newMessage != "" {
+				logger.Info("User sent new message with batch confirmation").Str("message", newMessage).Send()
+				messages = append(messages, ChatCompletionMessage{
+					Role:    "user",
+					Content: newMessage,
+				})
+			}
+
+			// Continue to next iteration (don't return - let AI respond to results)
 		}
 	}
 
