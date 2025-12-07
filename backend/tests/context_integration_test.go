@@ -28,8 +28,8 @@ func TestBuildSystemPrompt_WithFilteredTasks(t *testing.T) {
 	err = createTestTasksForPrompt(testDB)
 	assert.NoError(t, err)
 
-	// Load tasks using our filtered function
-	tasks, err := ai.LoadRecentTasks(100)
+	// Load tasks using our filtered function (include completed for test)
+	tasks, err := ai.LoadRecentTasks(100, true)
 	assert.NoError(t, err)
 
 	// Load projects

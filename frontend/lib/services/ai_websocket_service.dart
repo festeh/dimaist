@@ -26,6 +26,7 @@ class AiWebSocketService {
     required List<Map<String, dynamic>> messages,
     required String provider,
     required String model,
+    required bool includeCompleted,
     required WSMessageCallback onMessage,
     required void Function() onDone,
     required void Function(String) onError,
@@ -35,7 +36,7 @@ class AiWebSocketService {
       return;
     }
 
-    _logger.info('Starting AI conversation with provider: $provider, model: $model');
+    _logger.info('Starting AI conversation with provider: $provider, model: $model, includeCompleted: $includeCompleted');
 
     // Send start message
     final startMessage = {
@@ -43,6 +44,7 @@ class AiWebSocketService {
       'messages': messages,
       'provider': provider,
       'model': model,
+      'include_completed': includeCompleted,
     };
     _channel!.sink.add(jsonEncode(startMessage));
 

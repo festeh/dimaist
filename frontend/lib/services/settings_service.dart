@@ -5,6 +5,7 @@ class SettingsService {
   static const String _themeKey = 'app_theme';
   static const String _fontKey = 'app_font';
   static const String _asrLanguageKey = 'asr_language';
+  static const String _includeCompletedInAiKey = 'include_completed_in_ai';
 
   static SettingsService? _instance;
   SharedPreferences? _prefs;
@@ -52,5 +53,13 @@ class SettingsService {
 
   Future<void> setAsrLanguage(String language) async {
     await _prefs?.setString(_asrLanguageKey, language);
+  }
+
+  bool get includeCompletedInAi {
+    return _prefs?.getBool(_includeCompletedInAiKey) ?? false;
+  }
+
+  Future<void> setIncludeCompletedInAi(bool value) async {
+    await _prefs?.setBool(_includeCompletedInAiKey, value);
   }
 }

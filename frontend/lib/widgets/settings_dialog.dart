@@ -7,6 +7,7 @@ import '../providers/theme_provider.dart';
 import '../providers/font_provider.dart';
 import '../providers/ai_model_provider.dart';
 import '../providers/asr_language_provider.dart';
+import '../providers/include_completed_provider.dart';
 import '../services/logging_service.dart';
 import '../config/design_tokens.dart';
 import 'model_list_dialog.dart';
@@ -136,6 +137,11 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     );
   }
 
+  void _toggleIncludeCompleted() {
+    final current = ref.read(includeCompletedInAiProvider);
+    ref.read(includeCompletedInAiProvider.notifier).setIncludeCompleted(!current);
+  }
+
   Widget _buildSettingRow({
     required PhosphorIconData icon,
     required String label,
@@ -182,6 +188,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     final currentTheme = ref.watch(themeProvider);
     final currentFont = ref.watch(fontProvider);
     final currentLanguage = ref.watch(asrLanguageProvider);
+    final includeCompleted = ref.watch(includeCompletedInAiProvider);
 
     return AlertDialog(
       title: const Text('Settings'),
@@ -242,6 +249,14 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
               label: 'ASR Language',
               value: currentLanguage.displayName,
               onTap: _openAsrLanguageSelector,
+            ),
+
+            // Include completed tasks in AI
+            _buildSettingRow(
+              icon: PhosphorIcons.checkCircle(),
+              label: 'Include completed in AI',
+              value: includeCompleted ? 'Yes' : 'No',
+              onTap: _toggleIncludeCompleted,
             ),
 
             const SizedBox(height: Spacing.md),

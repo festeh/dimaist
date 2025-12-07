@@ -44,24 +44,30 @@ func SetEnv(e *env.Env) {
 	appEnv = e
 }
 
-func LoadRecentTasks(limit int) ([]database.Task, error) {
+func LoadRecentTasks(limit int, includeCompleted bool) ([]database.Task, error) {
 	var tasks []database.Task
 
-	// Get date 30 days ago for filtering completed tasks
-	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
-
-	result := database.DB.
+	query := database.DB.
 		Where("deleted_at IS NULL").
-		Where("completed_at IS NULL OR completed_at > ?", thirtyDaysAgo).
 		Order("updated_at DESC").
-		Limit(limit).
-		Find(&tasks)
+		Limit(limit)
+
+	if includeCompleted {
+		// Include completed from last 30 days
+		thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
+		query = query.Where("completed_at IS NULL OR completed_at > ?", thirtyDaysAgo)
+	} else {
+		// Only active tasks
+		query = query.Where("completed_at IS NULL")
+	}
+
+	result := query.Find(&tasks)
 
 	if result.Error != nil {
 		return nil, result.Error
 	}
 
-	logger.Info("Loaded recent tasks").Int("count", len(tasks)).Send()
+	logger.Info("Loaded recent tasks").Int("count", len(tasks)).Bool("includeCompleted", includeCompleted).Send()
 	return tasks, nil
 }
 

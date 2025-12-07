@@ -11,6 +11,7 @@ import '../providers/task_provider.dart';
 import '../providers/project_provider.dart';
 import '../providers/ai_model_provider.dart';
 import '../providers/asr_language_provider.dart';
+import '../providers/include_completed_provider.dart';
 import '../widgets/chat_input_widget.dart';
 import '../widgets/tool_preview_widget.dart';
 import '../widgets/model_display.dart';
@@ -252,12 +253,14 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
       // Connect and start WebSocket conversation
       final baseUrl = ref.read(apiServiceProvider).baseUrl;
+      final includeCompleted = ref.read(includeCompletedInAiProvider);
       _wsService.connect(baseUrl);
 
       _wsService.startConversation(
         messages: allMessages,
         provider: provider,
         model: model,
+        includeCompleted: includeCompleted,
         onMessage: _handleWSMessage,
         onDone: () async {
           setState(() {

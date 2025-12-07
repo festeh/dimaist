@@ -18,9 +18,10 @@ type WSMessage struct {
 	Type WSMessageType `json:"type"`
 
 	// Start message fields (client → server)
-	Messages []ChatCompletionMessage `json:"messages,omitempty"`
-	Provider string                  `json:"provider,omitempty"`
-	Model    string                  `json:"model,omitempty"`
+	Messages         []ChatCompletionMessage `json:"messages,omitempty"`
+	Provider         string                  `json:"provider,omitempty"`
+	Model            string                  `json:"model,omitempty"`
+	IncludeCompleted bool                    `json:"include_completed,omitempty"`
 
 	// Tool pending fields (server → client)
 	Tool      string         `json:"tool,omitempty"`
@@ -79,15 +80,16 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	wsWriter := NewWSWriter(conn)
 
 	// Run AI agent loop
-	HandleAIWithWS(wsWriter, startMsg.Messages, startMsg.Provider, startMsg.Model)
+	HandleAIWithWS(wsWriter, startMsg.Messages, startMsg.Provider, startMsg.Model, startMsg.IncludeCompleted)
 }
 
 // HandleAIWithWS runs the AI agent loop with WebSocket communication
-func HandleAIWithWS(ws *WSWriter, messages []ChatCompletionMessage, provider, model string) {
+func HandleAIWithWS(ws *WSWriter, messages []ChatCompletionMessage, provider, model string, includeCompleted bool) {
 	logger.Info("Handling AI with WebSocket").
 		Int("messages_count", len(messages)).
 		Str("provider", provider).
 		Str("model", model).
+		Bool("includeCompleted", includeCompleted).
 		Send()
 
 	// Send initial thinking event
@@ -98,7 +100,7 @@ func HandleAIWithWS(ws *WSWriter, messages []ChatCompletionMessage, provider, mo
 
 	// Load context with limits and track timing
 	contextStartTime := time.Now()
-	tasks, err := LoadRecentTasks(1000)
+	tasks, err := LoadRecentTasks(1000, includeCompleted)
 	if err != nil {
 		logger.Error("Failed to load tasks").Err(err).Send()
 		ws.SendError("Failed to load tasks: " + err.Error())

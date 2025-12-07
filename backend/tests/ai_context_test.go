@@ -12,24 +12,30 @@ import (
 )
 
 // loadRecentTasks function for testing (copied from ai_text.go)
-func loadRecentTasks(limit int) ([]database.Task, error) {
+func loadRecentTasks(limit int, includeCompleted bool) ([]database.Task, error) {
 	var tasks []database.Task
 
-	// Get date 30 days ago for filtering completed tasks
-	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
-
-	result := database.DB.Preload("Project").
+	query := database.DB.Preload("Project").
 		Where("deleted_at IS NULL").
-		Where("completed_at IS NULL OR completed_at > ?", thirtyDaysAgo).
 		Order("updated_at DESC").
-		Limit(limit).
-		Find(&tasks)
+		Limit(limit)
+
+	if includeCompleted {
+		// Include completed from last 30 days
+		thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
+		query = query.Where("completed_at IS NULL OR completed_at > ?", thirtyDaysAgo)
+	} else {
+		// Only active tasks
+		query = query.Where("completed_at IS NULL")
+	}
+
+	result := query.Find(&tasks)
 
 	if result.Error != nil {
 		return nil, result.Error
 	}
 
-	logger.Info("Loaded recent tasks").Int("count", len(tasks)).Send()
+	logger.Info("Loaded recent tasks").Int("count", len(tasks)).Bool("includeCompleted", includeCompleted).Send()
 	return tasks, nil
 }
 
@@ -133,8 +139,8 @@ func TestLoadRecentTasks_FiltersByCompletionDate(t *testing.T) {
 		database.DB = originalDB
 	}()
 
-	// Call loadRecentTasks
-	tasks, err := loadRecentTasks(100)
+	// Call loadRecentTasks with includeCompleted=true
+	tasks, err := loadRecentTasks(100, true)
 	assert.NoError(t, err)
 
 	// We should have 2 tasks: 1 active + 1 recently completed
@@ -204,8 +210,8 @@ func TestLoadRecentTasks_ExcludesDeletedTasks(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	// Call loadRecentTasks
-	loadedTasks, err := loadRecentTasks(100)
+	// Call loadRecentTasks (includeCompleted doesn't affect deleted filtering)
+	loadedTasks, err := loadRecentTasks(100, true)
 	assert.NoError(t, err)
 
 	// Should only have 1 task (the non-deleted one)
@@ -261,8 +267,8 @@ func TestLoadRecentTasks_IncludesRecentlyCompletedTasks(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	// Call loadRecentTasks
-	loadedTasks, err := loadRecentTasks(100)
+	// Call loadRecentTasks with includeCompleted=true
+	loadedTasks, err := loadRecentTasks(100, true)
 	assert.NoError(t, err)
 
 	// Should have both recently completed tasks
