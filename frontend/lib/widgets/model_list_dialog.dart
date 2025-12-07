@@ -3,22 +3,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../models/ai_model.dart';
 import '../providers/ai_model_provider.dart';
+import '../providers/parallel_ai_provider.dart';
 import '../config/design_tokens.dart';
 import 'add_edit_model_dialog.dart';
 
 class ModelListDialog extends ConsumerWidget {
-  const ModelListDialog({super.key});
+  /// Whether to show checkboxes for multi-select (parallel mode)
+  final bool multiSelectMode;
+
+  const ModelListDialog({super.key, this.multiSelectMode = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final modelState = ref.watch(aiModelProvider);
+    final parallelState = ref.watch(parallelAiProvider);
     final theme = Theme.of(context);
 
     return AlertDialog(
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text('AI Models'),
+          Text(multiSelectMode ? 'Compare Models' : 'AI Models'),
           IconButton(
             icon: PhosphorIcon(PhosphorIcons.plus(), size: Sizes.iconSm),
             tooltip: 'Add Model',
@@ -35,7 +40,9 @@ class ModelListDialog extends ConsumerWidget {
                 itemCount: modelState.models.length,
                 itemBuilder: (context, index) {
                   final model = modelState.models[index];
-                  final isSelected = model.id == modelState.selectedModelId;
+                  final isSelected = multiSelectMode
+                      ? parallelState.selectedModelIds.contains(model.id)
+                      : model.id == modelState.selectedModelId;
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: Spacing.sm),
@@ -43,20 +50,34 @@ class ModelListDialog extends ConsumerWidget {
                         ? theme.colorScheme.primary.withValues(alpha: 0.15)
                         : null,
                     child: InkWell(
-                      onTap: () => ref.read(aiModelProvider.notifier).selectModel(model.id),
+                      onTap: () {
+                        if (multiSelectMode) {
+                          ref.read(parallelAiProvider.notifier).toggleModelSelection(model.id);
+                        } else {
+                          ref.read(aiModelProvider.notifier).selectModel(model.id);
+                        }
+                      },
                       borderRadius: BorderRadius.circular(Radii.sm),
                       child: Padding(
                         padding: const EdgeInsets.all(Spacing.md),
                         child: Row(
                           children: [
-                            PhosphorIcon(
-                              isSelected
-                                  ? PhosphorIcons.radioButton(PhosphorIconsStyle.fill)
-                                  : PhosphorIcons.circle(),
-                              color: isSelected
-                                  ? theme.colorScheme.primary
-                                  : theme.colorScheme.onSurfaceVariant,
-                            ),
+                            if (multiSelectMode)
+                              Checkbox(
+                                value: isSelected,
+                                onChanged: (_) => ref
+                                    .read(parallelAiProvider.notifier)
+                                    .toggleModelSelection(model.id),
+                              )
+                            else
+                              PhosphorIcon(
+                                isSelected
+                                    ? PhosphorIcons.radioButton(PhosphorIconsStyle.fill)
+                                    : PhosphorIcons.circle(),
+                                color: isSelected
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.onSurfaceVariant,
+                              ),
                             const SizedBox(width: Spacing.sm),
                             Expanded(
                               child: Column(
@@ -109,8 +130,13 @@ class ModelListDialog extends ConsumerWidget {
               ),
       ),
       actions: [
+        if (multiSelectMode && parallelState.selectedModelIds.length >= 2)
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text('Compare ${parallelState.selectedModelIds.length} Models'),
+          ),
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).pop(false),
           child: const Text('Close'),
         ),
       ],

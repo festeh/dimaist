@@ -18,6 +18,12 @@ const (
 	WSMsgFinalResponse WSMessageType = "final_response"
 	WSMsgCancelled     WSMessageType = "cancelled"
 	WSMsgError         WSMessageType = "error"
+
+	// Parallel mode message types
+	WSMsgModelResponse WSMessageType = "model_response" // Single model responded
+	WSMsgModelError    WSMessageType = "model_error"    // Single model errored
+	WSMsgAllComplete   WSMessageType = "all_complete"   // All models finished
+	WSMsgSelectModel   WSMessageType = "select_model"   // User selected winning model
 )
 
 // ToolStatus represents the user's decision on a single tool in a batch

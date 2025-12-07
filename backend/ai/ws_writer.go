@@ -120,3 +120,53 @@ func (w *WSWriter) WaitForBatchConfirmation() ([]ToolStatus, string, error) {
 		return nil, "", fmt.Errorf("unexpected message type: %s", msg.Type)
 	}
 }
+
+// --- Parallel mode methods ---
+
+// SendModelResponse sends a single model's response in parallel mode
+func (w *WSWriter) SendModelResponse(targetID, response string, duration float64) error {
+	return w.write(WSMessage{
+		Type:     WSMsgModelResponse,
+		TargetID: targetID,
+		Response: response,
+		Duration: duration,
+	})
+}
+
+// SendModelError sends a single model's error in parallel mode
+func (w *WSWriter) SendModelError(targetID, errMsg string, duration float64) error {
+	return w.write(WSMessage{
+		Type:     WSMsgModelError,
+		TargetID: targetID,
+		Error:    errMsg,
+		Duration: duration,
+	})
+}
+
+// SendToolsPendingForModel sends tools pending with a target ID for parallel mode
+func (w *WSWriter) SendToolsPendingForModel(targetID string, tools []PendingToolCall, duration float64) error {
+	return w.write(WSMessage{
+		Type:      WSMsgToolsPending,
+		TargetID:  targetID,
+		ToolCalls: tools,
+		Duration:  duration,
+	})
+}
+
+// SendAllComplete signals that all parallel models have finished
+func (w *WSWriter) SendAllComplete(successful, failed []string) error {
+	return w.write(WSMessage{
+		Type:              WSMsgAllComplete,
+		SuccessfulTargets: successful,
+		FailedTargets:     failed,
+	})
+}
+
+// WaitForNextMessage waits for any message from the client (used in parallel mode)
+func (w *WSWriter) WaitForNextMessage() (*WSMessage, error) {
+	var msg WSMessage
+	if err := w.conn.ReadJSON(&msg); err != nil {
+		return nil, fmt.Errorf("failed to read message: %w", err)
+	}
+	return &msg, nil
+}

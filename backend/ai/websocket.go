@@ -20,15 +20,30 @@ type PendingToolCall struct {
 	Arguments  map[string]any `json:"arguments"`
 }
 
+// TargetSpec represents a provider+model combination for parallel requests
+type TargetSpec struct {
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+}
+
+// ID returns a unique identifier for this target
+func (t TargetSpec) ID() string {
+	return t.Provider + ":" + t.Model
+}
+
 // WSMessage represents a WebSocket message for AI chat
 type WSMessage struct {
 	Type WSMessageType `json:"type"`
 
 	// Start message fields (client → server)
 	Messages         []ChatCompletionMessage `json:"messages,omitempty"`
-	Provider         string                  `json:"provider,omitempty"`
-	Model            string                  `json:"model,omitempty"`
+	Provider         string                  `json:"provider,omitempty"`          // Single model (legacy)
+	Model            string                  `json:"model,omitempty"`             // Single model (legacy)
+	Targets          []TargetSpec            `json:"targets,omitempty"`           // Multiple models (parallel)
 	IncludeCompleted bool                    `json:"include_completed,omitempty"`
+
+	// Target identification for parallel mode responses
+	TargetID string `json:"target_id,omitempty"`
 
 	// Tool pending fields (server → client) - single tool (legacy)
 	Tool      string         `json:"tool,omitempty"`
@@ -47,6 +62,10 @@ type WSMessage struct {
 	Result   string  `json:"result,omitempty"`
 	Error    string  `json:"error,omitempty"`
 	Duration float64 `json:"duration,omitempty"`
+
+	// All complete event fields (parallel mode)
+	SuccessfulTargets []string `json:"successful_targets,omitempty"`
+	FailedTargets     []string `json:"failed_targets,omitempty"`
 }
 
 // HandleWebSocket handles WebSocket connections for AI chat
@@ -72,29 +91,51 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if startMsg.Provider == "" || startMsg.Model == "" {
-		logger.Error("Missing provider or model").Send()
-		conn.WriteJSON(WSMessage{Type: WSMsgError, Error: "Provider and model are required"})
-		return
-	}
-
 	if len(startMsg.Messages) == 0 {
 		logger.Error("Empty messages").Send()
 		conn.WriteJSON(WSMessage{Type: WSMsgError, Error: "Messages are required"})
 		return
 	}
 
-	logger.Info("WebSocket AI chat started").
-		Str("provider", startMsg.Provider).
-		Str("model", startMsg.Model).
-		Int("messages", len(startMsg.Messages)).
-		Send()
-
 	// Create WebSocket writer
 	wsWriter := NewWSWriter(conn)
 
-	// Run AI agent loop
-	HandleAIWithWS(wsWriter, startMsg.Messages, startMsg.Provider, startMsg.Model, startMsg.IncludeCompleted)
+	// Check if parallel mode (multiple targets) or single mode (legacy provider/model)
+	if len(startMsg.Targets) > 1 {
+		// Parallel mode
+		logger.Info("WebSocket AI chat started (parallel mode)").
+			Int("targets", len(startMsg.Targets)).
+			Int("messages", len(startMsg.Messages)).
+			Send()
+
+		HandleParallelAI(wsWriter, startMsg.Messages, startMsg.Targets, startMsg.IncludeCompleted)
+	} else {
+		// Single model mode
+		var provider, model string
+		if len(startMsg.Targets) == 1 {
+			// New format with single target
+			provider = startMsg.Targets[0].Provider
+			model = startMsg.Targets[0].Model
+		} else {
+			// Legacy format
+			provider = startMsg.Provider
+			model = startMsg.Model
+		}
+
+		if provider == "" || model == "" {
+			logger.Error("Missing provider or model").Send()
+			conn.WriteJSON(WSMessage{Type: WSMsgError, Error: "Provider and model are required"})
+			return
+		}
+
+		logger.Info("WebSocket AI chat started").
+			Str("provider", provider).
+			Str("model", model).
+			Int("messages", len(startMsg.Messages)).
+			Send()
+
+		HandleAIWithWS(wsWriter, startMsg.Messages, provider, model, startMsg.IncludeCompleted)
+	}
 }
 
 // HandleAIWithWS runs the AI agent loop with WebSocket communication

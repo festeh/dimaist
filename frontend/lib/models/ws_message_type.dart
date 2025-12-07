@@ -13,7 +13,13 @@ enum WSMessageType {
   toolResult,
   finalResponse,
   cancelled,
-  error;
+  error,
+
+  // Parallel mode message types
+  modelResponse, // Single model responded
+  modelError, // Single model errored
+  allComplete, // All models finished
+  selectModel; // User selected winning model
 
   /// Convert enum to snake_case string for JSON
   String toJson() {
@@ -40,6 +46,14 @@ enum WSMessageType {
         return 'cancelled';
       case WSMessageType.error:
         return 'error';
+      case WSMessageType.modelResponse:
+        return 'model_response';
+      case WSMessageType.modelError:
+        return 'model_error';
+      case WSMessageType.allComplete:
+        return 'all_complete';
+      case WSMessageType.selectModel:
+        return 'select_model';
     }
   }
 
@@ -68,6 +82,14 @@ enum WSMessageType {
         return WSMessageType.cancelled;
       case 'error':
         return WSMessageType.error;
+      case 'model_response':
+        return WSMessageType.modelResponse;
+      case 'model_error':
+        return WSMessageType.modelError;
+      case 'all_complete':
+        return WSMessageType.allComplete;
+      case 'select_model':
+        return WSMessageType.selectModel;
       default:
         throw ArgumentError('Unknown message type: $value');
     }

@@ -12,11 +12,13 @@ import '../providers/project_provider.dart';
 import '../providers/ai_model_provider.dart';
 import '../providers/asr_language_provider.dart';
 import '../providers/include_completed_provider.dart';
+import '../providers/parallel_ai_provider.dart';
 import '../widgets/chat_input_widget.dart';
 import '../widgets/tool_preview_widget.dart';
 import '../widgets/batch_tool_preview_widget.dart';
 import '../widgets/model_display.dart';
 import '../widgets/model_list_dialog.dart';
+import '../widgets/parallel_response_widget.dart';
 
 enum MessageType { normal, toolCall, toolResult, toolPreview, batchToolPreview }
 
@@ -95,6 +97,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
   // Index of batch tool preview message (if any)
   int? _batchToolMessageIndex;
+
+  // Parallel mode state
+  bool _isParallelMode = false;
+  final Map<String, ModelResponse> _parallelResponses = {};
 
   @override
   void initState() {
@@ -231,6 +237,13 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
     final message = userMessage.trim();
 
+    // Check if parallel mode (multiple models selected)
+    final parallelState = ref.read(parallelAiProvider);
+    if (parallelState.selectedModelIds.length > 1) {
+      await _sendParallelMessage(message, addUserMessage: addUserMessage);
+      return;
+    }
+
     setState(() {
       if (addUserMessage) {
         _messages.add(
@@ -311,6 +324,223 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       });
       _scrollToBottom();
     }
+  }
+
+  Future<void> _sendParallelMessage(String userMessage, {bool addUserMessage = true}) async {
+    final message = userMessage.trim();
+    final parallelState = ref.read(parallelAiProvider);
+    final modelState = ref.read(aiModelProvider);
+
+    // Build target list from selected model IDs
+    final targets = parallelState.selectedModelIds.map((id) {
+      final model = modelState.models.firstWhere((m) => m.id == id);
+      return TargetSpec(provider: model.provider.name, model: model.modelName);
+    }).toList();
+
+    setState(() {
+      if (addUserMessage) {
+        _messages.add(
+          ChatMessage(text: message, role: 'user', timestamp: DateTime.now()),
+        );
+      }
+      _isProcessing = true;
+      _isParallelMode = true;
+      _parallelResponses.clear();
+      _pendingToolMessageIndex = null;
+      _batchToolMessageIndex = null;
+    });
+
+    // Initialize parallel state
+    ref.read(parallelAiProvider.notifier).startParallelRequest();
+
+    _scrollToBottom();
+
+    try {
+      final messagesHistory = _buildMessagesFromHistory();
+      final allMessages = addUserMessage
+          ? messagesHistory + [{'role': 'user', 'content': message}]
+          : messagesHistory;
+
+      final baseUrl = ref.read(apiServiceProvider).baseUrl;
+      final includeCompleted = ref.read(includeCompletedInAiProvider);
+      _wsService.connect(baseUrl);
+
+      _wsService.startParallelConversation(
+        messages: allMessages,
+        targets: targets,
+        includeCompleted: includeCompleted,
+        onMessage: _handleParallelWSMessage,
+        onDone: () async {
+          setState(() {
+            _isProcessing = false;
+          });
+          _wsService.close();
+          try {
+            await ref.read(taskProvider.notifier).syncData();
+          } catch (e) {
+            LoggingService.logger.warning('Failed to sync after AI: $e');
+          }
+        },
+        onError: (error) {
+          LoggingService.logger.severe('WebSocket error: $error');
+          setState(() {
+            _isProcessing = false;
+            _isParallelMode = false;
+          });
+        },
+      );
+    } catch (e) {
+      LoggingService.logger.severe('Error sending parallel AI request: $e');
+      setState(() {
+        _isProcessing = false;
+        _isParallelMode = false;
+      });
+    }
+  }
+
+  void _handleParallelWSMessage(WSMessageType type, Map<String, dynamic> data) {
+    switch (type) {
+      case WSMessageType.thinking:
+        // Typing indicator shown automatically
+        break;
+
+      case WSMessageType.modelResponse:
+        final targetId = data['target_id'] as String;
+        final response = data['response'] as String? ?? '';
+        final duration = data['duration'] as double?;
+
+        setState(() {
+          _parallelResponses[targetId] = ModelResponse(
+            targetId: targetId,
+            content: response,
+            duration: duration,
+            status: ResponseStatus.success,
+          );
+        });
+        ref.read(parallelAiProvider.notifier).addModelResponse(
+          ModelResponse(
+            targetId: targetId,
+            content: response,
+            duration: duration,
+            status: ResponseStatus.success,
+          ),
+        );
+        break;
+
+      case WSMessageType.modelError:
+        final targetId = data['target_id'] as String;
+        final error = data['error'] as String? ?? 'Unknown error';
+        final duration = data['duration'] as double?;
+
+        setState(() {
+          _parallelResponses[targetId] = ModelResponse(
+            targetId: targetId,
+            error: error,
+            duration: duration,
+            status: ResponseStatus.error,
+          );
+        });
+        ref.read(parallelAiProvider.notifier).addModelResponse(
+          ModelResponse(
+            targetId: targetId,
+            error: error,
+            duration: duration,
+            status: ResponseStatus.error,
+          ),
+        );
+        break;
+
+      case WSMessageType.toolsPending:
+        final targetId = data['target_id'] as String?;
+        if (targetId != null) {
+          // Parallel mode tools pending
+          final toolCallsJson = data['tool_calls'] as List<dynamic>? ?? [];
+          final duration = data['duration'] as double?;
+          final toolCalls = toolCallsJson
+              .map((tc) => PendingToolCall.fromJson(tc as Map<String, dynamic>))
+              .toList();
+
+          setState(() {
+            _parallelResponses[targetId] = ModelResponse(
+              targetId: targetId,
+              toolCalls: toolCalls,
+              duration: duration,
+              status: ResponseStatus.toolsPending,
+            );
+          });
+          ref.read(parallelAiProvider.notifier).addModelResponse(
+            ModelResponse(
+              targetId: targetId,
+              toolCalls: toolCalls,
+              duration: duration,
+              status: ResponseStatus.toolsPending,
+            ),
+          );
+        } else {
+          // Single mode - delegate to regular handler
+          _handleWSMessage(type, data);
+        }
+        break;
+
+      case WSMessageType.allComplete:
+        setState(() {
+          _isProcessing = false;
+        });
+        ref.read(parallelAiProvider.notifier).setAllComplete();
+        break;
+
+      case WSMessageType.finalResponse:
+        // In parallel mode after model selection, this is handled like single mode
+        _handleWSMessage(type, data);
+        break;
+
+      case WSMessageType.error:
+        _handleWSMessage(type, data);
+        break;
+
+      default:
+        LoggingService.logger.warning('Unhandled parallel message type: $type');
+    }
+  }
+
+  void _handleToolInteractionParallel(String targetId) {
+    // User engaged with tools from this model - it wins
+    ref.read(parallelAiProvider.notifier).selectWinningModel(targetId);
+
+    setState(() {
+      _isParallelMode = false;
+      // Add the winning model's response to message history if it was a text response
+      final response = _parallelResponses[targetId];
+      if (response != null && response.status == ResponseStatus.success && response.content != null) {
+        _messages.add(
+          ChatMessage(
+            text: response.content!,
+            role: 'assistant',
+            timestamp: DateTime.now(),
+            duration: response.duration,
+          ),
+        );
+      }
+    });
+
+    _wsService.selectModel(targetId);
+  }
+
+  void _handleToolConfirmParallel(String targetId, List<ToolStatus> statuses, String? message) {
+    // User confirmed tools from this model
+    ref.read(parallelAiProvider.notifier).selectWinningModel(targetId);
+
+    setState(() {
+      _isParallelMode = false;
+      _isProcessing = true;
+      if (message != null && message.isNotEmpty) {
+        _messages.add(
+          ChatMessage(text: message, role: 'user', timestamp: DateTime.now()),
+        );
+      }
+    });
+
+    _wsService.batchConfirmForModel(targetId, statuses, newMessage: message);
   }
 
   void _handleWSMessage(WSMessageType type, Map<String, dynamic> data) {
@@ -716,9 +946,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   Widget build(BuildContext context) {
     final modelState = ref.watch(aiModelProvider);
     final selectedModel = modelState.selectedModel;
+    final parallelState = ref.watch(parallelAiProvider);
     final projectsAsync = ref.watch(projectProvider);
     final projects = projectsAsync.valueOrNull ?? [];
-
+    final colors = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -738,28 +969,58 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 PhosphorIcon(
                   PhosphorIcons.caretDown(),
                   size: Sizes.iconSm,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: colors.onSurfaceVariant,
                 ),
               ],
             ),
           ),
         ),
-        backgroundColor: Theme.of(context).colorScheme.surface,
+        backgroundColor: colors.surface,
         elevation: 0,
+        actions: [
+          // Compare models button
+          IconButton(
+            icon: Badge(
+              isLabelVisible: parallelState.selectedModelIds.length > 1,
+              label: Text('${parallelState.selectedModelIds.length}'),
+              child: PhosphorIcon(
+                PhosphorIcons.stackSimple(),
+                size: Sizes.iconMd,
+              ),
+            ),
+            tooltip: 'Compare Models',
+            onPressed: () async {
+              final result = await showDialog<bool>(
+                context: context,
+                builder: (context) => const ModelListDialog(multiSelectMode: true),
+              );
+              if (result == true && mounted) {
+                // User clicked "Compare X Models" - selection is already in provider
+              }
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              itemCount: _messages.length + (_isProcessing ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == _messages.length) {
-                  return _buildTypingIndicator();
-                }
-                return _buildMessage(_messages[index], projects);
-              },
-            ),
+            child: _isParallelMode && _parallelResponses.isNotEmpty
+                ? ParallelResponseWidget(
+                    responses: _parallelResponses,
+                    projects: projects,
+                    onToolInteraction: _handleToolInteractionParallel,
+                    onToolConfirm: _handleToolConfirmParallel,
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    itemCount: _messages.length + (_isProcessing ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == _messages.length) {
+                        return _buildTypingIndicator();
+                      }
+                      return _buildMessage(_messages[index], projects);
+                    },
+                  ),
           ),
           ChatInputWidget(
             onSendMessage: _sendTextMessage,
