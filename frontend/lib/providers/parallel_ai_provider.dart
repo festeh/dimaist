@@ -117,8 +117,7 @@ class ParallelAiNotifier extends StateNotifier<ParallelAiState> {
     if (savedIds != null && savedIds.isNotEmpty) {
       return ParallelAiState(selectedModelIds: savedIds.toSet());
     }
-    // Default to first model if nothing saved
-    return const ParallelAiState(selectedModelIds: {'chutes_1'});
+    return const ParallelAiState();
   }
 
   Future<void> _saveSelection() async {

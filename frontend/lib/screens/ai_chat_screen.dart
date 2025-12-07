@@ -108,17 +108,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     super.initState();
     _textController.addListener(_onTextChanged);
 
-    // Initialize parallel provider with default selection if empty
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final parallelState = ref.read(parallelAiProvider);
-      if (parallelState.selectedModelIds.isEmpty) {
-        final modelState = ref.read(aiModelProvider);
-        if (modelState.models.isNotEmpty) {
-          ref.read(parallelAiProvider.notifier).setSelectedModels({modelState.models.first.id});
-        }
-      }
-    });
-
     // If we have initial audio bytes, process them immediately
     if (widget.initialAudioBytes != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -249,8 +238,18 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
     final message = userMessage.trim();
 
-    // Check if parallel mode (multiple models selected)
+    // Check if any models are selected
     final parallelState = ref.read(parallelAiProvider);
+    if (parallelState.selectedModelIds.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select at least one AI model')),
+        );
+      }
+      return;
+    }
+
+    // Check if parallel mode (multiple models selected)
     if (parallelState.selectedModelIds.length > 1) {
       await _sendParallelMessage(message, addUserMessage: addUserMessage);
       return;
