@@ -10,7 +10,6 @@ import 'services/settings_service.dart';
 import 'providers/project_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/font_provider.dart';
-import 'providers/ai_model_provider.dart';
 import 'widgets/app_scaffold.dart';
 
 void main() async {
@@ -18,7 +17,6 @@ void main() async {
 
   LoggingService.setup();
   await SettingsService.instance.init();
-  await AiModelNotifier.init();
 
   // Only initialize tray service on desktop platforms
   if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {

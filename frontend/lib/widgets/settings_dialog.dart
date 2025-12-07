@@ -6,6 +6,7 @@ import '../providers/project_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/font_provider.dart';
 import '../providers/ai_model_provider.dart';
+import '../providers/parallel_ai_provider.dart';
 import '../providers/asr_language_provider.dart';
 import '../providers/include_completed_provider.dart';
 import '../services/logging_service.dart';
@@ -184,7 +185,12 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   @override
   Widget build(BuildContext context) {
     final modelState = ref.watch(aiModelProvider);
-    final selectedModel = modelState.selectedModel;
+    final parallelState = ref.watch(parallelAiProvider);
+    // Get first selected model for display
+    final selectedIds = parallelState.selectedModelIds;
+    final selectedModel = selectedIds.isNotEmpty
+        ? modelState.models.where((m) => m.id == selectedIds.first).firstOrNull
+        : modelState.models.firstOrNull;
     final currentTheme = ref.watch(themeProvider);
     final currentFont = ref.watch(fontProvider);
     final currentLanguage = ref.watch(asrLanguageProvider);
@@ -214,7 +220,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                       ),
                     ),
                     Flexible(
-                      child: ModelDisplay(model: selectedModel),
+                      child: selectedModel != null
+                          ? ModelDisplay(model: selectedModel)
+                          : const Text('None selected'),
                     ),
                     const SizedBox(width: Spacing.xs),
                     PhosphorIcon(

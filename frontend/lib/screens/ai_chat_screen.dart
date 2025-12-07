@@ -113,9 +113,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       final parallelState = ref.read(parallelAiProvider);
       if (parallelState.selectedModelIds.isEmpty) {
         final modelState = ref.read(aiModelProvider);
-        if (modelState.selectedModelId != null) {
-          ref.read(parallelAiProvider.notifier).setSelectedModels({modelState.selectedModelId!});
-        } else if (modelState.models.isNotEmpty) {
+        if (modelState.models.isNotEmpty) {
           ref.read(parallelAiProvider.notifier).setSelectedModels({modelState.models.first.id});
         }
       }
