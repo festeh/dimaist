@@ -8,22 +8,20 @@ import '../config/design_tokens.dart';
 import 'add_edit_model_dialog.dart';
 
 class ModelListDialog extends ConsumerWidget {
-  /// Whether to show checkboxes for multi-select (parallel mode)
-  final bool multiSelectMode;
-
-  const ModelListDialog({super.key, this.multiSelectMode = false});
+  const ModelListDialog({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final modelState = ref.watch(aiModelProvider);
     final parallelState = ref.watch(parallelAiProvider);
     final theme = Theme.of(context);
+    final selectedCount = parallelState.selectedModelIds.length;
 
     return AlertDialog(
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(multiSelectMode ? 'Compare Models' : 'AI Models'),
+          const Text('AI Models'),
           IconButton(
             icon: PhosphorIcon(PhosphorIcons.plus(), size: Sizes.iconSm),
             tooltip: 'Add Model',
@@ -40,9 +38,7 @@ class ModelListDialog extends ConsumerWidget {
                 itemCount: modelState.models.length,
                 itemBuilder: (context, index) {
                   final model = modelState.models[index];
-                  final isSelected = multiSelectMode
-                      ? parallelState.selectedModelIds.contains(model.id)
-                      : model.id == modelState.selectedModelId;
+                  final isSelected = parallelState.selectedModelIds.contains(model.id);
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: Spacing.sm),
@@ -50,13 +46,7 @@ class ModelListDialog extends ConsumerWidget {
                         ? theme.colorScheme.primary.withValues(alpha: 0.15)
                         : null,
                     child: InkWell(
-                      onTap: () {
-                        if (multiSelectMode) {
-                          ref.read(parallelAiProvider.notifier).toggleModelSelection(model.id);
-                        } else {
-                          ref.read(aiModelProvider.notifier).selectModel(model.id);
-                        }
-                      },
+                      onTap: () => ref.read(parallelAiProvider.notifier).toggleModelSelection(model.id),
                       borderRadius: BorderRadius.circular(Radii.sm),
                       child: Padding(
                         padding: const EdgeInsets.all(Spacing.md),
@@ -64,13 +54,7 @@ class ModelListDialog extends ConsumerWidget {
                           children: [
                             Checkbox(
                               value: isSelected,
-                              onChanged: (_) {
-                                if (multiSelectMode) {
-                                  ref.read(parallelAiProvider.notifier).toggleModelSelection(model.id);
-                                } else {
-                                  ref.read(aiModelProvider.notifier).selectModel(model.id);
-                                }
-                              },
+                              onChanged: (_) => ref.read(parallelAiProvider.notifier).toggleModelSelection(model.id),
                             ),
                             const SizedBox(width: Spacing.sm),
                             Expanded(
@@ -124,13 +108,16 @@ class ModelListDialog extends ConsumerWidget {
               ),
       ),
       actions: [
-        if (multiSelectMode && parallelState.selectedModelIds.length >= 2)
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text('Compare ${parallelState.selectedModelIds.length} Models'),
+        if (selectedCount == 0)
+          Text(
+            'Select at least one model',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.error,
+            ),
           ),
+        const Spacer(),
         TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
+          onPressed: () => Navigator.of(context).pop(),
           child: const Text('Close'),
         ),
       ],

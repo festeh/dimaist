@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
+import '../models/ai_model.dart';
 import '../repositories/providers.dart';
 import '../services/logging_service.dart';
 import '../services/ai_websocket_service.dart';
@@ -106,6 +107,19 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   void initState() {
     super.initState();
     _textController.addListener(_onTextChanged);
+
+    // Initialize parallel provider with default selection if empty
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final parallelState = ref.read(parallelAiProvider);
+      if (parallelState.selectedModelIds.isEmpty) {
+        final modelState = ref.read(aiModelProvider);
+        if (modelState.selectedModelId != null) {
+          ref.read(parallelAiProvider.notifier).setSelectedModels({modelState.selectedModelId!});
+        } else if (modelState.models.isNotEmpty) {
+          ref.read(parallelAiProvider.notifier).setSelectedModels({modelState.models.first.id});
+        }
+      }
+    });
 
     // If we have initial audio bytes, process them immediately
     if (widget.initialAudioBytes != null) {
@@ -258,7 +272,11 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     _scrollToBottom();
 
     try {
-      final selectedModel = ref.read(aiModelProvider).selectedModel;
+      // Get single selected model from parallel provider
+      final parallelState = ref.read(parallelAiProvider);
+      final modelState = ref.read(aiModelProvider);
+      final selectedId = parallelState.selectedModelIds.first;
+      final selectedModel = modelState.models.firstWhere((m) => m.id == selectedId);
       final provider = selectedModel.provider.name;
       final model = selectedModel.modelName;
 
@@ -945,11 +963,18 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   @override
   Widget build(BuildContext context) {
     final modelState = ref.watch(aiModelProvider);
-    final selectedModel = modelState.selectedModel;
     final parallelState = ref.watch(parallelAiProvider);
     final projectsAsync = ref.watch(projectProvider);
     final projects = projectsAsync.valueOrNull ?? [];
     final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+
+    // Get selected models for display
+    final selectedIds = parallelState.selectedModelIds;
+    final selectedModels = selectedIds
+        .map((id) => modelState.models.where((m) => m.id == id).firstOrNull)
+        .whereType<AiModel>()
+        .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -964,7 +989,28 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                ModelDisplay(model: selectedModel, iconSize: 20),
+                if (selectedModels.isEmpty)
+                  Text('Select Model', style: theme.textTheme.titleMedium)
+                else if (selectedModels.length == 1)
+                  ModelDisplay(model: selectedModels.first, iconSize: 20)
+                else
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      PhosphorIcon(
+                        PhosphorIcons.stackSimple(),
+                        size: Sizes.iconMd,
+                        color: colors.primary,
+                      ),
+                      const SizedBox(width: Spacing.xs),
+                      Text(
+                        '${selectedModels.length} models',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: colors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
                 const SizedBox(width: Spacing.xs),
                 PhosphorIcon(
                   PhosphorIcons.caretDown(),
@@ -977,29 +1023,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         ),
         backgroundColor: colors.surface,
         elevation: 0,
-        actions: [
-          // Compare models button
-          IconButton(
-            icon: Badge(
-              isLabelVisible: parallelState.selectedModelIds.length > 1,
-              label: Text('${parallelState.selectedModelIds.length}'),
-              child: PhosphorIcon(
-                PhosphorIcons.stackSimple(),
-                size: Sizes.iconMd,
-              ),
-            ),
-            tooltip: 'Compare Models',
-            onPressed: () async {
-              final result = await showDialog<bool>(
-                context: context,
-                builder: (context) => const ModelListDialog(multiSelectMode: true),
-              );
-              if (result == true && mounted) {
-                // User clicked "Compare X Models" - selection is already in provider
-              }
-            },
-          ),
-        ],
       ),
       body: Column(
         children: [
