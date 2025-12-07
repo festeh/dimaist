@@ -77,6 +77,14 @@ class AiModelNotifier extends StateNotifier<AiModelState> {
       try {
         final List<dynamic> decoded = jsonDecode(modelsJson);
         models = decoded.map((e) => AiModel.fromJson(e)).toList();
+
+        // Merge any missing default models (e.g., newly added providers)
+        for (final defaultModel in _defaultModels) {
+          final exists = models.any((m) => m.id == defaultModel.id);
+          if (!exists) {
+            models.add(defaultModel);
+          }
+        }
       } catch (_) {
         models = List.from(_defaultModels);
       }
