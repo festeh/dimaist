@@ -199,7 +199,7 @@ func (a *Agent) AddTool(tool Tool) {
 }
 
 // ExecuteWithWS runs the agent with WebSocket communication and tool confirmation flow
-func (a *Agent) ExecuteWithWS(messages []ChatCompletionMessage, ws *WSWriter, ctx context.Context) error {
+func (a *Agent) ExecuteWithWS(messages []ChatCompletionMessage, ws *WSWriter, ctx context.Context, includeCompleted bool) error {
 	logger.Info("Starting AI agent execution with WebSocket").
 		Int("messages_count", len(messages)).
 		Str("model", a.target.Model).
@@ -216,6 +216,28 @@ func (a *Agent) ExecuteWithWS(messages []ChatCompletionMessage, ws *WSWriter, ct
 			return ctx.Err()
 		default:
 		}
+
+		// Reload context on each iteration to get fresh task/project state
+		tasks, err := LoadRecentTasks(1000, includeCompleted)
+		if err != nil {
+			logger.Error("Failed to reload tasks").Err(err).Send()
+			ws.SendError("Failed to reload tasks: " + err.Error())
+			return err
+		}
+		projects, err := LoadRecentProjects(100)
+		if err != nil {
+			logger.Error("Failed to reload projects").Err(err).Send()
+			ws.SendError("Failed to reload projects: " + err.Error())
+			return err
+		}
+		systemPrompt, err := BuildSystemPrompt(tasks, projects)
+		if err != nil {
+			logger.Error("Failed to rebuild system prompt").Err(err).Send()
+			ws.SendError("Failed to rebuild system prompt: " + err.Error())
+			return err
+		}
+		// Update system message with fresh context
+		messages[0].Content = systemPrompt
 
 		// Send thinking event
 		if err := ws.SendThinking(fmt.Sprintf("Processing request (iteration %d/%d)...", i+1, maxIterations), 0); err != nil {

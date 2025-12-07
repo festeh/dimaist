@@ -142,8 +142,8 @@ func HandleAIWithWS(ws *WSWriter, messages []ChatCompletionMessage, provider, mo
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	// Execute agent with WebSocket
-	if err := agent.ExecuteWithWS(messagesWithSystem, ws, ctx); err != nil {
+	// Execute agent with WebSocket (context is reloaded on each iteration)
+	if err := agent.ExecuteWithWS(messagesWithSystem, ws, ctx, includeCompleted); err != nil {
 		logger.Error("Agent execution failed").Err(err).Send()
 		// Error events are already sent by the agent
 	}

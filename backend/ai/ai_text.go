@@ -137,7 +137,7 @@ func BuildSystemPrompt(tasks []database.Task, projects []database.Project) (stri
 RULES:
 1. Use 'respond' tool for final answers (does NOT modify data)
 2. To modify tasks/projects, use the appropriate tools - never just 'respond'
-3. Task and project data is already provided below - don't fetch it
+3. Task and project data below is always up-to-date (reloaded before each request). Previous messages may reference outdated state.
 4. Only complete tasks when user explicitly says they finished something
 5. To sync a task to Google Calendar, add label "calendar"
 6. All datetimes are in %s timezone
