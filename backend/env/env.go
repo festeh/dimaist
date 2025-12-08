@@ -61,14 +61,14 @@ func New() (*Env, error) {
 		return nil, fmt.Errorf("GOOGLE_AI_TOKEN environment variable is required")
 	}
 	env.GoogleAIToken = googleAIToken
-	env.GoogleAIEndpoint = getEnvOrDefault("GOOGLE_AI_ENDPOINT", "https://generativelanguage.googleapis.com/v1beta/openai")
+	env.GoogleAIEndpoint = getEnvOrDefault("GOOGLE_AI_ENDPOINT", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")
 
 	groqToken := os.Getenv("GROQ_TOKEN")
 	if groqToken == "" {
 		return nil, fmt.Errorf("GROQ_TOKEN environment variable is required")
 	}
 	env.GroqToken = groqToken
-	env.GroqEndpoint = getEnvOrDefault("GROQ_ENDPOINT", "https://api.groq.com/openai/v1")
+	env.GroqEndpoint = getEnvOrDefault("GROQ_ENDPOINT", "https://api.groq.com/openai/v1/chat/completions")
 
 	// Optional environment variables with defaults
 	env.LogLevel = getEnvOrDefault("LOG_LEVEL", "info")

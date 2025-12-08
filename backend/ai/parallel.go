@@ -2,7 +2,6 @@ package ai
 
 import (
 	"encoding/json"
-	"sync"
 	"time"
 
 	"dimaist/logger"
@@ -10,7 +9,7 @@ import (
 	"github.com/festeh/general"
 )
 
-// ParallelResult stores the result from one model in parallel mode
+// ParallelResult stores the result from one model
 type ParallelResult struct {
 	TargetID  string
 	Response  *general.ChatCompletionResponse
@@ -19,213 +18,534 @@ type ParallelResult struct {
 	ToolCalls []PendingToolCall
 }
 
-// HandleParallelAI runs multiple AI models in parallel and streams results
-func HandleParallelAI(ws *WSWriter, messages []ChatCompletionMessage, targets []TargetSpec, includeCompleted bool) {
-	logger.Info("Starting parallel AI execution").
-		Int("targets", len(targets)).
-		Int("messages", len(messages)).
+// HandleAI handles one AI turn - sends to all targets, streams responses, handles tools
+func HandleAI(s *Session) {
+	s.TurnID++
+	logger.Info("HandleAI starting").
+		Int("turn", s.TurnID).
+		Int("targets", len(s.Targets)).
+		Int("messages", len(s.Messages)).
 		Send()
 
-	// Send initial thinking event
-	if err := ws.SendThinking("Loading task context...", 0); err != nil {
-		logger.Error("Failed to send thinking event").Err(err).Send()
+	// Load context
+	if err := s.WS.SendThinking("Loading task context...", 0); err != nil {
+		logger.Error("Failed to send thinking").Err(err).Send()
 		return
 	}
 
-	// Load context once (shared across all models)
-	contextStartTime := time.Now()
-	tasks, err := LoadRecentTasks(1000, includeCompleted)
+	contextStart := time.Now()
+	tasks, err := LoadRecentTasks(1000, s.IncludeCompleted)
 	if err != nil {
 		logger.Error("Failed to load tasks").Err(err).Send()
-		ws.SendError("Failed to load tasks: " + err.Error())
+		s.WS.SendError("Failed to load tasks: " + err.Error())
 		return
 	}
 
 	projects, err := LoadRecentProjects(100)
 	if err != nil {
 		logger.Error("Failed to load projects").Err(err).Send()
-		ws.SendError("Failed to load projects: " + err.Error())
+		s.WS.SendError("Failed to load projects: " + err.Error())
 		return
 	}
-	contextDuration := time.Since(contextStartTime).Seconds()
 
-	// Build system prompt
 	systemPrompt, err := BuildSystemPrompt(tasks, projects)
 	if err != nil {
 		logger.Error("Failed to build system prompt").Err(err).Send()
-		ws.SendError("Failed to build system prompt: " + err.Error())
+		s.WS.SendError("Failed to build system prompt: " + err.Error())
 		return
 	}
+	contextDuration := time.Since(contextStart).Seconds()
 
-	// Prepend system message
-	messagesWithSystem := []ChatCompletionMessage{
-		{Role: "system", Content: systemPrompt},
-	}
-	messagesWithSystem = append(messagesWithSystem, messages...)
+	// Build messages with system prompt
+	messagesWithSystem := append(
+		[]ChatCompletionMessage{{Role: "system", Content: systemPrompt}},
+		s.Messages...,
+	)
 
-	// Send thinking event with context loading duration
-	if err := ws.SendThinking("Context loaded, querying AI models...", contextDuration); err != nil {
-		logger.Error("Failed to send thinking event").Err(err).Send()
-		return
-	}
-
-	// Execute parallel requests and wait for all results
-	results := executeParallelRequests(targets, messagesWithSystem)
-
-	// Track success/failure
-	var successfulTargets []string
-	var failedTargets []string
-	responsesByTarget := make(map[string]*ParallelResult)
-
-	// Process results as they arrive (already collected, now stream to client)
-	for _, result := range results {
-		responsesByTarget[result.TargetID] = result
-
-		if result.Error != nil {
-			failedTargets = append(failedTargets, result.TargetID)
-			ws.SendModelError(result.TargetID, result.Error.Error(), result.Duration.Seconds())
-			logger.Info("Model failed").Str("target", result.TargetID).Err(result.Error).Send()
+	// Log conversation history (excluding system prompt)
+	logger.Debug("Conversation history").Int("messages", len(s.Messages)).Send()
+	for i, msg := range s.Messages {
+		preview := msg.Content
+		if len(preview) > 200 {
+			preview = preview[:200] + "..."
+		}
+		if len(msg.ToolCalls) > 0 {
+			logger.Debug("Message").Int("idx", i).Str("role", msg.Role).Int("tool_calls", len(msg.ToolCalls)).Send()
 		} else {
-			successfulTargets = append(successfulTargets, result.TargetID)
+			logger.Debug("Message").Int("idx", i).Str("role", msg.Role).Str("content", preview).Send()
+		}
+	}
 
-			// Check if model wants tools
-			if len(result.ToolCalls) > 0 {
-				ws.SendToolsPendingForModel(result.TargetID, result.ToolCalls, result.Duration.Seconds())
-				logger.Info("Model requested tools").Str("target", result.TargetID).Int("tools", len(result.ToolCalls)).Send()
+	if err := s.WS.SendThinking("Querying AI models...", contextDuration); err != nil {
+		logger.Error("Failed to send thinking").Err(err).Send()
+		return
+	}
+
+	// Send to all targets and stream responses
+	resultsChan := streamRequests(s.Targets, messagesWithSystem)
+
+	var successfulTargets, failedTargets []string
+	responsesByTarget := make(map[string]*ParallelResult)
+	allDone := false
+
+	// Use select to listen for both model results and user messages concurrently
+	for !allDone {
+		select {
+		case result, ok := <-resultsChan:
+			if !ok {
+				// All models done
+				allDone = true
+				break
+			}
+
+			responsesByTarget[result.TargetID] = result
+
+			if result.Error != nil {
+				failedTargets = append(failedTargets, result.TargetID)
+				logger.Info("Model error").Str("target", result.TargetID).Err(result.Error).Send()
+				s.WS.SendModelError(result.TargetID, result.Error.Error(), result.Duration.Seconds(), s.TurnID)
 			} else {
-				responseText := ""
-				if result.Response != nil && len(result.Response.Choices) > 0 {
-					responseText = result.Response.Choices[0].Message.Content
+				successfulTargets = append(successfulTargets, result.TargetID)
+
+				if len(result.ToolCalls) > 0 {
+					logger.Info("Model tools pending").Str("target", result.TargetID).Int("tools", len(result.ToolCalls)).Send()
+					s.WS.SendToolsPendingForModel(result.TargetID, result.ToolCalls, result.Duration.Seconds(), s.TurnID)
+				} else {
+					responseText := ""
+					if result.Response != nil && len(result.Response.Choices) > 0 {
+						responseText = result.Response.Choices[0].Message.Content
+					}
+					logger.Info("Model response").Str("target", result.TargetID).Send()
+					s.WS.SendModelResponse(result.TargetID, responseText, result.Duration.Seconds(), s.TurnID)
 				}
-				ws.SendModelResponse(result.TargetID, responseText, result.Duration.Seconds())
-				logger.Info("Model responded").Str("target", result.TargetID).Send()
+			}
+
+		case msg := <-s.WS.MsgChan():
+			// User sent a message while models are still responding
+			if msg == nil {
+				// Channel closed (connection error)
+				logger.Error("WS channel closed during model responses").Send()
+				return
+			}
+
+			logger.Info("User message during model responses").Str("type", string(msg.Type)).Send()
+
+			switch msg.Type {
+			case WSMsgContinue:
+				// User wants to continue - handle immediately without waiting for all models
+				handleContinueDuringResponses(s, responsesByTarget, msg)
+				return
+
+			case WSMsgToolConfirm:
+				// User confirmed a tool - handle it
+				logger.Info("Tool confirm during responses").Str("target", msg.TargetID).Str("tool", msg.ToolCallID).Send()
+				s.SelectedModel = msg.TargetID
+				handleToolConfirm(s, responsesByTarget, messagesWithSystem, msg.TargetID, msg.ToolCallID, msg.Arguments)
+				return
+
+			case WSMsgSelectModel:
+				// User selected a model
+				logger.Info("Model selected during responses").Str("target", msg.TargetID).Send()
+				s.SelectedModel = msg.TargetID
+				handleModelSelection(s, responsesByTarget, msg.TargetID)
+				return
+
+			default:
+				logger.Warn("Unexpected message type during responses").Str("type", string(msg.Type)).Send()
+			}
+
+		case err := <-s.WS.ErrChan():
+			logger.Error("WS read error during model responses").Err(err).Send()
+			return
+		}
+	}
+
+	logger.Info("All models complete").Int("successful", len(successfulTargets)).Int("failed", len(failedTargets)).Send()
+	s.WS.SendAllComplete(successfulTargets, failedTargets, s.TurnID)
+
+	// Wait for user action (all models done, now use channel-based waiting)
+	handleUserAction(s, responsesByTarget, messagesWithSystem)
+}
+
+// handleContinueDuringResponses handles when user sends continue before all models finish
+func handleContinueDuringResponses(s *Session, results map[string]*ParallelResult, msg *WSMessage) {
+	logger.Info("Continue during responses").Str("newMessage", msg.NewMessage).Int("responsesReceived", len(results)).Send()
+
+	// Pick first successful model if none selected
+	if s.SelectedModel == "" {
+		for id, r := range results {
+			if r.Error == nil {
+				s.SelectedModel = id
+				break
 			}
 		}
 	}
 
-	// Signal all models complete
-	ws.SendAllComplete(successfulTargets, failedTargets)
+	// Add selected model's response to session (if we have one)
+	if result, ok := results[s.SelectedModel]; ok {
+		if len(result.ToolCalls) > 0 {
+			// Model had tool calls - add assistant message with tools + rejections
+			s.Messages = append(s.Messages, ChatCompletionMessage{
+				Role:      "assistant",
+				ToolCalls: convertToToolCalls(result.ToolCalls, result.Response),
+			})
+			for _, tc := range result.ToolCalls {
+				s.Messages = append(s.Messages, ChatCompletionMessage{
+					Role:       "tool",
+					Content:    "User rejected this action",
+					ToolCallID: tc.ToolCallID,
+				})
+			}
+		} else if result.Response != nil && len(result.Response.Choices) > 0 {
+			// Model had text response
+			text := result.Response.Choices[0].Message.Content
+			if text != "" {
+				s.Messages = append(s.Messages, ChatCompletionMessage{
+					Role:    "assistant",
+					Content: text,
+				})
+			}
+		}
+	}
 
-	// Wait for user action
-	handleParallelUserActions(ws, responsesByTarget, messagesWithSystem, targets, includeCompleted)
+	// Add user's new message to session
+	if msg.NewMessage != "" {
+		s.Messages = append(s.Messages, ChatCompletionMessage{
+			Role:    "user",
+			Content: msg.NewMessage,
+		})
+	}
 }
 
-// executeParallelRequests runs requests to all targets in parallel
-func executeParallelRequests(targets []TargetSpec, messages []ChatCompletionMessage) []*ParallelResult {
-	// Convert to general.ChatCompletionMessage
-	generalMessages := make([]general.ChatCompletionMessage, len(messages))
+// handleUserAction waits for user to confirm tools or select a model
+func handleUserAction(s *Session, results map[string]*ParallelResult, messagesWithSystem []ChatCompletionMessage) {
+	for {
+		select {
+		case msg := <-s.WS.MsgChan():
+			if msg == nil {
+				logger.Error("WS channel closed during action wait").Send()
+				return
+			}
+
+			switch msg.Type {
+			case WSMsgToolConfirm:
+				logger.Info("Tool confirm").Str("target", msg.TargetID).Str("tool", msg.ToolCallID).Send()
+				s.SelectedModel = msg.TargetID
+				handleToolConfirm(s, results, messagesWithSystem, msg.TargetID, msg.ToolCallID, msg.Arguments)
+				return
+
+			case WSMsgSelectModel:
+				logger.Info("Model selected").Str("target", msg.TargetID).Send()
+				s.SelectedModel = msg.TargetID
+				handleModelSelection(s, results, msg.TargetID)
+				return
+
+			case WSMsgContinue:
+				// Continue message ends this turn
+				// Pick first successful model if none selected
+				if s.SelectedModel == "" {
+					for id, r := range results {
+						if r.Error == nil {
+							s.SelectedModel = id
+							break
+						}
+					}
+				}
+
+				// Add selected model's response to session
+				if result, ok := results[s.SelectedModel]; ok {
+					if len(result.ToolCalls) > 0 {
+						// Model had tool calls - add assistant message with tools + rejections
+						s.Messages = append(s.Messages, ChatCompletionMessage{
+							Role:      "assistant",
+							ToolCalls: convertToToolCalls(result.ToolCalls, result.Response),
+						})
+						for _, tc := range result.ToolCalls {
+							s.Messages = append(s.Messages, ChatCompletionMessage{
+								Role:       "tool",
+								Content:    "User rejected this action",
+								ToolCallID: tc.ToolCallID,
+							})
+						}
+					} else if result.Response != nil && len(result.Response.Choices) > 0 {
+						// Model had text response
+						text := result.Response.Choices[0].Message.Content
+						if text != "" {
+							s.Messages = append(s.Messages, ChatCompletionMessage{
+								Role:    "assistant",
+								Content: text,
+							})
+						}
+					}
+				}
+
+				// Add user's new message to session
+				if msg.NewMessage != "" {
+					s.Messages = append(s.Messages, ChatCompletionMessage{
+						Role:    "user",
+						Content: msg.NewMessage,
+					})
+				}
+				logger.Info("Continue during action wait").Str("selected", s.SelectedModel).Str("newMessage", msg.NewMessage).Send()
+				return
+
+			default:
+				logger.Warn("Unexpected message type").Str("type", string(msg.Type)).Send()
+			}
+
+		case err := <-s.WS.ErrChan():
+			logger.Error("WS read error during action wait").Err(err).Send()
+			return
+		}
+	}
+}
+
+// handleToolConfirm executes confirmed tools and updates session
+func handleToolConfirm(s *Session, results map[string]*ParallelResult, messagesWithSystem []ChatCompletionMessage,
+	targetID, toolCallID string, modifiedArgs map[string]any) {
+
+	result, ok := results[targetID]
+	if !ok {
+		s.WS.SendError("Unknown target: " + targetID)
+		return
+	}
+
+	provider, model := parseTargetID(targetID)
+	agent := createAIAgent(provider, model)
+
+	// Add assistant message with tool calls
+	messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
+		Role:      "assistant",
+		ToolCalls: convertToToolCalls(result.ToolCalls, result.Response),
+	})
+
+	// Track pending tools
+	pending := make(map[string]*PendingToolCall)
+	for i := range result.ToolCalls {
+		pending[result.ToolCalls[i].ToolCallID] = &result.ToolCalls[i]
+	}
+
+	// Execute first tool
+	if tc, ok := pending[toolCallID]; ok {
+		args := tc.Arguments
+		if modifiedArgs != nil {
+			args = modifiedArgs
+		}
+
+		start := time.Now()
+		toolResult, err := agent.executeToolWithArgs(tc.Name, args)
+		duration := time.Since(start).Seconds()
+
+		if err != nil {
+			logger.Error("Tool failed").Str("tool", tc.Name).Err(err).Send()
+			messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
+				Role: "tool", Content: "Error: " + err.Error(), ToolCallID: toolCallID,
+			})
+		} else {
+			s.WS.SendToolResult(toolResult, duration)
+			messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
+				Role: "tool", Content: toolResult, ToolCallID: toolCallID,
+			})
+		}
+		delete(pending, toolCallID)
+	}
+
+	// Wait for more tool confirmations using channel
+	for len(pending) > 0 {
+		select {
+		case msg := <-s.WS.MsgChan():
+			if msg == nil {
+				logger.Error("WS channel closed during tool wait").Send()
+				// Update session messages and return
+				s.Messages = messagesWithSystem[1:]
+				return
+			}
+
+			if msg.Type == WSMsgToolConfirm {
+				tc, ok := pending[msg.ToolCallID]
+				if !ok {
+					continue
+				}
+
+				args := tc.Arguments
+				if msg.Arguments != nil {
+					args = msg.Arguments
+				}
+
+				start := time.Now()
+				toolResult, err := agent.executeToolWithArgs(tc.Name, args)
+				duration := time.Since(start).Seconds()
+
+				if err != nil {
+					messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
+						Role: "tool", Content: "Error: " + err.Error(), ToolCallID: msg.ToolCallID,
+					})
+				} else {
+					s.WS.SendToolResult(toolResult, duration)
+					messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
+						Role: "tool", Content: toolResult, ToolCallID: msg.ToolCallID,
+					})
+				}
+				delete(pending, msg.ToolCallID)
+
+			} else if msg.Type == WSMsgContinue {
+				// Reject remaining tools
+				for tcID := range pending {
+					messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
+						Role: "tool", Content: "User rejected this action", ToolCallID: tcID,
+					})
+				}
+				// Add user message
+				if msg.NewMessage != "" {
+					messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
+						Role: "user", Content: msg.NewMessage,
+					})
+				}
+				// Update session and return early
+				s.Messages = messagesWithSystem[1:]
+				return
+			}
+
+		case err := <-s.WS.ErrChan():
+			logger.Error("WS read error during tool wait").Err(err).Send()
+			s.Messages = messagesWithSystem[1:]
+			return
+		}
+	}
+
+	// Update session messages (skip system prompt)
+	s.Messages = messagesWithSystem[1:]
+}
+
+// handleModelSelection handles when user selects a model's response
+func handleModelSelection(s *Session, results map[string]*ParallelResult, targetID string) {
+	result, ok := results[targetID]
+	if !ok {
+		s.WS.SendError("Unknown target: " + targetID)
+		return
+	}
+
+	// If model has pending tools, wait for tool confirmation (will be handled by next call)
+	if len(result.ToolCalls) > 0 {
+		return
+	}
+
+	// Add text response to session
+	if result.Response != nil && len(result.Response.Choices) > 0 {
+		text := result.Response.Choices[0].Message.Content
+		if text != "" {
+			s.Messages = append(s.Messages, ChatCompletionMessage{
+				Role:    "assistant",
+				Content: text,
+			})
+		}
+	}
+}
+
+// streamRequests sends requests to all targets in parallel
+func streamRequests(targets []TargetSpec, messages []ChatCompletionMessage) <-chan *ParallelResult {
+	// Convert messages
+	generalMsgs := make([]general.ChatCompletionMessage, len(messages))
 	for i, m := range messages {
-		generalMessages[i] = general.ChatCompletionMessage{
+		generalMsgs[i] = general.ChatCompletionMessage{
 			Role:       m.Role,
 			Content:    m.Content,
 			ToolCallID: m.ToolCallID,
 		}
-		// Copy tool calls if present
 		if len(m.ToolCalls) > 0 {
-			generalMessages[i].ToolCalls = m.ToolCalls
+			generalMsgs[i].ToolCalls = m.ToolCalls
 		}
 	}
 
-	// Build general.Target slice
+	// Build targets
 	generalTargets := make([]general.Target, len(targets))
 	for i, t := range targets {
-		provider := getProvider(t.Provider)
 		generalTargets[i] = general.Target{
-			Provider: provider,
+			Provider: getProvider(t.Provider),
 			Model:    t.Model,
 		}
 	}
 
-	// Create command with all targets
+	// Execute
 	cmd := general.NewCommandWithTimeout(generalTargets, nil, 2*time.Minute)
-
-	// Build request
 	tools := GetToolDefinitions()
 	request := general.ChatCompletionRequest{
 		MaxTokens:   10000,
 		Temperature: 0.1,
-		Messages:    generalMessages,
+		Messages:    generalMsgs,
 		Tools:       tools,
 		ToolChoice:  "auto",
 	}
 
-	// Execute parallel requests
 	resultsChan := cmd.Execute(request)
+	outChan := make(chan *ParallelResult)
 
-	// Collect all results
-	var results []*ParallelResult
-	var mu sync.Mutex
+	go func() {
+		defer close(outChan)
 
-	for result := range resultsChan {
-		targetID := targets[findTargetIndex(generalTargets, result.Target)].ID()
+		for result := range resultsChan {
+			targetID := targets[findTargetIndex(generalTargets, result.Target)].ID()
 
-		parallelResult := &ParallelResult{
-			TargetID: targetID,
-			Duration: result.Duration,
-		}
+			pr := &ParallelResult{
+				TargetID: targetID,
+				Duration: result.Duration,
+			}
 
-		if result.Error != nil {
-			parallelResult.Error = result.Error
-		} else {
-			parallelResult.Response = &result.Response
+			if result.Error != nil {
+				pr.Error = result.Error
+			} else {
+				pr.Response = &result.Response
 
-			// Extract tool calls if present
-			if len(result.Response.Choices) > 0 {
-				toolCalls := result.Response.Choices[0].Message.ToolCalls
-				if len(toolCalls) > 0 {
-					pendingTools := make([]PendingToolCall, 0, len(toolCalls))
-					for _, tc := range toolCalls {
-						// Parse arguments
-						var args map[string]any
-						if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
-							logger.Error("Failed to parse tool arguments").Str("tool", tc.Function.Name).Err(err).Send()
-							continue
-						}
-
-						// Skip respond tool - treat as regular response
-						if tc.Function.Name == "respond" {
-							continue
-						}
-
-						// Resolve defaults for preview
-						argsForPreview := resolveToolDefaults(tc.Function.Name, args)
-
-						pendingTools = append(pendingTools, PendingToolCall{
-							ToolCallID: tc.ID,
-							Name:       tc.Function.Name,
-							Arguments:  argsForPreview,
-						})
-					}
-
-					// If only respond tool was called, extract the response text
-					if len(pendingTools) == 0 && len(toolCalls) > 0 {
+				// Extract tool calls
+				if len(result.Response.Choices) > 0 {
+					toolCalls := result.Response.Choices[0].Message.ToolCalls
+					if len(toolCalls) > 0 {
+						pending := make([]PendingToolCall, 0, len(toolCalls))
 						for _, tc := range toolCalls {
-							if tc.Function.Name == "respond" {
-								var args map[string]any
-								if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil {
-									if text, ok := args["text"].(string); ok {
-										parallelResult.Response.Choices[0].Message.Content = text
-									}
-								}
-								break
+							var args map[string]any
+							if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+								continue
 							}
+
+							// Skip respond tool
+							if tc.Function.Name == "respond" {
+								continue
+							}
+
+							pending = append(pending, PendingToolCall{
+								ToolCallID: tc.ID,
+								Name:       tc.Function.Name,
+								Arguments:  resolveToolDefaults(tc.Function.Name, args),
+							})
 						}
-					} else {
-						parallelResult.ToolCalls = pendingTools
+
+						// Handle respond-only case
+						if len(pending) == 0 && len(toolCalls) > 0 {
+							for _, tc := range toolCalls {
+								if tc.Function.Name == "respond" {
+									var args map[string]any
+									if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil {
+										if text, ok := args["text"].(string); ok {
+											pr.Response.Choices[0].Message.Content = text
+										}
+									}
+									break
+								}
+							}
+						} else {
+							pr.ToolCalls = pending
+						}
 					}
 				}
 			}
+
+			outChan <- pr
 		}
+	}()
 
-		mu.Lock()
-		results = append(results, parallelResult)
-		mu.Unlock()
-	}
-
-	return results
+	return outChan
 }
 
-// findTargetIndex finds the index of a target in the slice
 func findTargetIndex(targets []general.Target, target general.Target) int {
 	for i, t := range targets {
 		if t.Provider.Endpoint == target.Provider.Endpoint && t.Model == target.Model {
@@ -235,186 +555,19 @@ func findTargetIndex(targets []general.Target, target general.Target) int {
 	return 0
 }
 
-// getProvider returns the provider configuration for a given provider name
-func getProvider(providerName string) general.Provider {
-	switch providerName {
+func getProvider(name string) general.Provider {
+	switch name {
 	case "chutes":
-		return general.Provider{
-			Endpoint: appEnv.ChutesEndpoint,
-			APIKey:   appEnv.ChutesToken,
-		}
+		return general.Provider{Endpoint: appEnv.ChutesEndpoint, APIKey: appEnv.ChutesToken}
 	case "google":
-		return general.Provider{
-			Endpoint: appEnv.GoogleAIEndpoint,
-			APIKey:   appEnv.GoogleAIToken,
-		}
+		return general.Provider{Endpoint: appEnv.GoogleAIEndpoint, APIKey: appEnv.GoogleAIToken}
 	case "groq":
-		return general.Provider{
-			Endpoint: appEnv.GroqEndpoint,
-			APIKey:   appEnv.GroqToken,
-		}
-	default: // openrouter
-		return general.Provider{
-			Endpoint: appEnv.OpenrouterEndpoint,
-			APIKey:   appEnv.OpenrouterToken,
-		}
+		return general.Provider{Endpoint: appEnv.GroqEndpoint, APIKey: appEnv.GroqToken}
+	default:
+		return general.Provider{Endpoint: appEnv.OpenrouterEndpoint, APIKey: appEnv.OpenrouterToken}
 	}
 }
 
-// handleParallelUserActions waits for user to either select a model or send a new message
-func handleParallelUserActions(ws *WSWriter, responsesByTarget map[string]*ParallelResult,
-	messagesWithSystem []ChatCompletionMessage, targets []TargetSpec, includeCompleted bool) {
-
-	for {
-		msg, err := ws.WaitForNextMessage()
-		if err != nil {
-			logger.Error("Failed to wait for user message").Err(err).Send()
-			return
-		}
-
-		switch msg.Type {
-		case WSMsgSelectModel:
-			// User engaged with tools from this model - switch to single model mode
-			logger.Info("User selected model").Str("target", msg.TargetID).Send()
-			handleModelSelection(ws, msg.TargetID, responsesByTarget, messagesWithSystem, includeCompleted)
-			return
-
-		case WSMsgBatchConfirm:
-			// User confirmed tools from a specific model
-			logger.Info("User confirmed tools for model").Str("target", msg.TargetID).Send()
-			handleToolConfirmationParallel(ws, msg.TargetID, msg.Statuses, msg.NewMessage,
-				responsesByTarget, messagesWithSystem, targets, includeCompleted)
-			return
-
-		case WSMsgStart:
-			// User sent a new message - restart parallel mode with all models
-			logger.Info("User sent new message, restarting parallel mode").Send()
-			newUserMessage := ChatCompletionMessage{Role: "user", Content: ""}
-			if len(msg.Messages) > 0 {
-				newUserMessage = msg.Messages[len(msg.Messages)-1]
-			}
-			messagesWithSystem = append(messagesWithSystem, newUserMessage)
-			HandleParallelAI(ws, messagesWithSystem[1:], targets, includeCompleted) // Skip system message, it will be rebuilt
-			return
-
-		default:
-			logger.Warn("Unexpected message type in parallel mode").Str("type", string(msg.Type)).Send()
-		}
-	}
-}
-
-// handleModelSelection switches from parallel to single model mode
-func handleModelSelection(ws *WSWriter, targetID string, responsesByTarget map[string]*ParallelResult,
-	messages []ChatCompletionMessage, includeCompleted bool) {
-
-	result, ok := responsesByTarget[targetID]
-	if !ok {
-		ws.SendError("Unknown target: " + targetID)
-		return
-	}
-
-	// Extract provider and model from targetID (format: "provider:model")
-	provider, model := parseTargetID(targetID)
-
-	// If the model had tool calls, we need to continue with tool confirmation flow
-	if len(result.ToolCalls) > 0 {
-		// The tools are already sent to client, just wait for confirmation
-		// This is handled by the existing batch confirmation flow
-		return
-	}
-
-	// Otherwise, just continue in single model mode
-	HandleAIWithWS(ws, messages[1:], provider, model, includeCompleted) // Skip system message
-}
-
-// handleToolConfirmationParallel handles tool confirmation and continues with single model
-func handleToolConfirmationParallel(ws *WSWriter, targetID string, statuses []ToolStatus, newMessage string,
-	responsesByTarget map[string]*ParallelResult, messages []ChatCompletionMessage,
-	targets []TargetSpec, includeCompleted bool) {
-
-	result, ok := responsesByTarget[targetID]
-	if !ok {
-		ws.SendError("Unknown target: " + targetID)
-		return
-	}
-
-	provider, model := parseTargetID(targetID)
-
-	// Create agent for tool execution
-	agent := createAIAgent(provider, model)
-
-	// Add the assistant message with tool calls to conversation
-	assistantMsg := ChatCompletionMessage{
-		Role:      "assistant",
-		ToolCalls: convertToToolCalls(result.ToolCalls, result.Response),
-	}
-	messages = append(messages, assistantMsg)
-
-	// Process each tool based on status
-	for _, status := range statuses {
-		// Find the tool call
-		var toolCall *PendingToolCall
-		for _, tc := range result.ToolCalls {
-			if tc.ToolCallID == status.ToolCallID {
-				toolCall = &tc
-				break
-			}
-		}
-		if toolCall == nil {
-			continue
-		}
-
-		if status.Status == "confirmed" {
-			// Use modified args if provided
-			args := toolCall.Arguments
-			if status.Arguments != nil {
-				args = status.Arguments
-			}
-
-			// Execute the tool
-			toolStartTime := time.Now()
-			toolResult, err := agent.executeToolWithArgs(toolCall.Name, args)
-			toolDuration := time.Since(toolStartTime).Seconds()
-
-			if err != nil {
-				logger.Error("Tool execution failed").Str("tool", toolCall.Name).Err(err).Send()
-				messages = append(messages, ChatCompletionMessage{
-					Role:       "tool",
-					Content:    "Error: " + err.Error(),
-					ToolCallID: status.ToolCallID,
-				})
-				continue
-			}
-
-			ws.SendToolResult(toolResult, toolDuration)
-			messages = append(messages, ChatCompletionMessage{
-				Role:       "tool",
-				Content:    toolResult,
-				ToolCallID: status.ToolCallID,
-			})
-		} else {
-			// Rejected
-			messages = append(messages, ChatCompletionMessage{
-				Role:       "tool",
-				Content:    "User rejected this action",
-				ToolCallID: status.ToolCallID,
-			})
-		}
-	}
-
-	// Add new message if provided
-	if newMessage != "" {
-		messages = append(messages, ChatCompletionMessage{
-			Role:    "user",
-			Content: newMessage,
-		})
-	}
-
-	// Continue with single model mode
-	HandleAIWithWS(ws, messages[1:], provider, model, includeCompleted) // Skip system message
-}
-
-// parseTargetID extracts provider and model from "provider:model" format
 func parseTargetID(targetID string) (provider, model string) {
 	for i := 0; i < len(targetID); i++ {
 		if targetID[i] == ':' {
@@ -424,7 +577,6 @@ func parseTargetID(targetID string) (provider, model string) {
 	return "", targetID
 }
 
-// convertToToolCalls converts PendingToolCall slice to general.ToolCall slice
 func convertToToolCalls(pending []PendingToolCall, response *general.ChatCompletionResponse) []general.ToolCall {
 	if response != nil && len(response.Choices) > 0 {
 		return response.Choices[0].Message.ToolCalls

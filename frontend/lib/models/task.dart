@@ -81,10 +81,25 @@ class Task {
         }
       }
 
+      // Check if this is a date-only string (no time component)
+      // Date-only strings should NOT be converted to UTC to preserve the date
+      final isDateOnly = !processedDateStr.contains('T') &&
+                         !processedDateStr.contains(' ') &&
+                         RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(processedDateStr);
+
+      if (isDateOnly) {
+        // Parse as local date and keep it that way
+        return DateTime.parse(processedDateStr);
+      }
+
       return DateTime.parse(processedDateStr).toUtc();
     } catch (e) {
       // Fallback: try parsing as-is
       try {
+        final isDateOnly = RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(dateStr);
+        if (isDateOnly) {
+          return DateTime.parse(dateStr);
+        }
         return DateTime.parse(dateStr).toUtc();
       } catch (e2) {
         return null;
@@ -93,39 +108,7 @@ class Task {
   }
 
   factory Task.fromJson(Map<String, dynamic> json) {
-    LoggingService.logger.fine('Task.fromJson: Processing task JSON: $json');
     try {
-      LoggingService.logger.fine('Task.fromJson: id = ${json['id']}');
-      LoggingService.logger.fine(
-        'Task.fromJson: description = ${json['description']}',
-      );
-      LoggingService.logger.fine(
-        'Task.fromJson: project_id = ${json['project_id']}',
-      );
-      LoggingService.logger.fine(
-        'Task.fromJson: due_date = ${json['due_date']}',
-      );
-      LoggingService.logger.fine(
-        'Task.fromJson: due_datetime = ${json['due_datetime']}',
-      );
-      LoggingService.logger.fine(
-        'Task.fromJson: start_datetime = ${json['start_datetime']}',
-      );
-      LoggingService.logger.fine(
-        'Task.fromJson: end_datetime = ${json['end_datetime']}',
-      );
-      LoggingService.logger.fine('Task.fromJson: labels = ${json['labels']}');
-      LoggingService.logger.fine('Task.fromJson: order = ${json['order']}');
-      LoggingService.logger.fine(
-        'Task.fromJson: completed_at = ${json['completed_at']}',
-      );
-      LoggingService.logger.fine(
-        'Task.fromJson: reminders = ${json['reminders']}',
-      );
-      LoggingService.logger.fine(
-        'Task.fromJson: recurrence = ${json['recurrence']}',
-      );
-
       return Task(
         id: json['id'],
         description: json['description'],

@@ -1,9 +1,7 @@
 package ai
 
 import (
-	"context"
 	"net/http"
-	"time"
 
 	"dimaist/logger"
 	"github.com/gorilla/websocket"
@@ -20,7 +18,7 @@ type PendingToolCall struct {
 	Arguments  map[string]any `json:"arguments"`
 }
 
-// TargetSpec represents a provider+model combination for parallel requests
+// TargetSpec represents a provider+model combination for requests
 type TargetSpec struct {
 	Provider string `json:"provider"`
 	Model    string `json:"model"`
@@ -31,44 +29,51 @@ func (t TargetSpec) ID() string {
 	return t.Provider + ":" + t.Model
 }
 
+// Session holds all context for an AI conversation
+type Session struct {
+	WS               *WSWriter
+	Messages         []ChatCompletionMessage
+	Targets          []TargetSpec
+	SelectedModel    string // "provider:model" format, empty = not yet selected
+	IncludeCompleted bool
+	TurnID           int // Increments each turn, used to filter stale responses
+}
+
 // WSMessage represents a WebSocket message for AI chat
 type WSMessage struct {
 	Type WSMessageType `json:"type"`
 
 	// Start message fields (client → server)
 	Messages         []ChatCompletionMessage `json:"messages,omitempty"`
-	Provider         string                  `json:"provider,omitempty"`          // Single model (legacy)
-	Model            string                  `json:"model,omitempty"`             // Single model (legacy)
-	Targets          []TargetSpec            `json:"targets,omitempty"`           // Multiple models (parallel)
+	Targets          []TargetSpec            `json:"targets,omitempty"`
 	IncludeCompleted bool                    `json:"include_completed,omitempty"`
 
-	// Target identification for parallel mode responses
+	// Target identification
 	TargetID string `json:"target_id,omitempty"`
 
-	// Tool pending fields (server → client) - single tool (legacy)
-	Tool      string         `json:"tool,omitempty"`
-	Arguments map[string]any `json:"arguments,omitempty"`
+	// Tool fields
+	ToolCalls  []PendingToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string            `json:"tool_call_id,omitempty"`
+	Arguments  map[string]any    `json:"arguments,omitempty"`
 
-	// Batch tool fields (server → client)
-	ToolCalls []PendingToolCall `json:"tool_calls,omitempty"`
+	// Message fields
+	Message    string  `json:"message,omitempty"`
+	NewMessage string  `json:"new_message,omitempty"`
+	Response   string  `json:"response,omitempty"`
+	Result     string  `json:"result,omitempty"`
+	Error      string  `json:"error,omitempty"`
+	Duration   float64 `json:"duration,omitempty"`
 
-	// Batch confirmation fields (client → server)
-	Statuses   []ToolStatus `json:"statuses,omitempty"`
-	NewMessage string       `json:"new_message,omitempty"`
-
-	// Response fields (server → client)
-	Message  string  `json:"message,omitempty"`
-	Response string  `json:"response,omitempty"`
-	Result   string  `json:"result,omitempty"`
-	Error    string  `json:"error,omitempty"`
-	Duration float64 `json:"duration,omitempty"`
-
-	// All complete event fields (parallel mode)
+	// All complete event fields
 	SuccessfulTargets []string `json:"successful_targets,omitempty"`
 	FailedTargets     []string `json:"failed_targets,omitempty"`
+
+	// Turn tracking
+	TurnID int `json:"turn_id,omitempty"`
 }
 
 // HandleWebSocket handles WebSocket connections for AI chat
+// Connection stays open for entire chat session
 func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -97,109 +102,72 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create WebSocket writer
-	wsWriter := NewWSWriter(conn)
+	if len(startMsg.Targets) == 0 {
+		logger.Error("No targets specified").Send()
+		conn.WriteJSON(WSMessage{Type: WSMsgError, Error: "At least one target is required"})
+		return
+	}
 
-	// Check if parallel mode (multiple targets) or single mode (legacy provider/model)
-	if len(startMsg.Targets) > 1 {
-		// Parallel mode
-		logger.Info("WebSocket AI chat started (parallel mode)").
-			Int("targets", len(startMsg.Targets)).
-			Int("messages", len(startMsg.Messages)).
+	// Log first user message
+	for i, msg := range startMsg.Messages {
+		if msg.Role == "user" {
+			logger.Info("AI request").
+				Int("idx", i).
+				Str("content", msg.Content).
+				Int("targets", len(startMsg.Targets)).
+				Send()
+		}
+	}
+
+	// Initialize session
+	ws := NewWSWriter(conn)
+	ws.StartReading() // Start background reader for concurrent message handling
+
+	s := &Session{
+		WS:               ws,
+		Messages:         startMsg.Messages,
+		Targets:          startMsg.Targets,
+		IncludeCompleted: startMsg.IncludeCompleted,
+	}
+
+	// Main conversation loop
+	for {
+		logger.Info("Starting AI turn").
+			Int("messages", len(s.Messages)).
+			Int("targets", len(s.Targets)).
+			Str("selectedModel", s.SelectedModel).
 			Send()
 
-		HandleParallelAI(wsWriter, startMsg.Messages, startMsg.Targets, startMsg.IncludeCompleted)
-	} else {
-		// Single model mode
-		var provider, model string
-		if len(startMsg.Targets) == 1 {
-			// New format with single target
-			provider = startMsg.Targets[0].Provider
-			model = startMsg.Targets[0].Model
-		} else {
-			// Legacy format
-			provider = startMsg.Provider
-			model = startMsg.Model
+		HandleAI(s)
+
+		// Check if user message was already added during HandleAI (e.g., continue during tool wait)
+		if len(s.Messages) > 0 && s.Messages[len(s.Messages)-1].Role == "user" {
+			logger.Info("User message already pending, continuing").Send()
+			continue
 		}
 
-		if provider == "" || model == "" {
-			logger.Error("Missing provider or model").Send()
-			conn.WriteJSON(WSMessage{Type: WSMsgError, Error: "Provider and model are required"})
+		// Wait for next message using channel
+		logger.Info("Turn complete, waiting for continue").Send()
+		select {
+		case msg := <-s.WS.MsgChan():
+			if msg == nil {
+				logger.Info("WS channel closed, ending session").Send()
+				return
+			}
+
+			if msg.Type == WSMsgContinue {
+				logger.Info("Continue message received").Str("content", msg.NewMessage).Send()
+				s.Messages = append(s.Messages, ChatCompletionMessage{
+					Role:    "user",
+					Content: msg.NewMessage,
+				})
+			} else {
+				logger.Warn("Unexpected message type").Str("type", string(msg.Type)).Send()
+			}
+
+		case err := <-s.WS.ErrChan():
+			logger.Info("Connection closed").Err(err).Send()
 			return
 		}
-
-		logger.Info("WebSocket AI chat started").
-			Str("provider", provider).
-			Str("model", model).
-			Int("messages", len(startMsg.Messages)).
-			Send()
-
-		HandleAIWithWS(wsWriter, startMsg.Messages, provider, model, startMsg.IncludeCompleted)
-	}
-}
-
-// HandleAIWithWS runs the AI agent loop with WebSocket communication
-func HandleAIWithWS(ws *WSWriter, messages []ChatCompletionMessage, provider, model string, includeCompleted bool) {
-	logger.Info("Handling AI with WebSocket").
-		Int("messages_count", len(messages)).
-		Str("provider", provider).
-		Str("model", model).
-		Bool("includeCompleted", includeCompleted).
-		Send()
-
-	// Send initial thinking event
-	if err := ws.SendThinking("Loading task context...", 0); err != nil {
-		logger.Error("Failed to send thinking event").Err(err).Send()
-		return
-	}
-
-	// Load context with limits and track timing
-	contextStartTime := time.Now()
-	tasks, err := LoadRecentTasks(1000, includeCompleted)
-	if err != nil {
-		logger.Error("Failed to load tasks").Err(err).Send()
-		ws.SendError("Failed to load tasks: " + err.Error())
-		return
-	}
-
-	projects, err := LoadRecentProjects(100)
-	if err != nil {
-		logger.Error("Failed to load projects").Err(err).Send()
-		ws.SendError("Failed to load projects: " + err.Error())
-		return
-	}
-	contextDuration := time.Since(contextStartTime).Seconds()
-
-	// Build system prompt and prepend to messages
-	systemPrompt, err := BuildSystemPrompt(tasks, projects)
-	if err != nil {
-		logger.Error("Failed to build system prompt").Err(err).Send()
-		ws.SendError("Failed to build system prompt: " + err.Error())
-		return
-	}
-
-	// Prepend system message to the messages array
-	messagesWithSystem := []ChatCompletionMessage{
-		{Role: "system", Content: systemPrompt},
-	}
-	messagesWithSystem = append(messagesWithSystem, messages...)
-
-	// Create agent
-	agent := createAIAgent(provider, model)
-
-	// Send thinking event with context loading duration
-	if err := ws.SendThinking("Context loaded, starting AI agent...", contextDuration); err != nil {
-		logger.Error("Failed to send thinking event").Err(err).Send()
-		return
-	}
-
-	// Create context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	// Execute agent with WebSocket (context is reloaded on each iteration)
-	if err := agent.ExecuteWithWS(messagesWithSystem, ws, ctx, includeCompleted); err != nil {
-		logger.Error("Agent execution failed").Err(err).Send()
-		// Error events are already sent by the agent
 	}
 }

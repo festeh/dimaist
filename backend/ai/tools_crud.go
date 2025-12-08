@@ -125,7 +125,7 @@ func CreateCRUDTools() []Tool {
 					Parameters: general.ToolParameters{
 						Type: "object",
 						Properties: map[string]general.ToolParameterProperty{
-							"task_id": {
+							"id": {
 								Type:        "number",
 								Description: "ID of the task to update",
 							},
@@ -166,7 +166,7 @@ func CreateCRUDTools() []Tool {
 								Description: "New recurrence pattern",
 							},
 						},
-						Required: []string{"task_id"},
+						Required: []string{"id"},
 					},
 				},
 			},
@@ -181,12 +181,12 @@ func CreateCRUDTools() []Tool {
 					Parameters: general.ToolParameters{
 						Type: "object",
 						Properties: map[string]general.ToolParameterProperty{
-							"task_id": {
+							"id": {
 								Type:        "number",
 								Description: "ID of the task to delete",
 							},
 						},
-						Required: []string{"task_id"},
+						Required: []string{"id"},
 					},
 				},
 			},
@@ -201,12 +201,12 @@ func CreateCRUDTools() []Tool {
 					Parameters: general.ToolParameters{
 						Type: "object",
 						Properties: map[string]general.ToolParameterProperty{
-							"task_id": {
+							"id": {
 								Type:        "number",
 								Description: "ID of the task to complete",
 							},
 						},
-						Required: []string{"task_id"},
+						Required: []string{"id"},
 					},
 				},
 			},
@@ -416,9 +416,9 @@ func createTaskCRUDTool(args map[string]any) (string, error) {
 }
 
 func updateTaskCRUDTool(args map[string]any) (string, error) {
-	taskIDFloat, ok := args["task_id"].(float64)
+	taskIDFloat, ok := args["id"].(float64)
 	if !ok {
-		return "", fmt.Errorf("task_id is required")
+		return "", fmt.Errorf("id is required")
 	}
 	taskID := uint(taskIDFloat)
 
@@ -517,9 +517,9 @@ func updateTaskCRUDTool(args map[string]any) (string, error) {
 }
 
 func deleteTaskCRUDTool(args map[string]any) (string, error) {
-	taskIDFloat, ok := args["task_id"].(float64)
+	taskIDFloat, ok := args["id"].(float64)
 	if !ok {
-		return "", fmt.Errorf("task_id is required")
+		return "", fmt.Errorf("id is required")
 	}
 	taskID := uint(taskIDFloat)
 
@@ -539,9 +539,9 @@ func deleteTaskCRUDTool(args map[string]any) (string, error) {
 }
 
 func completeTaskCRUDTool(args map[string]any) (string, error) {
-	taskIDFloat, ok := args["task_id"].(float64)
+	taskIDFloat, ok := args["id"].(float64)
 	if !ok {
-		return "", fmt.Errorf("task_id is required")
+		return "", fmt.Errorf("id is required")
 	}
 	taskID := uint(taskIDFloat)
 

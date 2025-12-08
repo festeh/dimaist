@@ -198,279 +198,6 @@ func (a *Agent) AddTool(tool Tool) {
 	a.tools = append(a.tools, tool)
 }
 
-// ExecuteWithWS runs the agent with WebSocket communication and tool confirmation flow
-func (a *Agent) ExecuteWithWS(messages []ChatCompletionMessage, ws *WSWriter, ctx context.Context, includeCompleted bool) error {
-	logger.Info("Starting AI agent execution with WebSocket").
-		Int("messages_count", len(messages)).
-		Str("model", a.target.Model).
-		Send()
-
-	maxIterations := 15
-	for i := 0; i < maxIterations; i++ {
-		logger.Info("Agent iteration").Int("iteration", i+1).Send()
-
-		// Check context cancellation
-		select {
-		case <-ctx.Done():
-			logger.Info("Context cancelled, stopping agent").Send()
-			return ctx.Err()
-		default:
-		}
-
-		// Reload context on each iteration to get fresh task/project state
-		tasks, err := LoadRecentTasks(1000, includeCompleted)
-		if err != nil {
-			logger.Error("Failed to reload tasks").Err(err).Send()
-			ws.SendError("Failed to reload tasks: " + err.Error())
-			return err
-		}
-		projects, err := LoadRecentProjects(100)
-		if err != nil {
-			logger.Error("Failed to reload projects").Err(err).Send()
-			ws.SendError("Failed to reload projects: " + err.Error())
-			return err
-		}
-		systemPrompt, err := BuildSystemPrompt(tasks, projects)
-		if err != nil {
-			logger.Error("Failed to rebuild system prompt").Err(err).Send()
-			ws.SendError("Failed to rebuild system prompt: " + err.Error())
-			return err
-		}
-		// Update system message with fresh context
-		messages[0].Content = systemPrompt
-
-		// Send thinking event
-		if err := ws.SendThinking(fmt.Sprintf("Processing request (iteration %d/%d)...", i+1, maxIterations), 0); err != nil {
-			logger.Error("Failed to send thinking event").Err(err).Send()
-			return err
-		}
-
-		// Call model with timeout and track timing
-		modelStartTime := time.Now()
-		response, err := a.callModelWithTimeout(ctx, messages)
-		modelDuration := time.Since(modelStartTime).Seconds()
-
-		if err != nil {
-			logger.Error("Model call failed").Err(err).Send()
-			ws.SendError(fmt.Sprintf("AI call failed: %v", err))
-			return fmt.Errorf("model call failed: %w", err)
-		}
-
-		logEvent := logger.Info("Model response received").
-			Str("content", response.Choices[0].Message.Content).
-			Int("tool_calls_count", len(response.Choices[0].Message.ToolCalls))
-
-		if len(response.Choices[0].Message.ToolCalls) > 0 {
-			toolNames := make([]string, len(response.Choices[0].Message.ToolCalls))
-			for j, toolCall := range response.Choices[0].Message.ToolCalls {
-				toolNames[j] = toolCall.Function.Name
-			}
-			logEvent = logEvent.Strs("tool_calls", toolNames)
-		}
-
-		logEvent.Send()
-
-		if !a.hasToolCalls(response) {
-			// No tool calls, return the response content
-			logger.Info("No tool calls found, returning response").Send()
-			responseText := response.Choices[0].Message.Content
-			if err := ws.SendFinalResponse(responseText, modelDuration); err != nil {
-				logger.Error("Failed to send final_response event").Err(err).Send()
-				return err
-			}
-			return nil
-		}
-
-		// Process tool calls
-		messages = append(messages, response.Choices[0].Message)
-
-		// Separate tools into categories
-		var pendingTools []PendingToolCall
-		var autoExecuteTools []ToolCall
-		var respondTool *ToolCall
-
-		for _, toolCall := range response.Choices[0].Message.ToolCalls {
-			logger.Info("Tool call detected").
-				Str("tool", toolCall.Function.Name).
-				Str("arguments", toolCall.Function.Arguments).
-				Send()
-
-			if toolCall.Function.Name == "respond" {
-				respondTool = &toolCall
-			} else if ConfirmationRequiredTools[toolCall.Function.Name] {
-				// Parse and resolve args for preview
-				var args map[string]any
-				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
-					logger.Error("Failed to parse tool arguments").Err(err).Send()
-					messages = append(messages, ChatCompletionMessage{
-						Role:       "tool",
-						Content:    fmt.Sprintf("Error: failed to parse arguments: %v", err),
-						ToolCallID: toolCall.ID,
-					})
-					continue
-				}
-				argsForPreview := resolveToolDefaults(toolCall.Function.Name, args)
-				pendingTools = append(pendingTools, PendingToolCall{
-					ToolCallID: toolCall.ID,
-					Name:       toolCall.Function.Name,
-					Arguments:  argsForPreview,
-				})
-			} else {
-				autoExecuteTools = append(autoExecuteTools, toolCall)
-			}
-		}
-
-		// Handle respond tool - final response
-		if respondTool != nil {
-			var args map[string]any
-			if err := json.Unmarshal([]byte(respondTool.Function.Arguments), &args); err == nil {
-				if text, ok := args["text"].(string); ok {
-					if err := ws.SendFinalResponse(text, modelDuration); err != nil {
-						logger.Error("Failed to send final_response event").Err(err).Send()
-						return err
-					}
-					logger.Info("Agent execution completed with respond tool").Send()
-					return nil
-				}
-			}
-			ws.SendFinalResponse("Invalid response format", modelDuration)
-			return nil
-		}
-
-		// Execute auto-execute tools immediately
-		for _, toolCall := range autoExecuteTools {
-			var args map[string]any
-			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
-				logger.Error("Failed to parse tool arguments").Err(err).Send()
-				messages = append(messages, ChatCompletionMessage{
-					Role:       "tool",
-					Content:    fmt.Sprintf("Error: failed to parse arguments: %v", err),
-					ToolCallID: toolCall.ID,
-				})
-				continue
-			}
-
-			toolStartTime := time.Now()
-			toolResult, err := a.executeToolWithArgs(toolCall.Function.Name, args)
-			toolDuration := time.Since(toolStartTime).Seconds()
-
-			if err != nil {
-				logger.Error("Tool execution failed").Str("tool", toolCall.Function.Name).Err(err).Send()
-				messages = append(messages, ChatCompletionMessage{
-					Role:       "tool",
-					Content:    fmt.Sprintf("Error: %v", err),
-					ToolCallID: toolCall.ID,
-				})
-				continue
-			}
-
-			if err := ws.SendToolResult(toolResult, toolDuration); err != nil {
-				logger.Error("Failed to send tool_result event").Err(err).Send()
-				return err
-			}
-
-			logger.Info("Tool executed successfully").Str("tool", toolCall.Function.Name).Str("result", toolResult).Send()
-			messages = append(messages, ChatCompletionMessage{
-				Role:       "tool",
-				Content:    toolResult,
-				ToolCallID: toolCall.ID,
-			})
-		}
-
-		// Handle batch confirmation for pending tools
-		if len(pendingTools) > 0 {
-			logger.Info("Sending batch tool confirmation request").Int("tools_count", len(pendingTools)).Send()
-
-			if err := ws.SendToolsPending(pendingTools, modelDuration); err != nil {
-				logger.Error("Failed to send tools_pending event").Err(err).Send()
-				return err
-			}
-
-			// Wait for batch confirmation
-			statuses, newMessage, err := ws.WaitForBatchConfirmation()
-			if err != nil {
-				logger.Error("Failed to wait for batch confirmation").Err(err).Send()
-				return err
-			}
-
-			// Process each tool based on status
-			for _, status := range statuses {
-				// Find the pending tool
-				var pendingTool *PendingToolCall
-				for _, pt := range pendingTools {
-					if pt.ToolCallID == status.ToolCallID {
-						pendingTool = &pt
-						break
-					}
-				}
-				if pendingTool == nil {
-					logger.Error("Unknown tool_call_id in status").Str("tool_call_id", status.ToolCallID).Send()
-					continue
-				}
-
-				if status.Status == "confirmed" {
-					// Use modified args if provided, otherwise use original
-					args := pendingTool.Arguments
-					if status.Arguments != nil {
-						args = status.Arguments
-						logger.Info("Using modified arguments from user").Str("tool", pendingTool.Name).Interface("args", args).Send()
-					}
-
-					// Execute the tool
-					toolStartTime := time.Now()
-					toolResult, err := a.executeToolWithArgs(pendingTool.Name, args)
-					toolDuration := time.Since(toolStartTime).Seconds()
-
-					if err != nil {
-						logger.Error("Tool execution failed").Str("tool", pendingTool.Name).Err(err).Send()
-						messages = append(messages, ChatCompletionMessage{
-							Role:       "tool",
-							Content:    fmt.Sprintf("Error: %v", err),
-							ToolCallID: status.ToolCallID,
-						})
-						continue
-					}
-
-					if err := ws.SendToolResult(toolResult, toolDuration); err != nil {
-						logger.Error("Failed to send tool_result event").Err(err).Send()
-						return err
-					}
-
-					logger.Info("Tool executed successfully").Str("tool", pendingTool.Name).Str("result", toolResult).Send()
-					messages = append(messages, ChatCompletionMessage{
-						Role:       "tool",
-						Content:    toolResult,
-						ToolCallID: status.ToolCallID,
-					})
-				} else {
-					// Rejected - inform AI
-					logger.Info("Tool rejected by user").Str("tool", pendingTool.Name).Send()
-					messages = append(messages, ChatCompletionMessage{
-						Role:       "tool",
-						Content:    "User rejected this action",
-						ToolCallID: status.ToolCallID,
-					})
-				}
-			}
-
-			// If user sent a new message, add it to conversation
-			if newMessage != "" {
-				logger.Info("User sent new message with batch confirmation").Str("message", newMessage).Send()
-				messages = append(messages, ChatCompletionMessage{
-					Role:    "user",
-					Content: newMessage,
-				})
-			}
-
-			// Continue to next iteration (don't return - let AI respond to results)
-		}
-	}
-
-	// Max iterations reached
-	ws.SendError("Maximum iterations reached without final response")
-	return fmt.Errorf("maximum iterations reached without final response")
-}
-
 // executeToolWithArgs executes a tool with pre-parsed arguments
 func (a *Agent) executeToolWithArgs(toolName string, args map[string]any) (string, error) {
 	for _, tool := range a.tools {
@@ -526,23 +253,29 @@ func resolveToolDefaults(toolName string, args map[string]any) map[string]any {
 		}
 	}
 
-	// For complete_task and delete_task, fetch task details for preview
-	if toolName == "complete_task" || toolName == "delete_task" {
-		if taskID, ok := result["task_id"].(float64); ok {
+	// For task operations, fetch task details for preview
+	if toolName == "complete_task" || toolName == "delete_task" || toolName == "update_task" {
+		if taskID, ok := result["id"].(float64); ok {
 			var task database.Task
 			if err := database.DB.First(&task, int(taskID)).Error; err == nil {
-				result["description"] = task.Description
-				if task.ProjectID != nil {
+				// For update_task, only fill missing fields (preserve AI-provided updates)
+				// For complete/delete, always set fields (they don't modify anything)
+				if _, exists := result["description"]; !exists {
+					result["description"] = task.Description
+				}
+				if _, exists := result["project_id"]; !exists && task.ProjectID != nil {
 					result["project_id"] = float64(*task.ProjectID)
 				}
-				if task.Due() != nil {
-					if task.HasTime() {
-						result["due_datetime"] = task.Due().Format(time.RFC3339)
-					} else {
-						result["due_date"] = task.Due().Format("2006-01-02")
+				if _, hasDue := result["due_datetime"]; !hasDue {
+					if _, hasDate := result["due_date"]; !hasDate && task.Due() != nil {
+						if task.HasTime() {
+							result["due_datetime"] = task.Due().Format(time.RFC3339)
+						} else {
+							result["due_date"] = task.Due().Format("2006-01-02")
+						}
 					}
 				}
-				if len(task.Labels) > 0 {
+				if _, exists := result["labels"]; !exists && len(task.Labels) > 0 {
 					result["labels"] = task.Labels
 				}
 			}

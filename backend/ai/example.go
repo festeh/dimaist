@@ -93,9 +93,9 @@ func CreateExampleAgent() *Agent {
 					Parameters: general.ToolParameters{
 						Type: "object",
 						Properties: map[string]general.ToolParameterProperty{
-							"task_id": {Type: "number", Description: "Task ID"},
+							"id": {Type: "number", Description: "Task ID"},
 						},
-						Required: []string{"task_id"},
+						Required: []string{"id"},
 					},
 				},
 			},
@@ -233,9 +233,9 @@ func listProjectsTool(args map[string]any) (string, error) {
 }
 
 func completeTaskTool(args map[string]any) (string, error) {
-	taskIDFloat, ok := args["task_id"].(float64)
+	taskIDFloat, ok := args["id"].(float64)
 	if !ok {
-		return "", fmt.Errorf("task_id is required")
+		return "", fmt.Errorf("id is required")
 	}
 
 	taskID := uint(taskIDFloat)

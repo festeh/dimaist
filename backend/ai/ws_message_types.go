@@ -5,25 +5,19 @@ type WSMessageType string
 
 const (
 	// Client → Server message types
-	WSMsgStart        WSMessageType = "start"
-	WSMsgConfirm      WSMessageType = "confirm"
-	WSMsgReject       WSMessageType = "reject"
-	WSMsgBatchConfirm WSMessageType = "batch_confirm" // Batch tool confirmation with statuses
+	WSMsgStart       WSMessageType = "start"        // Initial message with targets
+	WSMsgToolConfirm WSMessageType = "tool_confirm" // Confirm single tool execution
+	WSMsgContinue    WSMessageType = "continue"     // User sends new message
+	WSMsgSelectModel WSMessageType = "select_model" // User selected winning model
 
 	// Server → Client message types
 	WSMsgThinking      WSMessageType = "thinking"
-	WSMsgToolPending   WSMessageType = "tool_pending"   // Single tool (legacy)
-	WSMsgToolsPending  WSMessageType = "tools_pending"  // Batch tools
+	WSMsgToolsPending  WSMessageType = "tools_pending" // Batch tools awaiting confirmation
 	WSMsgToolResult    WSMessageType = "tool_result"
-	WSMsgFinalResponse WSMessageType = "final_response"
-	WSMsgCancelled     WSMessageType = "cancelled"
 	WSMsgError         WSMessageType = "error"
-
-	// Parallel mode message types
-	WSMsgModelResponse WSMessageType = "model_response" // Single model responded
-	WSMsgModelError    WSMessageType = "model_error"    // Single model errored
+	WSMsgModelResponse WSMessageType = "model_response" // Model text response
+	WSMsgModelError    WSMessageType = "model_error"    // Model error
 	WSMsgAllComplete   WSMessageType = "all_complete"   // All models finished
-	WSMsgSelectModel   WSMessageType = "select_model"   // User selected winning model
 )
 
 // ToolStatus represents the user's decision on a single tool in a batch

@@ -1,27 +1,32 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 import '../models/project.dart';
-import '../models/ws_message_type.dart';
 import '../providers/parallel_ai_provider.dart';
 import 'batch_tool_preview_widget.dart';
 
-/// Widget that displays parallel AI responses in a swipable PageView
+/// Inline widget that displays parallel AI responses with arrow navigation
 class ParallelResponseWidget extends ConsumerStatefulWidget {
   final Map<String, ModelResponse> responses;
   final List<Project> projects;
+  final bool allComplete;
   final void Function(String targetId) onToolInteraction;
-  final void Function(String targetId, List<ToolStatus> statuses, String? message)
-      onToolConfirm;
+  final void Function(String targetId, String toolCallId, Map<String, dynamic> args)
+      onToolConfirmSingle;
+  final String? lockedToModel;  // When set, navigation is disabled
 
   const ParallelResponseWidget({
     super.key,
     required this.responses,
     required this.projects,
+    required this.allComplete,
     required this.onToolInteraction,
-    required this.onToolConfirm,
+    required this.onToolConfirmSingle,
+    this.lockedToModel,
   });
 
   @override
@@ -31,177 +36,220 @@ class ParallelResponseWidget extends ConsumerStatefulWidget {
 
 class _ParallelResponseWidgetState
     extends ConsumerState<ParallelResponseWidget> {
-  late PageController _pageController;
+  int _currentIndex = 0;
+  final FocusNode _focusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    // Auto-focus on Linux for keyboard navigation
+    if (Platform.isLinux) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _focusNode.requestFocus();
+      });
+    }
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _focusNode.dispose();
     super.dispose();
+  }
+
+  /// Completed responses to display
+  /// - Success/toolsPending shown immediately
+  /// - Errors only shown after allComplete (prevents flickering from fast errors)
+  /// - Sorted: success/toolsPending first (by duration), then errors (by duration)
+  /// - When locked to a model, only show that model
+  List<MapEntry<String, ModelResponse>> get _completedResponses {
+    final result = widget.responses.entries
+        .where((e) {
+          // When locked, only show the locked model
+          if (widget.lockedToModel != null && e.key != widget.lockedToModel) {
+            return false;
+          }
+          // Always exclude pending
+          if (e.value.status == ResponseStatus.pending) return false;
+          // Hide errors until allComplete
+          if (e.value.status == ResponseStatus.error && !widget.allComplete) return false;
+          return true;
+        })
+        .toList()
+      ..sort((a, b) {
+        // Errors always come last
+        final aIsError = a.value.status == ResponseStatus.error;
+        final bIsError = b.value.status == ResponseStatus.error;
+        if (aIsError != bIsError) {
+          return aIsError ? 1 : -1; // Errors to the end
+        }
+        // Within same category, sort by duration (fastest first)
+        return (a.value.duration ?? double.infinity)
+            .compareTo(b.value.duration ?? double.infinity);
+      });
+    return result;
+  }
+
+  void _goLeft() {
+    if (_currentIndex > 0) {
+      setState(() {
+        _currentIndex--;
+      });
+      ref.read(parallelAiProvider.notifier).setCurrentPage(_currentIndex);
+    }
+  }
+
+  void _goRight() {
+    if (_currentIndex < _completedResponses.length - 1) {
+      setState(() {
+        _currentIndex++;
+      });
+      ref.read(parallelAiProvider.notifier).setCurrentPage(_currentIndex);
+    }
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+        _goLeft();
+        return KeyEventResult.handled;
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+        _goRight();
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final completedResponses = _completedResponses;
 
-    // Sort responses by targetId for consistent ordering
-    final sortedResponses = widget.responses.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-
-    if (sortedResponses.isEmpty) {
+    if (completedResponses.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    return Column(
-      children: [
-        // PageView with responses
-        Expanded(
-          child: PageView.builder(
-            controller: _pageController,
-            itemCount: sortedResponses.length,
-            onPageChanged: (index) {
-              ref.read(parallelAiProvider.notifier).setCurrentPage(index);
-            },
-            itemBuilder: (context, index) {
-              final entry = sortedResponses[index];
-              return _buildResponseCard(
-                context,
-                entry.key,
-                entry.value,
-                theme,
-                colors,
-              );
-            },
+    // Clamp index if responses changed
+    if (_currentIndex >= completedResponses.length) {
+      _currentIndex = completedResponses.length - 1;
+    }
+
+    final currentEntry = completedResponses[_currentIndex];
+    final canGoLeft = _currentIndex > 0;
+    final canGoRight = _currentIndex < completedResponses.length - 1;
+    final totalCount = completedResponses.length;
+
+    return Focus(
+      focusNode: _focusNode,
+      onKeyEvent: _handleKeyEvent,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(Radii.lg),
+          border: Border.all(
+            color: colors.outline.withValues(alpha: 0.2),
+            width: 1,
           ),
         ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with arrows and model name
+            _buildHeader(
+              context,
+              currentEntry.key,
+              currentEntry.value,
+              canGoLeft,
+              canGoRight,
+              _currentIndex + 1,
+              totalCount,
+              theme,
+              colors,
+            ),
 
-        // Dot indicators
-        if (sortedResponses.length > 1)
-          _buildPageIndicator(sortedResponses.length, theme, colors),
-      ],
+            const Divider(height: 1),
+
+            // Response content
+            _buildResponseContent(
+              context,
+              currentEntry.key,
+              currentEntry.value,
+              theme,
+              colors,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildResponseCard(
+  Widget _buildHeader(
     BuildContext context,
     String targetId,
     ModelResponse response,
+    bool canGoLeft,
+    bool canGoRight,
+    int currentNum,
+    int totalNum,
     ThemeData theme,
     ColorScheme colors,
   ) {
     final modelName = _getModelDisplayName(targetId);
 
-    return Container(
-      margin: const EdgeInsets.all(Spacing.md),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(Radii.lg),
-        border: Border.all(
-          color: colors.outline.withValues(alpha: 0.2),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.xs, vertical: Spacing.xs),
+      child: Row(
         children: [
-          // Model name badge header
-          Padding(
-            padding: const EdgeInsets.all(Spacing.md),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Spacing.sm,
-                    vertical: Spacing.xs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.primaryContainer,
-                    borderRadius: BorderRadius.circular(Radii.sm),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      PhosphorIcon(
-                        PhosphorIcons.robot(),
-                        size: Sizes.iconSm,
-                        color: colors.onPrimaryContainer,
-                      ),
-                      const SizedBox(width: Spacing.xs),
-                      Text(
-                        modelName,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: colors.onPrimaryContainer,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                if (response.duration != null)
-                  Text(
-                    _formatDuration(response.duration!),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colors.onSurfaceVariant.withValues(alpha: 0.7),
-                    ),
-                  ),
-                _buildStatusBadge(response.status, theme, colors),
-              ],
+          // Left arrow
+          IconButton(
+            icon: PhosphorIcon(
+              PhosphorIcons.caretLeft(),
+              size: Sizes.iconMd,
+            ),
+            onPressed: canGoLeft ? _goLeft : null,
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
+
+          // Model name and position
+          Expanded(
+            child: Text(
+              '$modelName ($currentNum/$totalNum)',
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
 
-          const Divider(height: 1),
-
-          // Response content
-          Expanded(
-            child: _buildResponseContent(
-              context,
-              targetId,
-              response,
-              theme,
-              colors,
+          // Duration
+          if (response.duration != null)
+            Padding(
+              padding: const EdgeInsets.only(right: Spacing.xs),
+              child: Text(
+                _formatDuration(response.duration!),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
+              ),
             ),
+
+          // Right arrow
+          IconButton(
+            icon: PhosphorIcon(
+              PhosphorIcons.caretRight(),
+              size: Sizes.iconMd,
+            ),
+            onPressed: canGoRight ? _goRight : null,
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildStatusBadge(
-    ResponseStatus status,
-    ThemeData theme,
-    ColorScheme colors,
-  ) {
-    if (status == ResponseStatus.pending) {
-      return const SizedBox.shrink();
-    }
-
-    final (label, bgColor, textColor) = switch (status) {
-      ResponseStatus.success => ('Done', colors.tertiaryContainer, colors.onTertiaryContainer),
-      ResponseStatus.error => ('Error', colors.errorContainer, colors.onErrorContainer),
-      ResponseStatus.toolsPending => ('Tools', colors.secondaryContainer, colors.onSecondaryContainer),
-      ResponseStatus.pending => ('...', colors.surfaceContainer, colors.onSurfaceVariant),
-    };
-
-    return Container(
-      margin: const EdgeInsets.only(left: Spacing.sm),
-      padding: const EdgeInsets.symmetric(
-        horizontal: Spacing.xs,
-        vertical: 2,
-      ),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(Radii.xs),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelSmall?.copyWith(color: textColor),
       ),
     );
   }
@@ -213,14 +261,21 @@ class _ParallelResponseWidgetState
     ThemeData theme,
     ColorScheme colors,
   ) {
+    Widget content;
+
     switch (response.status) {
       case ResponseStatus.pending:
-        return Center(
-          child: Column(
+        content = Padding(
+          padding: const EdgeInsets.all(Spacing.lg),
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: Spacing.md),
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: Spacing.sm),
               Text(
                 'Waiting for response...',
                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -230,54 +285,55 @@ class _ParallelResponseWidgetState
             ],
           ),
         );
+        break;
 
       case ResponseStatus.error:
-        return Center(
-          child: Padding(
-            padding: const EdgeInsets.all(Spacing.lg),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                PhosphorIcon(
-                  PhosphorIcons.warning(),
-                  size: 48,
-                  color: colors.error,
-                ),
-                const SizedBox(height: Spacing.md),
-                Text(
+        content = Padding(
+          padding: const EdgeInsets.all(Spacing.lg),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PhosphorIcon(
+                PhosphorIcons.warning(),
+                size: Sizes.iconMd,
+                color: colors.error,
+              ),
+              const SizedBox(width: Spacing.sm),
+              Flexible(
+                child: Text(
                   response.error ?? 'Unknown error',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colors.error,
                   ),
-                  textAlign: TextAlign.center,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
+        break;
 
       case ResponseStatus.toolsPending:
         if (response.toolCalls == null || response.toolCalls!.isEmpty) {
-          return const Center(child: Text('No tools'));
+          content = const Padding(
+            padding: EdgeInsets.all(Spacing.lg),
+            child: Text('No tools'),
+          );
+        } else {
+          content = Padding(
+            padding: const EdgeInsets.all(Spacing.sm),
+            child: BatchToolPreviewWidget(
+              toolCalls: response.toolCalls!,
+              projects: widget.projects,
+              onConfirmSingle: (toolCallId, args) {
+                widget.onToolConfirmSingle(targetId, toolCallId, args);
+              },
+            ),
+          );
         }
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(Spacing.sm),
-          child: BatchToolPreviewWidget(
-            toolCalls: response.toolCalls!,
-            projects: widget.projects,
-            onBatchConfirm: (statuses) {
-              widget.onToolInteraction(targetId);
-              widget.onToolConfirm(targetId, statuses, null);
-            },
-            onSendWithMessage: (statuses, message) {
-              widget.onToolInteraction(targetId);
-              widget.onToolConfirm(targetId, statuses, message);
-            },
-          ),
-        );
+        break;
 
       case ResponseStatus.success:
-        return SingleChildScrollView(
+        content = Padding(
           padding: const EdgeInsets.all(Spacing.md),
           child: MarkdownBody(
             data: response.content ?? '',
@@ -301,31 +357,14 @@ class _ParallelResponseWidgetState
             ),
           ),
         );
+        break;
     }
-  }
 
-  Widget _buildPageIndicator(int count, ThemeData theme, ColorScheme colors) {
-    final currentPage = ref.watch(parallelAiProvider).currentPageIndex;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(count, (index) {
-          final isActive = index == currentPage;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            width: isActive ? 16 : 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: isActive
-                  ? colors.primary
-                  : colors.onSurfaceVariant.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          );
-        }),
+    // Constrain max height for massive responses
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 500),
+      child: SingleChildScrollView(
+        child: content,
       ),
     );
   }

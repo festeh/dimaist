@@ -16,27 +16,31 @@ import '../providers/include_completed_provider.dart';
 import '../providers/parallel_ai_provider.dart';
 import '../widgets/chat_input_widget.dart';
 import '../widgets/tool_preview_widget.dart';
-import '../widgets/batch_tool_preview_widget.dart';
 import '../widgets/model_display.dart';
 import '../widgets/model_list_dialog.dart';
 import '../widgets/parallel_response_widget.dart';
 
-enum MessageType { normal, toolCall, toolResult, toolPreview, batchToolPreview }
+/// A conversation turn: user message + selected AI response
+class ConversationTurn {
+  final ChatMessage userMessage;
+  final ModelResponse? response;  // null while waiting, set when finalized
+
+  ConversationTurn({required this.userMessage, this.response});
+
+  ConversationTurn withResponse(ModelResponse response) =>
+    ConversationTurn(userMessage: userMessage, response: response);
+}
 
 class ChatMessage {
   final String text;
   final String role; // 'user', 'assistant', 'system'
   final DateTime timestamp;
-  final MessageType type;
-  final Map<String, dynamic>? metadata; // for tool details
   final double? duration; // duration in seconds
 
   ChatMessage({
     required this.text,
     required this.role,
     required this.timestamp,
-    this.type = MessageType.normal,
-    this.metadata,
     this.duration,
   });
 
@@ -56,23 +60,6 @@ class ChatMessage {
       return '${minutes}m ${seconds}s';
     }
   }
-
-  // Convert to API format
-  Map<String, dynamic> toApiFormat() {
-    final apiMessage = {'role': role, 'content': text};
-
-    // Add tool-specific fields if needed
-    if (metadata != null) {
-      if (metadata!.containsKey('tool_calls')) {
-        apiMessage['tool_calls'] = metadata!['tool_calls'];
-      }
-      if (metadata!.containsKey('tool_call_id')) {
-        apiMessage['tool_call_id'] = metadata!['tool_call_id'];
-      }
-    }
-
-    return apiMessage;
-  }
 }
 
 class AiChatScreen extends ConsumerStatefulWidget {
@@ -86,22 +73,22 @@ class AiChatScreen extends ConsumerStatefulWidget {
 }
 
 class _AiChatScreenState extends ConsumerState<AiChatScreen> {
-  final List<ChatMessage> _messages = [];
+  // Conversation history (finalized turns)
+  final List<ConversationTurn> _history = [];
+
+  // Current turn state (in progress)
+  ChatMessage? _currentUserMessage;
+  final Map<String, ModelResponse> _currentResponses = {};
+  bool _allResponsesComplete = false;
+  String? _selectedParallelModel;  // When set, user committed to this model
+  int _currentTurnId = 0;  // Tracks current turn, used to filter stale responses
+
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final AiWebSocketService _wsService = AiWebSocketService();
   bool _isProcessing = false;
   bool _hasText = false;
-
-  // Index of the pending tool preview message (if any) - legacy single tool
-  int? _pendingToolMessageIndex;
-
-  // Index of batch tool preview message (if any)
-  int? _batchToolMessageIndex;
-
-  // Parallel mode state
-  bool _isParallelMode = false;
-  final Map<String, ModelResponse> _parallelResponses = {};
+  bool _conversationStarted = false;  // First message sent via sendStart
 
   @override
   void initState() {
@@ -153,25 +140,15 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     });
   }
 
-  List<Map<String, dynamic>> _buildMessagesFromHistory() {
-    // Only include normal user/assistant messages for API context
-    // Tool calls and results are UI indicators, not conversation messages
-    return _messages
-        .where((msg) => msg.type == MessageType.normal)
-        .map((msg) => msg.toApiFormat())
-        .toList();
-  }
-
   Future<void> _processAudioMessage(List<int> audioBytes) async {
     if (_isProcessing) return;
 
     setState(() {
-      _messages.add(
-        ChatMessage(
-          text: '🎤 Transcribing...',
-          role: 'user',
-          timestamp: DateTime.now(),
-        ),
+      // Show transcribing indicator as current user message
+      _currentUserMessage = ChatMessage(
+        text: '🎤 Transcribing...',
+        role: 'user',
+        timestamp: DateTime.now(),
       );
       _isProcessing = true;
     });
@@ -189,7 +166,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
       if (transcribedText.isEmpty) {
         setState(() {
-          _messages.removeLast();
+          _currentUserMessage = null;
           _isProcessing = false;
         });
         if (mounted) {
@@ -202,10 +179,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
       // Update user message with transcribed text
       setState(() {
-        _messages.last = ChatMessage(
+        _currentUserMessage = ChatMessage(
           text: transcribedText,
           role: 'user',
-          timestamp: _messages.last.timestamp,
+          timestamp: _currentUserMessage!.timestamp,
         );
       });
       _scrollToBottom();
@@ -215,14 +192,14 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     } catch (e) {
       LoggingService.logger.severe('Error processing audio: $e');
       setState(() {
-        _messages.add(
-          ChatMessage(
-            text: 'Error: Failed to process audio',
-            role: 'assistant',
-            timestamp: DateTime.now(),
-          ),
+        // On error, add an error response to current turn
+        _currentResponses['error'] = ModelResponse(
+          targetId: 'error',
+          error: 'Failed to process audio',
+          status: ResponseStatus.error,
         );
         _isProcessing = false;
+        _allResponsesComplete = true;
       });
       _scrollToBottom();
     }
@@ -234,7 +211,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
   Future<void> _sendTextMessage(String userMessage, {bool addUserMessage = true}) async {
     if (userMessage.trim().isEmpty) return;
-    if (addUserMessage && _isProcessing) return;
+    // Note: ChatInputWidget already controls when input is enabled based on response state
 
     final message = userMessage.trim();
 
@@ -249,96 +226,34 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       return;
     }
 
-    // Check if parallel mode (multiple models selected)
-    if (parallelState.selectedModelIds.length > 1) {
-      await _sendParallelMessage(message, addUserMessage: addUserMessage);
-      return;
-    }
+    // All requests use parallel path (unified flow for 1 or N models)
+    await _sendParallelMessage(message, addUserMessage: addUserMessage);
+  }
 
-    setState(() {
-      if (addUserMessage) {
-        _messages.add(
-          ChatMessage(text: message, role: 'user', timestamp: DateTime.now()),
-        );
-      }
-      _isProcessing = true;
-      _pendingToolMessageIndex = null;
-      _batchToolMessageIndex = null;
-    });
+  /// Get the currently selected/viewed response (for finalizing turns)
+  ModelResponse? _getSelectedResponse() {
+    if (_currentResponses.isEmpty) return null;
 
-    _scrollToBottom();
+    final currentPage = ref.read(parallelAiProvider).currentPageIndex;
 
-    try {
-      // Get single selected model from parallel provider
-      final parallelState = ref.read(parallelAiProvider);
-      final modelState = ref.read(aiModelProvider);
-      final selectedId = parallelState.selectedModelIds.first;
-      final selectedModel = modelState.models.firstWhere((m) => m.id == selectedId);
-      final provider = selectedModel.provider.name;
-      final model = selectedModel.modelName;
-
-      // Build complete messages array including the user message
-      final messagesHistory = _buildMessagesFromHistory();
-      final allMessages =
-          addUserMessage
-              ? messagesHistory + [{'role': 'user', 'content': message}]
-              : messagesHistory;
-
-      // Connect and start WebSocket conversation
-      final baseUrl = ref.read(apiServiceProvider).baseUrl;
-      final includeCompleted = ref.read(includeCompletedInAiProvider);
-      _wsService.connect(baseUrl);
-
-      _wsService.startConversation(
-        messages: allMessages,
-        provider: provider,
-        model: model,
-        includeCompleted: includeCompleted,
-        onMessage: _handleWSMessage,
-        onDone: () async {
-          setState(() {
-            _isProcessing = false;
-            _pendingToolMessageIndex = null;
-            _batchToolMessageIndex = null;
-          });
-          _wsService.close();
-          try {
-            await ref.read(taskProvider.notifier).syncData();
-          } catch (e) {
-            LoggingService.logger.warning(
-              'Failed to sync after AI: $e',
-            );
-          }
-        },
-        onError: (error) {
-          LoggingService.logger.severe('WebSocket error: $error');
-          setState(() {
-            _messages.add(
-              ChatMessage(
-                text: 'Error: $error',
-                role: 'assistant',
-                timestamp: DateTime.now(),
-              ),
-            );
-            _isProcessing = false;
-          });
-          _scrollToBottom();
-        },
-      );
-    } catch (e) {
-      LoggingService.logger.severe('Error sending AI request: $e');
-      setState(() {
-        _messages.add(
-          ChatMessage(
-            text: 'Error: Failed to get AI response',
-            role: 'assistant',
-            timestamp: DateTime.now(),
-          ),
-        );
-        _isProcessing = false;
+    // Apply same sorting as ParallelResponseWidget._completedResponses
+    final sortedResponses = _currentResponses.entries
+        .where((e) =>
+            e.value.status != ResponseStatus.pending &&
+            (e.value.status != ResponseStatus.error || _allResponsesComplete))
+        .toList()
+      ..sort((a, b) {
+        final aIsError = a.value.status == ResponseStatus.error;
+        final bIsError = b.value.status == ResponseStatus.error;
+        if (aIsError != bIsError) return aIsError ? 1 : -1;
+        return (a.value.duration ?? double.infinity)
+            .compareTo(b.value.duration ?? double.infinity);
       });
-      _scrollToBottom();
+
+    if (currentPage < sortedResponses.length) {
+      return sortedResponses[currentPage].value;
     }
+    return sortedResponses.isNotEmpty ? sortedResponses.first.value : null;
   }
 
   Future<void> _sendParallelMessage(String userMessage, {bool addUserMessage = true}) async {
@@ -353,16 +268,28 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     }).toList();
 
     setState(() {
+      // Finalize previous turn if exists
+      if (_currentUserMessage != null && _currentResponses.isNotEmpty) {
+        final selectedResponse = _getSelectedResponse();
+        _history.add(ConversationTurn(
+          userMessage: _currentUserMessage!,
+          response: selectedResponse,
+        ));
+      }
+
+      // Start new turn
+      _currentTurnId++;  // Increment turn ID to filter stale responses
       if (addUserMessage) {
-        _messages.add(
-          ChatMessage(text: message, role: 'user', timestamp: DateTime.now()),
+        _currentUserMessage = ChatMessage(
+          text: message,
+          role: 'user',
+          timestamp: DateTime.now(),
         );
       }
       _isProcessing = true;
-      _isParallelMode = true;
-      _parallelResponses.clear();
-      _pendingToolMessageIndex = null;
-      _batchToolMessageIndex = null;
+      _currentResponses.clear();
+      _allResponsesComplete = false;
+      _selectedParallelModel = null;
     });
 
     // Initialize parallel state
@@ -371,49 +298,62 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     _scrollToBottom();
 
     try {
-      final messagesHistory = _buildMessagesFromHistory();
-      final allMessages = addUserMessage
-          ? messagesHistory + [{'role': 'user', 'content': message}]
-          : messagesHistory;
-
       final baseUrl = ref.read(apiServiceProvider).baseUrl;
       final includeCompleted = ref.read(includeCompletedInAiProvider);
-      _wsService.connect(baseUrl);
 
-      _wsService.startParallelConversation(
-        messages: allMessages,
-        targets: targets,
-        includeCompleted: includeCompleted,
-        onMessage: _handleParallelWSMessage,
-        onDone: () async {
-          setState(() {
-            _isProcessing = false;
-          });
-          _wsService.close();
-          try {
-            await ref.read(taskProvider.notifier).syncData();
-          } catch (e) {
-            LoggingService.logger.warning('Failed to sync after AI: $e');
-          }
-        },
-        onError: (error) {
-          LoggingService.logger.severe('WebSocket error: $error');
-          setState(() {
-            _isProcessing = false;
-            _isParallelMode = false;
-          });
-        },
-      );
+      // Connect once if not connected
+      if (!_wsService.isConnected) {
+        _wsService.connect(
+          baseUrl: baseUrl,
+          onMessage: _handleParallelWSMessage,
+          onConnectionClosed: () async {
+            // Connection closed (by server or network error)
+            setState(() {
+              _isProcessing = false;
+              _conversationStarted = false;  // Reset for new connection
+            });
+            try {
+              await ref.read(taskProvider.notifier).syncData();
+            } catch (e) {
+              LoggingService.logger.warning('Failed to sync after AI: $e');
+            }
+          },
+          onError: (error) {
+            LoggingService.logger.severe('WebSocket error: $error');
+            setState(() {
+              _isProcessing = false;
+            });
+          },
+        );
+      }
+
+      // First message uses sendStart, subsequent use sendContinue
+      if (!_conversationStarted) {
+        _wsService.sendStart(
+          message: message,
+          targets: targets,
+          includeCompleted: includeCompleted,
+        );
+        _conversationStarted = true;
+      } else {
+        _wsService.sendContinue(message);
+      }
     } catch (e) {
       LoggingService.logger.severe('Error sending parallel AI request: $e');
       setState(() {
         _isProcessing = false;
-        _isParallelMode = false;
       });
     }
   }
 
   void _handleParallelWSMessage(WSMessageType type, Map<String, dynamic> data) {
+    // Filter stale responses from previous turns
+    final turnId = data['turn_id'] as int?;
+    if (turnId != null && turnId != _currentTurnId) {
+      LoggingService.logger.fine('Ignoring stale response from turn $turnId (current: $_currentTurnId)');
+      return;
+    }
+
     switch (type) {
       case WSMessageType.thinking:
         // Typing indicator shown automatically
@@ -425,7 +365,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         final duration = data['duration'] as double?;
 
         setState(() {
-          _parallelResponses[targetId] = ModelResponse(
+          _currentResponses[targetId] = ModelResponse(
             targetId: targetId,
             content: response,
             duration: duration,
@@ -448,7 +388,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         final duration = data['duration'] as double?;
 
         setState(() {
-          _parallelResponses[targetId] = ModelResponse(
+          _currentResponses[targetId] = ModelResponse(
             targetId: targetId,
             error: error,
             duration: duration,
@@ -476,7 +416,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
               .toList();
 
           setState(() {
-            _parallelResponses[targetId] = ModelResponse(
+            _currentResponses[targetId] = ModelResponse(
               targetId: targetId,
               toolCalls: toolCalls,
               duration: duration,
@@ -500,8 +440,13 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       case WSMessageType.allComplete:
         setState(() {
           _isProcessing = false;
+          _allResponsesComplete = true;
         });
         ref.read(parallelAiProvider.notifier).setAllComplete();
+        break;
+
+      case WSMessageType.toolResult:
+        // Tool was executed - just log it, connection close handles cleanup
         break;
 
       case WSMessageType.finalResponse:
@@ -523,75 +468,58 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     ref.read(parallelAiProvider.notifier).selectWinningModel(targetId);
 
     setState(() {
-      _isParallelMode = false;
-      // Add the winning model's response to message history if it was a text response
-      final response = _parallelResponses[targetId];
-      if (response != null && response.status == ResponseStatus.success && response.content != null) {
-        _messages.add(
-          ChatMessage(
-            text: response.content!,
-            role: 'assistant',
-            timestamp: DateTime.now(),
-            duration: response.duration,
-          ),
-        );
-      }
+      // Lock to this model - response stays in _currentResponses
+      _selectedParallelModel = targetId;
     });
 
     _wsService.selectModel(targetId);
   }
 
-  void _handleToolConfirmParallel(String targetId, List<ToolStatus> statuses, String? message) {
-    // User confirmed tools from this model
+  void _handleToolConfirmSingle(String targetId, String toolCallId, Map<String, dynamic> args) {
+    // User confirmed a single tool from this model
     ref.read(parallelAiProvider.notifier).selectWinningModel(targetId);
 
     setState(() {
-      _isParallelMode = false;
-      _isProcessing = true;
-      if (message != null && message.isNotEmpty) {
-        _messages.add(
-          ChatMessage(text: message, role: 'user', timestamp: DateTime.now()),
-        );
-      }
+      // Lock to this model (keeps responses visible, disables navigation)
+      _selectedParallelModel = targetId;
     });
 
-    _wsService.batchConfirmForModel(targetId, statuses, newMessage: message);
+    _wsService.confirmTool(targetId, toolCallId, args);
   }
 
   void _handleWSMessage(WSMessageType type, Map<String, dynamic> data) {
+    // Get the target model (either the locked one or a fallback)
+    final targetId = _selectedParallelModel ?? 'default';
+
     switch (type) {
       case WSMessageType.thinking:
         // Typing indicator is shown automatically while _isProcessing is true
         break;
 
       case WSMessageType.toolPending:
-        // Legacy single tool - still supported for backwards compatibility
+        // Legacy single tool - convert to batch format for unified handling
         final toolName = data['tool'] as String?;
         final arguments = data['arguments'] as Map<String, dynamic>?;
         final duration = data['duration'] as double?;
+        final toolCall = PendingToolCall(
+          toolCallId: 'legacy_${DateTime.now().millisecondsSinceEpoch}',
+          name: toolName ?? 'unknown',
+          arguments: arguments ?? {},
+        );
         setState(() {
-          _messages.add(
-            ChatMessage(
-              text: toolName ?? 'Unknown tool',
-              role: 'assistant',
-              timestamp: DateTime.now(),
-              type: MessageType.toolPreview,
-              metadata: {
-                'tool': toolName,
-                'arguments': arguments,
-                'status': 'pending',
-              },
-              duration: duration,
-            ),
+          _currentResponses[targetId] = ModelResponse(
+            targetId: targetId,
+            toolCalls: [toolCall],
+            duration: duration,
+            status: ResponseStatus.toolsPending,
           );
-          _pendingToolMessageIndex = _messages.length - 1;
           _isProcessing = false; // Allow interaction with preview
         });
         _scrollToBottom();
         break;
 
       case WSMessageType.toolsPending:
-        // New batch tools
+        // Batch tools (single model mode without target_id)
         final toolCallsJson = data['tool_calls'] as List<dynamic>?;
         final duration = data['duration'] as double?;
         if (toolCallsJson == null || toolCallsJson.isEmpty) {
@@ -604,20 +532,12 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             .toList();
 
         setState(() {
-          _messages.add(
-            ChatMessage(
-              text: '${toolCalls.length} actions pending',
-              role: 'assistant',
-              timestamp: DateTime.now(),
-              type: MessageType.batchToolPreview,
-              metadata: {
-                'tool_calls': toolCallsJson,
-                'status': 'pending',
-              },
-              duration: duration,
-            ),
+          _currentResponses[targetId] = ModelResponse(
+            targetId: targetId,
+            toolCalls: toolCalls,
+            duration: duration,
+            status: ResponseStatus.toolsPending,
           );
-          _batchToolMessageIndex = _messages.length - 1;
           _isProcessing = false; // Allow interaction with preview
         });
         _scrollToBottom();
@@ -631,13 +551,11 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         final response = data['response'] as String? ?? '';
         final duration = data['duration'] as double?;
         setState(() {
-          _messages.add(
-            ChatMessage(
-              text: response,
-              role: 'assistant',
-              timestamp: DateTime.now(),
-              duration: duration,
-            ),
+          _currentResponses[targetId] = ModelResponse(
+            targetId: targetId,
+            content: response,
+            duration: duration,
+            status: ResponseStatus.success,
           );
         });
         _scrollToBottom();
@@ -650,12 +568,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       case WSMessageType.error:
         final error = data['error'] as String? ?? 'Unknown error';
         setState(() {
-          _messages.add(
-            ChatMessage(
-              text: 'Error: $error',
-              role: 'assistant',
-              timestamp: DateTime.now(),
-            ),
+          _currentResponses[targetId] = ModelResponse(
+            targetId: targetId,
+            error: error,
+            status: ResponseStatus.error,
           );
         });
         _scrollToBottom();
@@ -664,283 +580,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       default:
         LoggingService.logger.warning('Unhandled message type: $type');
     }
-  }
-
-  void _confirmTool(Map<String, dynamic> args) {
-    if (_pendingToolMessageIndex == null) return;
-
-    // Mark the preview as confirmed, preserving duration
-    final oldMessage = _messages[_pendingToolMessageIndex!];
-    final newMetadata = Map<String, dynamic>.from(oldMessage.metadata ?? {});
-    newMetadata['status'] = 'confirmed';
-    newMetadata['arguments'] = args; // Use potentially edited args
-
-    setState(() {
-      _messages[_pendingToolMessageIndex!] = ChatMessage(
-        text: oldMessage.text,
-        role: oldMessage.role,
-        timestamp: oldMessage.timestamp,
-        type: oldMessage.type,
-        metadata: newMetadata,
-        duration: oldMessage.duration,
-      );
-      _pendingToolMessageIndex = null;
-      _isProcessing = true;
-    });
-    _wsService.confirm(args);
-  }
-
-  void _rejectTool() {
-    if (_pendingToolMessageIndex == null) return;
-
-    // Mark the preview as cancelled, preserving duration
-    final oldMessage = _messages[_pendingToolMessageIndex!];
-    final newMetadata = Map<String, dynamic>.from(oldMessage.metadata ?? {});
-    newMetadata['status'] = 'cancelled';
-
-    setState(() {
-      _messages[_pendingToolMessageIndex!] = ChatMessage(
-        text: oldMessage.text,
-        role: oldMessage.role,
-        timestamp: oldMessage.timestamp,
-        type: oldMessage.type,
-        metadata: newMetadata,
-        duration: oldMessage.duration,
-      );
-      _pendingToolMessageIndex = null;
-    });
-    _wsService.reject();
-  }
-
-  void _batchConfirm(List<ToolStatus> statuses) {
-    if (_batchToolMessageIndex == null) return;
-
-    // Mark the batch preview as completed
-    final oldMessage = _messages[_batchToolMessageIndex!];
-    final newMetadata = Map<String, dynamic>.from(oldMessage.metadata ?? {});
-    newMetadata['status'] = 'completed';
-    newMetadata['statuses'] = statuses.map((s) => s.toJson()).toList();
-
-    setState(() {
-      _messages[_batchToolMessageIndex!] = ChatMessage(
-        text: oldMessage.text,
-        role: oldMessage.role,
-        timestamp: oldMessage.timestamp,
-        type: oldMessage.type,
-        metadata: newMetadata,
-        duration: oldMessage.duration,
-      );
-      _batchToolMessageIndex = null;
-      _isProcessing = true;
-    });
-
-    _wsService.batchConfirm(statuses);
-  }
-
-  void _batchConfirmWithMessage(List<ToolStatus> statuses, String message) {
-    if (_batchToolMessageIndex == null) return;
-
-    // Mark the batch preview as completed
-    final oldMessage = _messages[_batchToolMessageIndex!];
-    final newMetadata = Map<String, dynamic>.from(oldMessage.metadata ?? {});
-    newMetadata['status'] = 'completed';
-    newMetadata['statuses'] = statuses.map((s) => s.toJson()).toList();
-
-    setState(() {
-      _messages[_batchToolMessageIndex!] = ChatMessage(
-        text: oldMessage.text,
-        role: oldMessage.role,
-        timestamp: oldMessage.timestamp,
-        type: oldMessage.type,
-        metadata: newMetadata,
-        duration: oldMessage.duration,
-      );
-      // Add user message
-      _messages.add(
-        ChatMessage(text: message, role: 'user', timestamp: DateTime.now()),
-      );
-      _batchToolMessageIndex = null;
-      _isProcessing = true;
-    });
-
-    _wsService.batchConfirm(statuses, newMessage: message);
-    _scrollToBottom();
-  }
-
-  Widget _buildMessage(ChatMessage message, List<dynamic> projects) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    // Handle batch tool preview messages
-    if (message.type == MessageType.batchToolPreview) {
-      return _buildBatchToolPreviewMessage(message, projects);
-    }
-
-    // Handle tool preview messages
-    if (message.type == MessageType.toolPreview) {
-      return _buildToolPreviewMessage(message, projects);
-    }
-
-    // User messages - minimal bubble, right-aligned, primary tint
-    if (message.isUser) {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Flexible(
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 320),
-                padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.md),
-                decoration: BoxDecoration(
-                  color: colors.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(Radii.lg),
-                ),
-                child: SelectableText(
-                  message.text,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colors.onSurface,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // AI responses - minimal bubble, left-aligned, surface color
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
-      padding: const EdgeInsets.all(Spacing.lg),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(Radii.lg),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          MarkdownBody(
-            data: message.text,
-            selectable: true,
-            styleSheet: MarkdownStyleSheet(
-              p: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface),
-              h1: theme.textTheme.titleLarge?.copyWith(color: colors.onSurface),
-              h2: theme.textTheme.titleMedium?.copyWith(color: colors.onSurface),
-              h3: theme.textTheme.titleSmall?.copyWith(color: colors.onSurface),
-              h4: theme.textTheme.bodyLarge?.copyWith(color: colors.onSurface, fontWeight: FontWeight.bold),
-              h5: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface, fontWeight: FontWeight.bold),
-              h6: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface, fontWeight: FontWeight.bold),
-              listBullet: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface),
-              em: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface, fontStyle: FontStyle.italic),
-              strong: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface, fontWeight: FontWeight.bold),
-              a: theme.textTheme.bodyMedium?.copyWith(color: colors.primary, decoration: TextDecoration.underline),
-              blockquote: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant, fontStyle: FontStyle.italic),
-              tableHead: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface, fontWeight: FontWeight.bold),
-              tableBody: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface),
-              code: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
-                fontFamily: 'monospace',
-                backgroundColor: colors.surfaceContainerHigh,
-              ),
-              codeblockDecoration: BoxDecoration(
-                color: colors.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(Radii.sm),
-              ),
-            ),
-          ),
-          if (message.formattedDuration != null)
-            Padding(
-              padding: const EdgeInsets.only(top: Spacing.sm),
-              child: Text(
-                message.formattedDuration!,
-                style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildToolPreviewMessage(ChatMessage message, List<dynamic> projects) {
-    final toolName = message.metadata?['tool'] as String? ?? '';
-    final arguments = message.metadata?['arguments'] as Map<String, dynamic>? ?? {};
-    final statusStr = message.metadata?['status'] as String? ?? 'pending';
-    final status = switch (statusStr) {
-      'confirmed' => ToolPreviewStatus.confirmed,
-      'cancelled' => ToolPreviewStatus.cancelled,
-      _ => ToolPreviewStatus.pending,
-    };
-    final messageIndex = _messages.indexOf(message);
-    final isPending = messageIndex == _pendingToolMessageIndex;
-
-    return ToolPreviewWidget(
-      toolName: toolName,
-      arguments: arguments,
-      onConfirm: isPending ? _confirmTool : (_) {},
-      onReject: isPending ? _rejectTool : () {},
-      projects: projects.cast(),
-      status: status,
-      duration: message.formattedDuration,
-    );
-  }
-
-  Widget _buildBatchToolPreviewMessage(ChatMessage message, List<dynamic> projects) {
-    final toolCallsJson = message.metadata?['tool_calls'] as List<dynamic>? ?? [];
-    final statusStr = message.metadata?['status'] as String? ?? 'pending';
-    final messageIndex = _messages.indexOf(message);
-    final isPending = messageIndex == _batchToolMessageIndex;
-
-    // If completed, show a summary instead of interactive widget
-    if (statusStr == 'completed') {
-      final statuses = message.metadata?['statuses'] as List<dynamic>? ?? [];
-      final confirmed = statuses.where((s) => s['status'] == 'confirmed').length;
-      final rejected = statuses.where((s) => s['status'] == 'rejected').length;
-
-      final theme = Theme.of(context);
-      final colors = theme.colorScheme;
-
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
-        padding: const EdgeInsets.all(Spacing.lg),
-        decoration: BoxDecoration(
-          color: colors.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(Radii.lg),
-        ),
-        child: Row(
-          children: [
-            PhosphorIcon(PhosphorIcons.stack(), color: colors.onSurfaceVariant, size: Sizes.iconMd),
-            const SizedBox(width: Spacing.sm),
-            Text(
-              '${toolCallsJson.length} actions: $confirmed confirmed, $rejected rejected',
-              style: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
-            ),
-            if (message.formattedDuration != null) ...[
-              const SizedBox(width: Spacing.xs),
-              Text(
-                message.formattedDuration!,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colors.onSurfaceVariant.withValues(alpha: 0.5),
-                ),
-              ),
-            ],
-          ],
-        ),
-      );
-    }
-
-    // Parse tool calls
-    final toolCalls = toolCallsJson
-        .map((tc) => PendingToolCall.fromJson(tc as Map<String, dynamic>))
-        .toList();
-
-    return BatchToolPreviewWidget(
-      toolCalls: toolCalls,
-      projects: projects.cast(),
-      onBatchConfirm: isPending ? _batchConfirm : (_) {},
-      onSendWithMessage: isPending ? _batchConfirmWithMessage : (statuses, msg) {},
-      duration: message.formattedDuration,
-    );
   }
 
   Widget _buildTypingIndicator() {
@@ -955,6 +594,214 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       ),
       child: _TypingDots(color: colors.onSurfaceVariant),
     );
+  }
+
+  /// Calculate total list item count for history + current turn
+  int _getListItemCount() {
+    int count = 0;
+
+    // Each history turn = user message + response (2 items)
+    count += _history.length * 2;
+
+    // Current turn user message
+    if (_currentUserMessage != null) {
+      count += 1;
+    }
+
+    // Current turn responses (parallel widget or typing indicator)
+    if (_currentResponses.isNotEmpty) {
+      count += 1;
+    } else if (_isProcessing) {
+      count += 1; // Typing indicator
+    }
+
+    return count;
+  }
+
+  /// Build list item at index - renders history turns, then current turn
+  Widget _buildListItem(int index, List<dynamic> projects) {
+    // History items: each turn has 2 items (user message at even, response at odd)
+    final historyItemCount = _history.length * 2;
+
+    if (index < historyItemCount) {
+      final turnIndex = index ~/ 2;
+      final isUserMessage = index % 2 == 0;
+      final turn = _history[turnIndex];
+
+      if (isUserMessage) {
+        return _buildUserMessage(turn.userMessage);
+      } else {
+        return _buildHistoryResponse(turn.response, projects);
+      }
+    }
+
+    // Current turn items
+    final currentTurnIndex = index - historyItemCount;
+
+    // Current user message (index 0 in current turn)
+    if (_currentUserMessage != null && currentTurnIndex == 0) {
+      return _buildUserMessage(_currentUserMessage!);
+    }
+
+    // Current responses or typing indicator (index 1 if user message exists, else 0)
+    final responsesIndex = _currentUserMessage != null ? 1 : 0;
+    if (currentTurnIndex == responsesIndex) {
+      if (_currentResponses.isNotEmpty) {
+        return ParallelResponseWidget(
+          responses: _currentResponses,
+          projects: projects.cast(),
+          allComplete: _allResponsesComplete,
+          onToolInteraction: _handleToolInteractionParallel,
+          onToolConfirmSingle: _handleToolConfirmSingle,
+          lockedToModel: _selectedParallelModel,
+        );
+      } else if (_isProcessing) {
+        return _buildTypingIndicator();
+      }
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  /// Build a user message bubble
+  Widget _buildUserMessage(ChatMessage message) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Flexible(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 320),
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.md),
+              decoration: BoxDecoration(
+                color: colors.primary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(Radii.lg),
+              ),
+              child: SelectableText(
+                message.text,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colors.onSurface,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build a history response (finalized, no arrows)
+  Widget _buildHistoryResponse(ModelResponse? response, List<dynamic> projects) {
+    if (response == null) {
+      return const SizedBox.shrink();
+    }
+
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    // For tool calls, show the BatchToolPreviewWidget in completed state
+    if (response.status == ResponseStatus.toolsPending && response.toolCalls != null) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
+        padding: const EdgeInsets.all(Spacing.md),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(Radii.lg),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: response.toolCalls!.map((tc) {
+            return ToolPreviewWidget(
+              toolName: tc.name,
+              arguments: tc.arguments,
+              projects: projects.cast(),
+              status: ToolPreviewStatus.confirmed,
+              onConfirm: (_) {},
+              onReject: () {},
+            );
+          }).toList(),
+        ),
+      );
+    }
+
+    // For text responses
+    if (response.status == ResponseStatus.success && response.content != null) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
+        padding: const EdgeInsets.all(Spacing.lg),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(Radii.lg),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MarkdownBody(
+              data: response.content!,
+              selectable: true,
+              styleSheet: MarkdownStyleSheet(
+                p: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface),
+                h1: theme.textTheme.titleLarge?.copyWith(color: colors.onSurface),
+                h2: theme.textTheme.titleMedium?.copyWith(color: colors.onSurface),
+                h3: theme.textTheme.titleSmall?.copyWith(color: colors.onSurface),
+                code: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  fontFamily: 'monospace',
+                  backgroundColor: colors.surfaceContainerHigh,
+                ),
+                codeblockDecoration: BoxDecoration(
+                  color: colors.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(Radii.sm),
+                ),
+              ),
+            ),
+            if (response.duration != null)
+              Padding(
+                padding: const EdgeInsets.only(top: Spacing.sm),
+                child: Text(
+                  _formatDuration(response.duration!),
+                  style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    // For errors
+    if (response.status == ResponseStatus.error) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
+        padding: const EdgeInsets.all(Spacing.lg),
+        decoration: BoxDecoration(
+          color: colors.errorContainer,
+          borderRadius: BorderRadius.circular(Radii.lg),
+        ),
+        child: Text(
+          'Error: ${response.error ?? "Unknown error"}',
+          style: theme.textTheme.bodyMedium?.copyWith(color: colors.onErrorContainer),
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  String _formatDuration(double seconds) {
+    if (seconds < 1) {
+      return '${(seconds * 1000).round()}ms';
+    } else if (seconds < 60) {
+      return '${seconds.toStringAsFixed(1)}s';
+    } else {
+      final minutes = (seconds / 60).floor();
+      final remainingSeconds = (seconds % 60).round();
+      return '${minutes}m ${remainingSeconds}s';
+    }
   }
 
   @override
@@ -1024,28 +871,17 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: _isParallelMode && _parallelResponses.isNotEmpty
-                ? ParallelResponseWidget(
-                    responses: _parallelResponses,
-                    projects: projects,
-                    onToolInteraction: _handleToolInteractionParallel,
-                    onToolConfirm: _handleToolConfirmParallel,
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    itemCount: _messages.length + (_isProcessing ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index == _messages.length) {
-                        return _buildTypingIndicator();
-                      }
-                      return _buildMessage(_messages[index], projects);
-                    },
-                  ),
+            child: ListView.builder(
+              controller: _scrollController,
+              itemCount: _getListItemCount(),
+              itemBuilder: (context, index) => _buildListItem(index, projects),
+            ),
           ),
           ChatInputWidget(
             onSendMessage: _sendTextMessage,
             onAudioRecorded: _processAudioMessage,
-            isProcessing: _isProcessing || _pendingToolMessageIndex != null || _batchToolMessageIndex != null,
+            // Enable input once first response arrives (even if still waiting for others)
+            isProcessing: _isProcessing && !_currentResponses.values.any((r) => r.status != ResponseStatus.pending),
           ),
         ],
       ),

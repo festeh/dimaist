@@ -4,7 +4,8 @@ enum WSMessageType {
   start,
   confirm,
   reject,
-  batchConfirm, // Batch tool confirmation with statuses
+  toolConfirm, // Single tool confirmation
+  continueMsg, // Continue with new message (remaining tools rejected)
 
   // Server -> Client message types
   thinking,
@@ -30,8 +31,10 @@ enum WSMessageType {
         return 'confirm';
       case WSMessageType.reject:
         return 'reject';
-      case WSMessageType.batchConfirm:
-        return 'batch_confirm';
+      case WSMessageType.toolConfirm:
+        return 'tool_confirm';
+      case WSMessageType.continueMsg:
+        return 'continue';
       case WSMessageType.thinking:
         return 'thinking';
       case WSMessageType.toolPending:
@@ -66,8 +69,10 @@ enum WSMessageType {
         return WSMessageType.confirm;
       case 'reject':
         return WSMessageType.reject;
-      case 'batch_confirm':
-        return WSMessageType.batchConfirm;
+      case 'tool_confirm':
+        return WSMessageType.toolConfirm;
+      case 'continue':
+        return WSMessageType.continueMsg;
       case 'thinking':
         return WSMessageType.thinking;
       case 'tool_pending':

@@ -65,22 +65,53 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
   }
 
   Widget _buildPreview(BuildContext context) {
-    switch (widget.toolName) {
-      case 'create_task':
-      case 'update_task':
-        return _buildTaskPreview(context, editable: true);
-      case 'delete_task':
-        return _buildTaskPreview(context, editable: false, isDelete: true);
-      case 'complete_task':
-        return _buildTaskPreview(context, editable: false, isComplete: true);
-      case 'create_project':
-      case 'update_project':
-        return _buildProjectPreview(context, editable: true);
-      case 'delete_project':
-        return _buildProjectPreview(context, editable: false, isDelete: true);
-      default:
-        return _buildGenericPreview(context);
+    try {
+      switch (widget.toolName) {
+        case 'create_task':
+        case 'update_task':
+          return _buildTaskPreview(context, editable: true);
+        case 'delete_task':
+          return _buildTaskPreview(context, editable: false, isDelete: true);
+        case 'complete_task':
+          return _buildTaskPreview(context, editable: false, isComplete: true);
+        case 'create_project':
+        case 'update_project':
+          return _buildProjectPreview(context, editable: true);
+        case 'delete_project':
+          return _buildProjectPreview(context, editable: false, isDelete: true);
+        default:
+          return _buildGenericPreview(context);
+      }
+    } catch (e) {
+      return _buildErrorPreview(context, e.toString());
     }
+  }
+
+  Widget _buildErrorPreview(BuildContext context, String error) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(Spacing.sm),
+      decoration: BoxDecoration(
+        color: colors.errorContainer,
+        borderRadius: BorderRadius.circular(Radii.sm),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${widget.toolName}: Invalid arguments',
+            style: theme.textTheme.bodyMedium?.copyWith(color: colors.onErrorContainer),
+          ),
+          Text(
+            _editedArguments.toString(),
+            style: theme.textTheme.bodySmall?.copyWith(color: colors.onErrorContainer),
+          ),
+        ],
+      ),
+    );
   }
 
   Task _buildTaskFromArguments() {
@@ -200,22 +231,21 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
 
     return IconButton(
       onPressed: () => widget.onConfirm(_editedArguments),
-      icon: PhosphorIcon(icon, size: Sizes.iconSm),
+      icon: PhosphorIcon(icon, size: Sizes.iconMd),
       tooltip: tooltip,
       color: color,
-      visualDensity: VisualDensity.compact,
+      style: IconButton.styleFrom(
+        minimumSize: const Size(44, 44),
+      ),
     );
   }
 
   (PhosphorIconData, String, Color) _getActionInfo(ColorScheme colors) {
     return switch (widget.toolName) {
-      'create_task' => (PhosphorIcons.listPlus(), 'Create', colors.primary),
-      'update_task' => (PhosphorIcons.pencilSimple(), 'Update', colors.primary),
-      'delete_task' => (PhosphorIcons.trash(), 'Delete', colors.error),
-      'complete_task' => (PhosphorIcons.checkCircle(), 'Complete', colors.tertiary),
-      'create_project' => (PhosphorIcons.folderPlus(), 'Create', colors.primary),
-      'update_project' => (PhosphorIcons.pencilSimple(), 'Update', colors.primary),
-      'delete_project' => (PhosphorIcons.folderMinus(), 'Delete', colors.error),
+      'create_task' || 'create_project' => (PhosphorIcons.plus(), 'Create', colors.primary),
+      'update_task' || 'update_project' => (PhosphorIcons.check(), 'Update', colors.primary),
+      'delete_task' || 'delete_project' => (PhosphorIcons.trash(), 'Delete', colors.error),
+      'complete_task' => (PhosphorIcons.check(), 'Complete', colors.tertiary),
       _ => (PhosphorIcons.check(), 'Confirm', colors.primary),
     };
   }
