@@ -44,106 +44,24 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final colors = Theme.of(context).colorScheme;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
-      padding: const EdgeInsets.all(Spacing.lg),
+      margin: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
+      padding: const EdgeInsets.all(Spacing.sm),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(Radii.lg),
+        borderRadius: BorderRadius.circular(Radii.md),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _buildHeader(theme, colors),
-          const SizedBox(height: Spacing.md),
-          _buildPreview(context),
-          if (widget.status == ToolPreviewStatus.pending) ...[
-            const SizedBox(height: Spacing.md),
-            _buildActions(colors),
-          ],
+          Expanded(child: _buildPreview(context)),
+          if (widget.status == ToolPreviewStatus.pending)
+            _buildCompactActions(colors),
         ],
       ),
     );
-  }
-
-  Widget _buildHeader(ThemeData theme, ColorScheme colors) {
-    final (icon, title, color) = _getToolInfo(colors);
-    final isCompleted = widget.status != ToolPreviewStatus.pending;
-    final displayColor = isCompleted ? colors.onSurfaceVariant : color;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        PhosphorIcon(icon, color: displayColor, size: Sizes.iconMd),
-        const SizedBox(width: Spacing.sm),
-        Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(color: displayColor),
-        ),
-        if (widget.duration != null) ...[
-          const SizedBox(width: Spacing.xs),
-          Text(
-            widget.duration!,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: colors.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-          ),
-        ],
-        if (widget.status == ToolPreviewStatus.confirmed) ...[
-          const SizedBox(width: Spacing.sm),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: 2),
-            decoration: BoxDecoration(
-              color: colors.tertiaryContainer,
-              borderRadius: BorderRadius.circular(Radii.xs),
-            ),
-            child: Text(
-              'Done',
-              style: theme.textTheme.labelSmall?.copyWith(color: colors.onTertiaryContainer),
-            ),
-          ),
-        ],
-        if (widget.status == ToolPreviewStatus.cancelled) ...[
-          const SizedBox(width: Spacing.sm),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: 2),
-            decoration: BoxDecoration(
-              color: colors.errorContainer,
-              borderRadius: BorderRadius.circular(Radii.xs),
-            ),
-            child: Text(
-              'Cancelled',
-              style: theme.textTheme.labelSmall?.copyWith(color: colors.onErrorContainer),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  (PhosphorIconData, String, Color) _getToolInfo(ColorScheme colors) {
-    switch (widget.toolName) {
-      case 'create_task':
-        return (PhosphorIcons.listPlus(), 'Create Task', colors.primary);
-      case 'update_task':
-        return (PhosphorIcons.pencilSimple(), 'Update Task', colors.secondary);
-      case 'delete_task':
-        return (PhosphorIcons.trash(), 'Delete Task', colors.error);
-      case 'complete_task':
-        return (PhosphorIcons.checkCircle(), 'Complete Task', colors.tertiary);
-      case 'create_project':
-        return (PhosphorIcons.folderPlus(), 'Create Project', colors.primary);
-      case 'update_project':
-        return (PhosphorIcons.pencilSimple(), 'Update Project', colors.secondary);
-      case 'delete_project':
-        return (PhosphorIcons.folderMinus(), 'Delete Project', colors.error);
-      default:
-        return (PhosphorIcons.question(), 'Unknown Action', colors.onSurface);
-    }
   }
 
   Widget _buildPreview(BuildContext context) {
@@ -234,34 +152,28 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
         border: Border.all(color: borderColor, width: 2),
         borderRadius: BorderRadius.circular(Radii.md),
       ),
-      padding: const EdgeInsets.all(Spacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: Sizes.avatarMd,
-                height: Sizes.avatarMd,
-                decoration: BoxDecoration(
-                  color: _parseColor(color),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: Spacing.sm),
-              Expanded(
-                child: Text(name, style: theme.textTheme.bodyLarge),
-              ),
-            ],
+          Container(
+            width: Sizes.avatarSm,
+            height: Sizes.avatarSm,
+            decoration: BoxDecoration(
+              color: _parseColor(color),
+              shape: BoxShape.circle,
+            ),
           ),
-          if (editable && widget.status == ToolPreviewStatus.pending) ...[
-            const SizedBox(height: Spacing.sm),
-            OutlinedButton.icon(
+          const SizedBox(width: Spacing.sm),
+          Expanded(
+            child: Text(name, style: theme.textTheme.bodyMedium),
+          ),
+          if (editable && widget.status == ToolPreviewStatus.pending)
+            IconButton(
               onPressed: () => _openProjectEditDialog(context),
               icon: PhosphorIcon(PhosphorIcons.pencilSimple(), size: Sizes.iconSm),
-              label: const Text('Edit'),
+              tooltip: 'Edit',
+              visualDensity: VisualDensity.compact,
             ),
-          ],
         ],
       ),
     );
@@ -271,10 +183,10 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(Spacing.md),
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
       decoration: BoxDecoration(
         border: Border.all(color: theme.colorScheme.outline),
-        borderRadius: BorderRadius.circular(Radii.md),
+        borderRadius: BorderRadius.circular(Radii.sm),
       ),
       child: Text(
         _editedArguments.toString(),
@@ -283,42 +195,29 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
     );
   }
 
-  Widget _buildActions(ColorScheme colors) {
-    // Don't show actions when read-only
-    if (widget.status != ToolPreviewStatus.pending) {
-      return const SizedBox.shrink();
-    }
+  Widget _buildCompactActions(ColorScheme colors) {
+    final (icon, tooltip, color) = _getActionInfo(colors);
 
-    final isDelete = widget.toolName.contains('delete');
-    final isComplete = widget.toolName.contains('complete');
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        TextButton(
-          onPressed: widget.onReject,
-          child: const Text('Cancel'),
-        ),
-        const SizedBox(width: Spacing.sm),
-        FilledButton(
-          onPressed: () => widget.onConfirm(_editedArguments),
-          style: FilledButton.styleFrom(
-            backgroundColor: isDelete
-                ? colors.error
-                : isComplete
-                    ? colors.tertiary
-                    : colors.primary,
-          ),
-          child: Text(
-            isDelete
-                ? 'Delete'
-                : isComplete
-                    ? 'Complete'
-                    : 'Confirm',
-          ),
-        ),
-      ],
+    return IconButton(
+      onPressed: () => widget.onConfirm(_editedArguments),
+      icon: PhosphorIcon(icon, size: Sizes.iconSm),
+      tooltip: tooltip,
+      color: color,
+      visualDensity: VisualDensity.compact,
     );
+  }
+
+  (PhosphorIconData, String, Color) _getActionInfo(ColorScheme colors) {
+    return switch (widget.toolName) {
+      'create_task' => (PhosphorIcons.listPlus(), 'Create', colors.primary),
+      'update_task' => (PhosphorIcons.pencilSimple(), 'Update', colors.primary),
+      'delete_task' => (PhosphorIcons.trash(), 'Delete', colors.error),
+      'complete_task' => (PhosphorIcons.checkCircle(), 'Complete', colors.tertiary),
+      'create_project' => (PhosphorIcons.folderPlus(), 'Create', colors.primary),
+      'update_project' => (PhosphorIcons.pencilSimple(), 'Update', colors.primary),
+      'delete_project' => (PhosphorIcons.folderMinus(), 'Delete', colors.error),
+      _ => (PhosphorIcons.check(), 'Confirm', colors.primary),
+    };
   }
 
   void _openTaskEditDialog(BuildContext context) {
