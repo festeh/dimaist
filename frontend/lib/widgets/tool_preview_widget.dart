@@ -65,6 +65,12 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
   }
 
   Widget _buildPreview(BuildContext context) {
+    // Check for backend error first
+    final backendError = _editedArguments['_error'] as String?;
+    if (backendError != null) {
+      return _buildErrorPreview(context, backendError);
+    }
+
     try {
       switch (widget.toolName) {
         case 'create_task':
@@ -97,19 +103,9 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
         color: colors.errorContainer,
         borderRadius: BorderRadius.circular(Radii.sm),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '${widget.toolName}: Invalid arguments',
-            style: theme.textTheme.bodyMedium?.copyWith(color: colors.onErrorContainer),
-          ),
-          Text(
-            _editedArguments.toString(),
-            style: theme.textTheme.bodySmall?.copyWith(color: colors.onErrorContainer),
-          ),
-        ],
+      child: Text(
+        error,
+        style: theme.textTheme.bodyMedium?.copyWith(color: colors.onErrorContainer),
       ),
     );
   }

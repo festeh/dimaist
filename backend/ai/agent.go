@@ -257,7 +257,10 @@ func resolveToolDefaults(toolName string, args map[string]any) map[string]any {
 	if toolName == "complete_task" || toolName == "delete_task" || toolName == "update_task" {
 		if taskID, ok := result["id"].(float64); ok {
 			var task database.Task
-			if err := database.DB.First(&task, int(taskID)).Error; err == nil {
+			if err := database.DB.Where("deleted_at IS NULL").First(&task, int(taskID)).Error; err != nil {
+				// Task not found - add error info for frontend
+				result["_error"] = fmt.Sprintf("Task #%d not found", int(taskID))
+			} else {
 				// For update_task, only fill missing fields (preserve AI-provided updates)
 				// For complete/delete, always set fields (they don't modify anything)
 				if _, exists := result["description"]; !exists {

@@ -67,6 +67,7 @@ class _BatchToolPreviewWidgetState extends State<BatchToolPreviewWidget> {
       mainAxisSize: MainAxisSize.min,
       children: widget.toolCalls.map((tc) {
         return ToolPreviewWidget(
+          key: ValueKey(tc.toolCallId),
           toolName: tc.name,
           arguments: _editedArgs[tc.toolCallId]!,
           projects: widget.projects,

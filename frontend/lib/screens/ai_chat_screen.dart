@@ -131,11 +131,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        // Use jumpTo for immediate scroll, then let user see the result
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
       }
     });
   }
@@ -292,10 +289,11 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       _selectedParallelModel = null;
     });
 
+    // Scroll to bottom immediately after user message is added
+    _scrollToBottom();
+
     // Initialize parallel state
     ref.read(parallelAiProvider.notifier).startParallelRequest();
-
-    _scrollToBottom();
 
     try {
       final baseUrl = ref.read(apiServiceProvider).baseUrl;
