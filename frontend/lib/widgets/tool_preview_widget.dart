@@ -3,6 +3,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 import '../models/project.dart';
 import '../models/task.dart';
+import '../utils/color_utils.dart';
 import 'task_form_dialog.dart';
 import 'task_widget.dart';
 
@@ -186,7 +187,7 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
             width: Sizes.avatarSm,
             height: Sizes.avatarSm,
             decoration: BoxDecoration(
-              color: _parseColor(color),
+              color: getColor(color),
               shape: BoxShape.circle,
             ),
           ),
@@ -316,7 +317,7 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
                             width: 16,
                             height: 16,
                             decoration: BoxDecoration(
-                              color: _parseColor(c),
+                              color: getColor(c),
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -353,25 +354,5 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
         _editedArguments['color'] = result['color'];
       });
     }
-  }
-
-  Color _parseColor(String colorName) {
-    const colorMap = {
-      'red': Colors.red,
-      'pink': Colors.pink,
-      'purple': Colors.purple,
-      'blue': Colors.blue,
-      'cyan': Colors.cyan,
-      'teal': Colors.teal,
-      'green': Colors.green,
-      'lime': Colors.lime,
-      'yellow': Colors.yellow,
-      'amber': Colors.amber,
-      'orange': Colors.orange,
-      'brown': Colors.brown,
-      'gray': Colors.grey,
-      'grey': Colors.grey,
-    };
-    return colorMap[colorName.toLowerCase()] ?? Colors.grey;
   }
 }

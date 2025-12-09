@@ -186,11 +186,11 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   Widget build(BuildContext context) {
     final modelState = ref.watch(aiModelProvider);
     final parallelState = ref.watch(parallelAiProvider);
-    // Get first selected model for display
+    // Get first selected model for display (null if none selected)
     final selectedIds = parallelState.selectedModelIds;
     final selectedModel = selectedIds.isNotEmpty
         ? modelState.models.where((m) => m.id == selectedIds.first).firstOrNull
-        : modelState.models.firstOrNull;
+        : null;
     final currentTheme = ref.watch(themeProvider);
     final currentFont = ref.watch(fontProvider);
     final currentLanguage = ref.watch(asrLanguageProvider);

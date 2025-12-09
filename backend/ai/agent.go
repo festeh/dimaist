@@ -194,10 +194,6 @@ func (a *Agent) executeTool(toolCall ToolCall) (string, error) {
 	return "", fmt.Errorf("tool not found: %s", toolCall.Function.Name)
 }
 
-func (a *Agent) AddTool(tool Tool) {
-	a.tools = append(a.tools, tool)
-}
-
 // executeToolWithArgs executes a tool with pre-parsed arguments
 func (a *Agent) executeToolWithArgs(toolName string, args map[string]any) (string, error) {
 	for _, tool := range a.tools {
@@ -206,33 +202,6 @@ func (a *Agent) executeToolWithArgs(toolName string, args map[string]any) (strin
 		}
 	}
 	return "", fmt.Errorf("tool not found: %s", toolName)
-}
-
-func (a *Agent) SetModel(model string) {
-	a.target.Model = model
-}
-
-// ExecuteOneStep executes just one step of the conversation and returns the tool calls
-// This is useful for testing to see what tools the LLM would call without executing them
-func (a *Agent) ExecuteOneStep(userInput string) ([]ToolCall, error) {
-	messages := []ChatCompletionMessage{
-		{
-			Role:    "user",
-			Content: userInput,
-		},
-	}
-
-	response, err := a.callModel(messages)
-	if err != nil {
-		return nil, fmt.Errorf("model call failed: %w", err)
-	}
-
-	if !a.hasToolCalls(response) {
-		// No tool calls, return empty slice
-		return []ToolCall{}, nil
-	}
-
-	return response.Choices[0].Message.ToolCalls, nil
 }
 
 // resolveToolDefaults adds default values to tool arguments for frontend preview

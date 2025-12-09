@@ -258,8 +258,24 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     final parallelState = ref.read(parallelAiProvider);
     final modelState = ref.read(aiModelProvider);
 
-    // Build target list from selected model IDs
-    final targets = parallelState.selectedModelIds.map((id) {
+    // Build target list from selected model IDs, filtering invalid ones
+    final validIds = parallelState.selectedModelIds.where(
+      (id) => modelState.models.any((m) => m.id == id),
+    ).toSet();
+
+    // If selection became invalid, clear it and close chat
+    if (validIds.isEmpty) {
+      ref.read(parallelAiProvider.notifier).clearSelection();
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
+
+    // Update selection if some models were removed
+    if (validIds.length != parallelState.selectedModelIds.length) {
+      ref.read(parallelAiProvider.notifier).setSelectedModels(validIds);
+    }
+
+    final targets = validIds.map((id) {
       final model = modelState.models.firstWhere((m) => m.id == id);
       return TargetSpec(provider: model.provider.name, model: model.modelName);
     }).toList();

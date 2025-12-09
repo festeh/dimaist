@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-const Map<String, Color> _colorMap = {
-  'gray': Colors.grey,
+const Map<String, Color> colorMap = {
   'Grey': Colors.grey,
   'Red': Colors.red,
   'Pink': Colors.pink,
@@ -16,12 +15,13 @@ const Map<String, Color> _colorMap = {
   'Brown': Colors.brown,
 };
 
-Map<String, Color> get colorMap {
-  final Map<String, Color> result = Map.from(_colorMap);
-  result.remove('gray');
-  return result;
+/// Normalizes color name to capitalized format (e.g., 'gray' -> 'Grey')
+String normalizeColor(String color) {
+  final lower = color.toLowerCase();
+  if (lower == 'gray' || lower == 'grey') return 'Grey';
+  return lower[0].toUpperCase() + lower.substring(1);
 }
 
-Color getColor(String colorStr) {
-  return _colorMap[colorStr] ?? Colors.transparent;
+Color getColor(String color) {
+  return colorMap[normalizeColor(color)] ?? Colors.grey;
 }
