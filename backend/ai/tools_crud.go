@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"dimaist/calendar"
 	"dimaist/database"
 	"dimaist/utils"
 
@@ -412,6 +413,11 @@ func createTaskCRUDTool(args map[string]any) (string, error) {
 		return "", fmt.Errorf("failed to create task: %w", result.Error)
 	}
 
+	// Sync to Google Calendar if task has "calendar" label
+	if err := calendar.SyncTask(&task); err != nil {
+		return fmt.Sprintf("Task created with ID %d but calendar sync failed: %s", task.ID, err.Error()), nil
+	}
+
 	return fmt.Sprintf("Task created successfully with ID %d: %s", task.ID, task.Description), nil
 }
 
@@ -511,6 +517,16 @@ func updateTaskCRUDTool(args map[string]any) (string, error) {
 	// Perform update
 	if err := database.DB.Model(&task).Where("id = ? AND deleted_at IS NULL", taskID).Updates(updates).Error; err != nil {
 		return "", fmt.Errorf("failed to update task: %w", err)
+	}
+
+	// Re-fetch task with updated values for calendar sync
+	if err := database.DB.Where("id = ?", taskID).First(&task).Error; err != nil {
+		return "", fmt.Errorf("failed to reload task: %w", err)
+	}
+
+	// Sync to Google Calendar if task has "calendar" label
+	if err := calendar.SyncTask(&task); err != nil {
+		return fmt.Sprintf("Task %d updated but calendar sync failed: %s", taskID, err.Error()), nil
 	}
 
 	return fmt.Sprintf("Task %d updated successfully", taskID), nil
