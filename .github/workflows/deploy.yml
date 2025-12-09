@@ -57,6 +57,16 @@ jobs:
         cat > .env << EOF
         ${{ secrets.ENV_FILE }}
         EOF
+
+        # Validate required environment variables
+        REQUIRED_VARS="DATABASE_URL CHUTES_ENDPOINT CHUTES_TOKEN OPENROUTER_ENDPOINT OPENROUTER_TOKEN GOOGLE_AI_TOKEN GROQ_TOKEN"
+        for var in $REQUIRED_VARS; do
+          if ! grep -q "^${var}=" .env; then
+            echo "ERROR: Required environment variable $var is missing from ENV_FILE secret"
+            exit 1
+          fi
+        done
+
         scp .env root@${{ secrets.HOST }}:${{ env.DEPLOY_PATH }}/.env
         rm .env
     
