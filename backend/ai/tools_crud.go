@@ -22,12 +22,27 @@ func parseDatetime(s string) (time.Time, error) {
 		}
 	}
 	// Formats without timezone - parse in local timezone
-	for _, f := range []string{"2006-01-02T15:04:05", "2006-01-02T15:04", "2006-01-02 15:04:05", "2006-01-02 15:04"} {
+	for _, f := range []string{"2006-01-02T15:04:05", "2006-01-02T15:04", "2006-01-02 15:04:05", "2006-01-02 15:04", "2006-01-02T15:04:05.000"} {
 		if t, err := time.ParseInLocation(f, s, time.Local); err == nil {
 			return t, nil
 		}
 	}
 	return time.Time{}, fmt.Errorf("unable to parse datetime: %s", s)
+}
+
+// parseDueDate parses a due_date string, returning (dueDate, dueDatetime, error).
+// If the string is date-only, returns (date, nil, nil).
+// If the string is datetime (AI mistake), returns (nil, datetime, nil).
+func parseDueDate(s string) (*time.Time, *time.Time, error) {
+	// Try date-only first
+	if dueDate, err := time.Parse("2006-01-02", s); err == nil {
+		return &dueDate, nil, nil
+	}
+	// Fallback: AI sent datetime to due_date field
+	if dueDatetime, err := parseDatetime(s); err == nil {
+		return nil, &dueDatetime, nil
+	}
+	return nil, nil, fmt.Errorf("invalid due_date format, use YYYY-MM-DD")
 }
 
 // GetToolDefinitions returns tool definitions without handlers (for API requests)
@@ -325,11 +340,12 @@ func createTaskCRUDTool(args map[string]any) (string, error) {
 
 	// Optional due date
 	if dueDateStr, ok := args["due_date"].(string); ok {
-		dueDate, err := time.Parse("2006-01-02", dueDateStr)
+		dueDate, dueDatetime, err := parseDueDate(dueDateStr)
 		if err != nil {
-			return "", fmt.Errorf("invalid due_date format, use YYYY-MM-DD: %w", err)
+			return "", err
 		}
-		task.DueDate = &dueDate
+		task.DueDate = dueDate
+		task.DueDatetime = dueDatetime
 	}
 
 	// Optional due datetime
@@ -447,11 +463,16 @@ func updateTaskCRUDTool(args map[string]any) (string, error) {
 	}
 
 	if dueDateStr, ok := args["due_date"].(string); ok {
-		dueDate, err := time.Parse("2006-01-02", dueDateStr)
+		dueDate, dueDatetime, err := parseDueDate(dueDateStr)
 		if err != nil {
-			return "", fmt.Errorf("invalid due_date format: %w", err)
+			return "", err
 		}
-		updates["due_date"] = &dueDate
+		if dueDate != nil {
+			updates["due_date"] = dueDate
+		}
+		if dueDatetime != nil {
+			updates["due_datetime"] = dueDatetime
+		}
 	}
 
 	if dueDatetimeStr, ok := args["due_datetime"].(string); ok {
