@@ -18,11 +18,11 @@ abstract class ITaskRepository {
   /// Get a specific task by ID
   Future<Task?> getTaskById(int id);
 
-  /// Create a new task
-  Future<Task> createTask(Task task);
+  /// Create a new task. Returns (task, warning) where warning is non-null if calendar sync failed.
+  Future<(Task, String?)> createTask(Task task);
 
-  /// Update an existing task
-  Future<void> updateTask(int id, Task task);
+  /// Update an existing task. Returns a warning if calendar sync failed.
+  Future<String?> updateTask(int id, Task task);
 
   /// Delete a task by ID
   Future<void> deleteTask(int id);

@@ -55,7 +55,9 @@ class ApiService {
     }
   }
 
-  Future<Task> createTask(Task task) async {
+  /// Creates a task and returns (task, warning) tuple.
+  /// Warning is non-null if calendar sync failed.
+  Future<(Task, String?)> createTask(Task task) async {
     _logger.info('Creating task...');
     try {
       final response = await http.post(
@@ -65,8 +67,13 @@ class ApiService {
       );
       if (response.statusCode == 200) {
         _logger.info('Task created successfully.');
-        final newTask = Task.fromJson(json.decode(response.body));
-        return newTask;
+        final data = json.decode(response.body);
+        final newTask = Task.fromJson(data['task']);
+        final warning = data['warning'] as String?;
+        if (warning != null) {
+          _logger.warning('Task created with warning: $warning');
+        }
+        return (newTask, warning);
       } else {
         _logger.warning('Failed to create task: ${response.statusCode}');
         // Try to parse error response
@@ -88,7 +95,8 @@ class ApiService {
     }
   }
 
-  Future<void> updateTask(int id, Task task) async {
+  /// Updates a task and returns a warning if calendar sync failed.
+  Future<String?> updateTask(int id, Task task) async {
     _logger.info('Updating task $id...');
     try {
       final response = await http.put(
@@ -113,6 +121,21 @@ class ApiService {
       }
 
       _logger.info('Task $id updated successfully.');
+
+      // Check for warning in response body
+      if (response.body.isNotEmpty) {
+        try {
+          final data = json.decode(response.body);
+          final warning = data['warning'] as String?;
+          if (warning != null) {
+            _logger.warning('Task updated with warning: $warning');
+          }
+          return warning;
+        } catch (e) {
+          // No valid JSON, that's fine
+        }
+      }
+      return null;
     } catch (e) {
       _logger.severe('Error updating task $id: $e');
       rethrow;

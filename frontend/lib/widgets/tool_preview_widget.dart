@@ -255,7 +255,7 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
       builder: (context) => TaskFormDialog(
         task: task,
         projects: widget.projects,
-        onSave: (updatedTask) {
+        onSave: (updatedTask) async {
           setState(() {
             _editedArguments['description'] = updatedTask.description;
             _editedArguments['project_id'] = updatedTask.projectId;
@@ -279,6 +279,7 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
               _editedArguments.remove('recurrence');
             }
           });
+          return null; // No server call, no warning
         },
         title: 'Edit Task',
         submitButtonText: 'Save',

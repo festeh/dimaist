@@ -14,7 +14,8 @@ class TaskFormDialog extends ConsumerStatefulWidget {
   final List<Project> projects;
   final Project? selectedProject;
   final DateTime? defaultDueDate;
-  final Function(Task) onSave;
+  /// Returns a warning message if calendar sync failed, null otherwise.
+  final Future<String?> Function(Task) onSave;
   final Function(int)? onDelete;
   final String title;
   final String submitButtonText;
@@ -717,8 +718,19 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
           recurrence: _recurrence ?? '',
         );
 
-        await widget.onSave(task);
+        final warning = await widget.onSave(task);
         navigator.pop();
+
+        // Show warning if calendar sync failed
+        if (warning != null) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text('Warning: $warning'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
       } catch (e) {
         String errorMessage = e.toString();
         if (errorMessage.startsWith('Exception: ')) {

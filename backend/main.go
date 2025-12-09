@@ -214,10 +214,17 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("Successfully created task").Uint("task_id", t.ID).Str("description", t.Description).Send()
 
-	// Sync to calendar in background
-	go calendar.SyncTask(&t)
+	// Sync to calendar synchronously
+	var calendarWarning string
+	if err := calendar.SyncTask(&t); err != nil {
+		calendarWarning = err.Error()
+	}
 
-	json.NewEncoder(w).Encode(t)
+	response := map[string]any{"task": t}
+	if calendarWarning != "" {
+		response["warning"] = calendarWarning
+	}
+	json.NewEncoder(w).Encode(response)
 }
 
 func updateTask(w http.ResponseWriter, r *http.Request) {
@@ -266,15 +273,20 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("Successfully updated task").Uint("task_id", id).Send()
 
-	// Sync to calendar in background - fetch updated task first
-	go func() {
-		var updated database.Task
-		if err := database.DB.Where("id = ? AND deleted_at IS NULL", id).First(&updated).Error; err == nil {
-			calendar.SyncTask(&updated)
+	// Sync to calendar synchronously
+	var calendarWarning string
+	var updated database.Task
+	if err := database.DB.Where("id = ? AND deleted_at IS NULL", id).First(&updated).Error; err == nil {
+		if err := calendar.SyncTask(&updated); err != nil {
+			calendarWarning = err.Error()
 		}
-	}()
+	}
 
-	w.WriteHeader(http.StatusOK)
+	if calendarWarning != "" {
+		json.NewEncoder(w).Encode(map[string]string{"warning": calendarWarning})
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
 }
 
 func deleteTask(w http.ResponseWriter, r *http.Request) {

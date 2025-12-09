@@ -43,18 +43,18 @@ class TaskRepository implements ITaskRepository {
   }
 
   @override
-  Future<Task> createTask(Task task) async {
+  Future<(Task, String?)> createTask(Task task) async {
     LoggingService.logger.info('TaskRepository: Creating task...');
 
     try {
-      final createdTask = await _apiService.createTask(task);
+      final (createdTask, warning) = await _apiService.createTask(task);
 
       // Update local database after successful API call
       await _database.insertTask(createdTask);
       LoggingService.logger.info(
         'TaskRepository: Task created successfully with ID ${createdTask.id}',
       );
-      return createdTask;
+      return (createdTask, warning);
     } catch (e) {
       LoggingService.logger.severe('TaskRepository: Error creating task: $e');
       rethrow;
@@ -62,17 +62,18 @@ class TaskRepository implements ITaskRepository {
   }
 
   @override
-  Future<void> updateTask(int id, Task task) async {
+  Future<String?> updateTask(int id, Task task) async {
     LoggingService.logger.info('TaskRepository: Updating task $id...');
 
     try {
-      await _apiService.updateTask(id, task);
+      final warning = await _apiService.updateTask(id, task);
 
       // Update local database after successful API call
       await _database.updateTask(task);
       LoggingService.logger.info(
         'TaskRepository: Task $id updated successfully',
       );
+      return warning;
     } catch (e) {
       LoggingService.logger.severe(
         'TaskRepository: Error updating task $id: $e',

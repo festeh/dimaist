@@ -171,7 +171,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
         selectedProject: selectedProject,
         defaultDueDate: defaultDueDate,
         onSave: (task) async {
-          await taskNotifier.createTask(task);
+          return await taskNotifier.createTask(task);
         },
         title: 'Add New Task',
         submitButtonText: 'Add',
@@ -191,7 +191,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
         task: task,
         projects: projects,
         onSave: (updatedTask) async {
-          await taskNotifier.updateTask(task.id!, updatedTask);
+          return await taskNotifier.updateTask(task.id!, updatedTask);
         },
         onDelete: _deleteTask,
         title: 'Edit Task',

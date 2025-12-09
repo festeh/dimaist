@@ -52,82 +52,88 @@ func hasCalendarLabel(task *database.Task) bool {
 }
 
 // SyncTask syncs a task to Google Calendar based on "calendar" label
-func SyncTask(task *database.Task) {
+func SyncTask(task *database.Task) error {
 	if !isEnabled() {
-		return
+		return nil
 	}
 
 	hasLabel := hasCalendarLabel(task)
 	hasEventID := task.GoogleEventID != nil && *task.GoogleEventID != ""
 
 	if hasLabel && !hasEventID {
-		createEvent(task)
+		return createEvent(task)
 	} else if hasLabel && hasEventID {
-		updateEvent(task)
+		return updateEvent(task)
 	} else if !hasLabel && hasEventID {
-		deleteEvent(*task.GoogleEventID)
+		if err := deleteEvent(*task.GoogleEventID); err != nil {
+			return err
+		}
 		clearEventID(task.ID)
 	}
+	return nil
 }
 
 // DeleteEvent removes a calendar event
-func DeleteEvent(eventID string) {
+func DeleteEvent(eventID string) error {
 	if !isEnabled() || eventID == "" {
-		return
+		return nil
 	}
-	deleteEvent(eventID)
+	return deleteEvent(eventID)
 }
 
-func createEvent(task *database.Task) {
+func createEvent(task *database.Task) error {
 	srv, err := getService()
 	if err != nil {
 		logger.Error("Failed to get calendar service").Err(err).Send()
-		return
+		return err
 	}
 
 	event := buildEvent(task)
 	created, err := srv.Events.Insert("primary", event).Do()
 	if err != nil {
 		logger.Error("Failed to create calendar event").Err(err).Uint("task_id", task.ID).Send()
-		return
+		return err
 	}
 
 	// Store the event ID on the task
 	database.DB.Model(&database.Task{}).Where("id = ?", task.ID).Update("google_event_id", created.Id)
 	logger.Info("Created calendar event").Str("event_id", created.Id).Uint("task_id", task.ID).Send()
+	return nil
 }
 
-func updateEvent(task *database.Task) {
+func updateEvent(task *database.Task) error {
 	srv, err := getService()
 	if err != nil {
 		logger.Error("Failed to get calendar service").Err(err).Send()
-		return
+		return err
 	}
 
 	event := buildEvent(task)
 	_, err = srv.Events.Update("primary", *task.GoogleEventID, event).Do()
 	if err != nil {
 		logger.Error("Failed to update calendar event").Err(err).Str("event_id", *task.GoogleEventID).Send()
-		return
+		return err
 	}
 
 	logger.Info("Updated calendar event").Str("event_id", *task.GoogleEventID).Uint("task_id", task.ID).Send()
+	return nil
 }
 
-func deleteEvent(eventID string) {
+func deleteEvent(eventID string) error {
 	srv, err := getService()
 	if err != nil {
 		logger.Error("Failed to get calendar service").Err(err).Send()
-		return
+		return err
 	}
 
 	err = srv.Events.Delete("primary", eventID).Do()
 	if err != nil {
 		logger.Error("Failed to delete calendar event").Err(err).Str("event_id", eventID).Send()
-		return
+		return err
 	}
 
 	logger.Info("Deleted calendar event").Str("event_id", eventID).Send()
+	return nil
 }
 
 func clearEventID(taskID uint) {

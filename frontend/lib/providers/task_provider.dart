@@ -100,14 +100,18 @@ class TaskNotifier extends AsyncNotifier<TaskViewData> {
     });
   }
 
-  Future<void> createTask(Task task) async {
-    await _repository.createTask(task);
+  /// Creates a task. Returns a warning if calendar sync failed.
+  Future<String?> createTask(Task task) async {
+    final (_, warning) = await _repository.createTask(task);
     await _reloadCurrentTasks();
+    return warning;
   }
 
-  Future<void> updateTask(int id, Task task) async {
-    await _repository.updateTask(id, task);
+  /// Updates a task. Returns a warning if calendar sync failed.
+  Future<String?> updateTask(int id, Task task) async {
+    final warning = await _repository.updateTask(id, task);
     await _reloadCurrentTasks();
+    return warning;
   }
 
   Future<void> deleteTask(int id) async {
