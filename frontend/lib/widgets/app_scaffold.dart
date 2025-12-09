@@ -11,7 +11,6 @@ import '../widgets/project_list_widget.dart';
 import '../widgets/arrange_projects_dialog.dart';
 import '../widgets/mobile_layout.dart';
 import '../widgets/desktop_layout.dart';
-import '../widgets/keyboard_shortcuts_handler.dart';
 
 class AppScaffold extends ConsumerStatefulWidget {
   final List<Project> projects;
@@ -46,7 +45,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
             leftBarContent: leftBarContent,
           );
 
-    return KeyboardShortcutsHandler(child: layout);
+    return layout;
   }
 
   Widget _buildLeftBar(

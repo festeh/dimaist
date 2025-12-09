@@ -352,13 +352,14 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       return;
     }
 
+    // Get target ID - from message or fall back to selected/default
+    final targetId = data['target_id'] as String? ?? _selectedParallelModel ?? 'default';
+
     switch (type) {
       case WSMessageType.thinking:
-        // Typing indicator shown automatically
         break;
 
       case WSMessageType.modelResponse:
-        final targetId = data['target_id'] as String;
         final response = data['response'] as String? ?? '';
         final duration = data['duration'] as double?;
 
@@ -381,7 +382,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         break;
 
       case WSMessageType.modelError:
-        final targetId = data['target_id'] as String;
         final error = data['error'] as String? ?? 'Unknown error';
         final duration = data['duration'] as double?;
 
@@ -404,35 +404,34 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         break;
 
       case WSMessageType.toolsPending:
-        final targetId = data['target_id'] as String?;
-        if (targetId != null) {
-          // Parallel mode tools pending
-          final toolCallsJson = data['tool_calls'] as List<dynamic>? ?? [];
-          final duration = data['duration'] as double?;
-          final toolCalls = toolCallsJson
-              .map((tc) => PendingToolCall.fromJson(tc as Map<String, dynamic>))
-              .toList();
-
-          setState(() {
-            _currentResponses[targetId] = ModelResponse(
-              targetId: targetId,
-              toolCalls: toolCalls,
-              duration: duration,
-              status: ResponseStatus.toolsPending,
-            );
-          });
-          ref.read(parallelAiProvider.notifier).addModelResponse(
-            ModelResponse(
-              targetId: targetId,
-              toolCalls: toolCalls,
-              duration: duration,
-              status: ResponseStatus.toolsPending,
-            ),
-          );
-        } else {
-          // Single mode - delegate to regular handler
-          _handleWSMessage(type, data);
+        final toolCallsJson = data['tool_calls'] as List<dynamic>? ?? [];
+        final duration = data['duration'] as double?;
+        if (toolCallsJson.isEmpty) {
+          LoggingService.logger.warning('Received tools_pending with no tools');
+          break;
         }
+
+        final toolCalls = toolCallsJson
+            .map((tc) => PendingToolCall.fromJson(tc as Map<String, dynamic>))
+            .toList();
+
+        setState(() {
+          _currentResponses[targetId] = ModelResponse(
+            targetId: targetId,
+            toolCalls: toolCalls,
+            duration: duration,
+            status: ResponseStatus.toolsPending,
+          );
+        });
+        ref.read(parallelAiProvider.notifier).addModelResponse(
+          ModelResponse(
+            targetId: targetId,
+            toolCalls: toolCalls,
+            duration: duration,
+            status: ResponseStatus.toolsPending,
+          ),
+        );
+        _scrollToBottom();
         break;
 
       case WSMessageType.allComplete:
@@ -444,21 +443,37 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         break;
 
       case WSMessageType.toolResult:
-        // Tool was executed - sync data immediately so task list updates
         ref.read(taskProvider.notifier).syncData();
         break;
 
       case WSMessageType.finalResponse:
-        // In parallel mode after model selection, this is handled like single mode
-        _handleWSMessage(type, data);
+        final response = data['response'] as String? ?? '';
+        final duration = data['duration'] as double?;
+        setState(() {
+          _currentResponses[targetId] = ModelResponse(
+            targetId: targetId,
+            content: response,
+            duration: duration,
+            status: ResponseStatus.success,
+          );
+        });
+        _scrollToBottom();
         break;
 
       case WSMessageType.error:
-        _handleWSMessage(type, data);
+        final error = data['error'] as String? ?? 'Unknown error';
+        setState(() {
+          _currentResponses[targetId] = ModelResponse(
+            targetId: targetId,
+            error: error,
+            status: ResponseStatus.error,
+          );
+        });
+        _scrollToBottom();
         break;
 
       default:
-        LoggingService.logger.warning('Unhandled parallel message type: $type');
+        LoggingService.logger.warning('Unhandled message type: $type');
     }
   }
 
@@ -484,102 +499,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     });
 
     _wsService.confirmTool(targetId, toolCallId, args);
-  }
-
-  void _handleWSMessage(WSMessageType type, Map<String, dynamic> data) {
-    // Get the target model (either the locked one or a fallback)
-    final targetId = _selectedParallelModel ?? 'default';
-
-    switch (type) {
-      case WSMessageType.thinking:
-        // Typing indicator is shown automatically while _isProcessing is true
-        break;
-
-      case WSMessageType.toolPending:
-        // Legacy single tool - convert to batch format for unified handling
-        final toolName = data['tool'] as String?;
-        final arguments = data['arguments'] as Map<String, dynamic>?;
-        final duration = data['duration'] as double?;
-        final toolCall = PendingToolCall(
-          toolCallId: 'legacy_${DateTime.now().millisecondsSinceEpoch}',
-          name: toolName ?? 'unknown',
-          arguments: arguments ?? {},
-        );
-        setState(() {
-          _currentResponses[targetId] = ModelResponse(
-            targetId: targetId,
-            toolCalls: [toolCall],
-            duration: duration,
-            status: ResponseStatus.toolsPending,
-          );
-          _isProcessing = false; // Allow interaction with preview
-        });
-        _scrollToBottom();
-        break;
-
-      case WSMessageType.toolsPending:
-        // Batch tools (single model mode without target_id)
-        final toolCallsJson = data['tool_calls'] as List<dynamic>?;
-        final duration = data['duration'] as double?;
-        if (toolCallsJson == null || toolCallsJson.isEmpty) {
-          LoggingService.logger.warning('Received tools_pending with no tools');
-          break;
-        }
-
-        final toolCalls = toolCallsJson
-            .map((tc) => PendingToolCall.fromJson(tc as Map<String, dynamic>))
-            .toList();
-
-        setState(() {
-          _currentResponses[targetId] = ModelResponse(
-            targetId: targetId,
-            toolCalls: toolCalls,
-            duration: duration,
-            status: ResponseStatus.toolsPending,
-          );
-          _isProcessing = false; // Allow interaction with preview
-        });
-        _scrollToBottom();
-        break;
-
-      case WSMessageType.toolResult:
-        // Tool was executed - sync data immediately so task list updates
-        ref.read(taskProvider.notifier).syncData();
-        break;
-
-      case WSMessageType.finalResponse:
-        final response = data['response'] as String? ?? '';
-        final duration = data['duration'] as double?;
-        setState(() {
-          _currentResponses[targetId] = ModelResponse(
-            targetId: targetId,
-            content: response,
-            duration: duration,
-            status: ResponseStatus.success,
-          );
-        });
-        _scrollToBottom();
-        break;
-
-      case WSMessageType.cancelled:
-        // Widget already shows "Cancelled" badge, no additional message needed
-        break;
-
-      case WSMessageType.error:
-        final error = data['error'] as String? ?? 'Unknown error';
-        setState(() {
-          _currentResponses[targetId] = ModelResponse(
-            targetId: targetId,
-            error: error,
-            status: ResponseStatus.error,
-          );
-        });
-        _scrollToBottom();
-        break;
-
-      default:
-        LoggingService.logger.warning('Unhandled message type: $type');
-    }
   }
 
   Widget _buildTypingIndicator() {
