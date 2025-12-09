@@ -9,7 +9,6 @@ enum WSMessageType {
 
   // Server -> Client message types
   thinking,
-  toolPending, // Single tool (legacy)
   toolsPending, // Batch tools
   toolResult,
   finalResponse,
@@ -37,8 +36,6 @@ enum WSMessageType {
         return 'continue';
       case WSMessageType.thinking:
         return 'thinking';
-      case WSMessageType.toolPending:
-        return 'tool_pending';
       case WSMessageType.toolsPending:
         return 'tools_pending';
       case WSMessageType.toolResult:
@@ -75,8 +72,6 @@ enum WSMessageType {
         return WSMessageType.continueMsg;
       case 'thinking':
         return WSMessageType.thinking;
-      case 'tool_pending':
-        return WSMessageType.toolPending;
       case 'tools_pending':
         return WSMessageType.toolsPending;
       case 'tool_result':

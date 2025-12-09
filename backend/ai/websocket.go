@@ -138,7 +138,10 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			Str("selectedModel", s.SelectedModel).
 			Send()
 
-		HandleAI(s)
+		if err := HandleAI(s); err != nil {
+			logger.Info("HandleAI returned error, ending session").Err(err).Send()
+			return
+		}
 
 		// Check if user message was already added during HandleAI (e.g., continue during tool wait)
 		if len(s.Messages) > 0 && s.Messages[len(s.Messages)-1].Role == "user" {

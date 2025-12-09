@@ -54,7 +54,8 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
     final text = _textController.text.trim();
     if (text.isNotEmpty && !widget.isProcessing) {
       widget.onSendMessage(text);
-      _textController.clear();
+      _textController.value = TextEditingValue.empty;
+      _focusNode.unfocus();
       setState(() {
         _hasText = false;
       });

@@ -32,15 +32,16 @@ enum AiProvider {
 }
 
 class AiModel {
-  final String id;
   final String modelName;
   final AiProvider provider;
 
   const AiModel({
-    required this.id,
     required this.modelName,
     required this.provider,
   });
+
+  /// Stable ID derived from provider and model name
+  String get id => '${provider.name}:$modelName';
 
   /// Display name shown in UI (provider: model)
   String get displayName => '${provider.displayName}: $modelName';
@@ -51,28 +52,8 @@ class AiModel {
   /// API identifier sent to backend
   String get apiId => modelName;
 
-  factory AiModel.create({
-    required String modelName,
-    required AiProvider provider,
-  }) {
-    return AiModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      modelName: modelName,
-      provider: provider,
-    );
-  }
-
   factory AiModel.fromJson(Map<String, dynamic> json) {
-    // Handle legacy format (displayName + apiId)
-    if (json.containsKey('displayName') && !json.containsKey('modelName')) {
-      return AiModel(
-        id: json['id'] as String,
-        modelName: json['apiId'] as String? ?? json['displayName'] as String,
-        provider: AiProvider.chutes,
-      );
-    }
     return AiModel(
-      id: json['id'] as String,
       modelName: json['modelName'] as String,
       provider: AiProvider.values.firstWhere(
         (p) => p.name == json['provider'],
@@ -83,19 +64,16 @@ class AiModel {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
       'modelName': modelName,
       'provider': provider.name,
     };
   }
 
   AiModel copyWith({
-    String? id,
     String? modelName,
     AiProvider? provider,
   }) {
     return AiModel(
-      id: id ?? this.id,
       modelName: modelName ?? this.modelName,
       provider: provider ?? this.provider,
     );

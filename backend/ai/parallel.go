@@ -2,12 +2,15 @@ package ai
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 
 	"dimaist/logger"
 
 	"github.com/festeh/general"
 )
+
+var ErrConnectionClosed = errors.New("websocket connection closed")
 
 // ParallelResult stores the result from one model
 type ParallelResult struct {
@@ -19,7 +22,8 @@ type ParallelResult struct {
 }
 
 // HandleAI handles one AI turn - sends to all targets, streams responses, handles tools
-func HandleAI(s *Session) {
+// Returns error if session should end (connection closed or fatal error)
+func HandleAI(s *Session) error {
 	s.TurnID++
 	logger.Info("HandleAI starting").
 		Int("turn", s.TurnID).
@@ -30,7 +34,7 @@ func HandleAI(s *Session) {
 	// Load context
 	if err := s.WS.SendThinking("Loading task context...", 0); err != nil {
 		logger.Error("Failed to send thinking").Err(err).Send()
-		return
+		return err
 	}
 
 	contextStart := time.Now()
@@ -38,21 +42,21 @@ func HandleAI(s *Session) {
 	if err != nil {
 		logger.Error("Failed to load tasks").Err(err).Send()
 		s.WS.SendError("Failed to load tasks: " + err.Error())
-		return
+		return err
 	}
 
 	projects, err := LoadRecentProjects(100)
 	if err != nil {
 		logger.Error("Failed to load projects").Err(err).Send()
 		s.WS.SendError("Failed to load projects: " + err.Error())
-		return
+		return err
 	}
 
 	systemPrompt, err := BuildSystemPrompt(tasks, projects)
 	if err != nil {
 		logger.Error("Failed to build system prompt").Err(err).Send()
 		s.WS.SendError("Failed to build system prompt: " + err.Error())
-		return
+		return err
 	}
 	contextDuration := time.Since(contextStart).Seconds()
 
@@ -78,7 +82,7 @@ func HandleAI(s *Session) {
 
 	if err := s.WS.SendThinking("Querying AI models...", contextDuration); err != nil {
 		logger.Error("Failed to send thinking").Err(err).Send()
-		return
+		return err
 	}
 
 	// Send to all targets and stream responses
@@ -125,7 +129,7 @@ func HandleAI(s *Session) {
 			if msg == nil {
 				// Channel closed (connection error)
 				logger.Error("WS channel closed during model responses").Send()
-				return
+				return ErrConnectionClosed
 			}
 
 			logger.Info("User message during model responses").Str("type", string(msg.Type)).Send()
@@ -134,21 +138,21 @@ func HandleAI(s *Session) {
 			case WSMsgContinue:
 				// User wants to continue - handle immediately without waiting for all models
 				handleContinueDuringResponses(s, responsesByTarget, msg)
-				return
+				return nil
 
 			case WSMsgToolConfirm:
 				// User confirmed a tool - handle it
 				logger.Info("Tool confirm during responses").Str("target", msg.TargetID).Str("tool", msg.ToolCallID).Send()
 				s.SelectedModel = msg.TargetID
 				handleToolConfirm(s, responsesByTarget, messagesWithSystem, msg.TargetID, msg.ToolCallID, msg.Arguments)
-				return
+				return nil
 
 			case WSMsgSelectModel:
 				// User selected a model
 				logger.Info("Model selected during responses").Str("target", msg.TargetID).Send()
 				s.SelectedModel = msg.TargetID
 				handleModelSelection(s, responsesByTarget, msg.TargetID)
-				return
+				return nil
 
 			default:
 				logger.Warn("Unexpected message type during responses").Str("type", string(msg.Type)).Send()
@@ -156,7 +160,7 @@ func HandleAI(s *Session) {
 
 		case err := <-s.WS.ErrChan():
 			logger.Error("WS read error during model responses").Err(err).Send()
-			return
+			return ErrConnectionClosed
 		}
 	}
 
@@ -165,6 +169,7 @@ func HandleAI(s *Session) {
 
 	// Wait for user action (all models done, now use channel-based waiting)
 	handleUserAction(s, responsesByTarget, messagesWithSystem)
+	return nil
 }
 
 // handleContinueDuringResponses handles when user sends continue before all models finish
