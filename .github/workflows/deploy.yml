@@ -53,20 +53,36 @@ jobs:
         scp backend/systemd/${{ env.APP_NAME }}.service root@${{ secrets.HOST }}:/etc/systemd/system/
     
     - name: Deploy environment variables
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        CHUTES_ENDPOINT: https://llm.chutes.ai/v1/chat/completions
+        CHUTES_TOKEN: ${{ secrets.CHUTES_TOKEN }}
+        OPENROUTER_ENDPOINT: https://openrouter.ai/api/v1/chat/completions
+        OPENROUTER_TOKEN: ${{ secrets.OPENROUTER_TOKEN }}
+        GOOGLE_AI_TOKEN: ${{ secrets.GOOGLE_AI_TOKEN }}
+        GROQ_TOKEN: ${{ secrets.GROQ_TOKEN }}
       run: |
+        # Validate required secrets
+        missing=""
+        [ -z "$DATABASE_URL" ] && missing="$missing DATABASE_URL"
+        [ -z "$CHUTES_TOKEN" ] && missing="$missing CHUTES_TOKEN"
+        [ -z "$OPENROUTER_TOKEN" ] && missing="$missing OPENROUTER_TOKEN"
+        [ -z "$GOOGLE_AI_TOKEN" ] && missing="$missing GOOGLE_AI_TOKEN"
+        [ -z "$GROQ_TOKEN" ] && missing="$missing GROQ_TOKEN"
+        if [ -n "$missing" ]; then
+          echo "ERROR: Missing required secrets:$missing"
+          exit 1
+        fi
+
         cat > .env << EOF
-        ${{ secrets.ENV_FILE }}
+        DATABASE_URL=$DATABASE_URL
+        CHUTES_ENDPOINT=$CHUTES_ENDPOINT
+        CHUTES_TOKEN=$CHUTES_TOKEN
+        OPENROUTER_ENDPOINT=$OPENROUTER_ENDPOINT
+        OPENROUTER_TOKEN=$OPENROUTER_TOKEN
+        GOOGLE_AI_TOKEN=$GOOGLE_AI_TOKEN
+        GROQ_TOKEN=$GROQ_TOKEN
         EOF
-
-        # Validate required environment variables
-        REQUIRED_VARS="DATABASE_URL CHUTES_ENDPOINT CHUTES_TOKEN OPENROUTER_ENDPOINT OPENROUTER_TOKEN GOOGLE_AI_TOKEN GROQ_TOKEN"
-        for var in $REQUIRED_VARS; do
-          if ! grep -q "^${var}=" .env; then
-            echo "ERROR: Required environment variable $var is missing from ENV_FILE secret"
-            exit 1
-          fi
-        done
-
         scp .env root@${{ secrets.HOST }}:${{ env.DEPLOY_PATH }}/.env
         rm .env
     
