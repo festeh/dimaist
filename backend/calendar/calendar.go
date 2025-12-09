@@ -81,6 +81,37 @@ func DeleteEvent(eventID string) error {
 	return deleteEvent(eventID)
 }
 
+// findExistingEvent searches for an existing event with the same summary and time
+func findExistingEvent(srv *calendar.Service, summary string, start, end *calendar.EventDateTime) (*calendar.Event, error) {
+	var timeMin, timeMax string
+	if start.DateTime != "" {
+		timeMin = start.DateTime
+		timeMax = end.DateTime
+	} else {
+		// All-day event: search within the day
+		timeMin = start.Date + "T00:00:00Z"
+		timeMax = start.Date + "T23:59:59Z"
+	}
+
+	events, err := srv.Events.List("primary").
+		TimeMin(timeMin).
+		TimeMax(timeMax).
+		Q(summary).
+		SingleEvents(true).
+		Do()
+	if err != nil {
+		return nil, err
+	}
+
+	// Find exact match on summary
+	for _, e := range events.Items {
+		if e.Summary == summary {
+			return e, nil
+		}
+	}
+	return nil, nil
+}
+
 func createEvent(task *database.Task) error {
 	srv, err := getService()
 	if err != nil {
@@ -89,13 +120,28 @@ func createEvent(task *database.Task) error {
 	}
 
 	event := buildEvent(task)
+
+	// Check for existing event with same name and time
+	existing, err := findExistingEvent(srv, event.Summary, event.Start, event.End)
+	if err != nil {
+		logger.Warn("Failed to check for existing event, continuing with creation").Err(err).Send()
+		// Continue with creation - better to have a duplicate than fail
+	}
+
+	if existing != nil {
+		// Link to existing event instead of creating duplicate
+		database.DB.Model(&database.Task{}).Where("id = ?", task.ID).Update("google_event_id", existing.Id)
+		logger.Info("Linked to existing calendar event").Str("event_id", existing.Id).Uint("task_id", task.ID).Send()
+		return nil
+	}
+
+	// Create new event
 	created, err := srv.Events.Insert("primary", event).Do()
 	if err != nil {
 		logger.Error("Failed to create calendar event").Err(err).Uint("task_id", task.ID).Send()
 		return err
 	}
 
-	// Store the event ID on the task
 	database.DB.Model(&database.Task{}).Where("id = ?", task.ID).Update("google_event_id", created.Id)
 	logger.Info("Created calendar event").Str("event_id", created.Id).Uint("task_id", task.ID).Send()
 	return nil
