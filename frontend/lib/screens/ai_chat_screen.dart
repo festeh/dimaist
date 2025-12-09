@@ -444,7 +444,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         break;
 
       case WSMessageType.toolResult:
-        // Tool was executed - just log it, connection close handles cleanup
+        // Tool was executed - sync data immediately so task list updates
+        ref.read(taskProvider.notifier).syncData();
         break;
 
       case WSMessageType.finalResponse:
@@ -542,7 +543,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         break;
 
       case WSMessageType.toolResult:
-        // Duration already set at toolPending, nothing to do here
+        // Tool was executed - sync data immediately so task list updates
+        ref.read(taskProvider.notifier).syncData();
         break;
 
       case WSMessageType.finalResponse:
