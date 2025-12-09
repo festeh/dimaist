@@ -32,9 +32,9 @@ class ListOfStringConverter extends TypeConverter<List<String>?, String?> {
 
   @override
   List<String>? fromSql(String? fromDb) {
-    if (fromDb == null) return null;
+    if (fromDb == null || fromDb.isEmpty) return null;
 
-    return fromDb.split(',');
+    return fromDb.split(',').where((s) => s.isNotEmpty).toList();
   }
 
   @override

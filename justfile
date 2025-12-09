@@ -110,6 +110,13 @@ build-wear:
 build-linux:
     @just _run-with-env flutter build linux --release -t lib/main.dart
 
+# Build and install Linux app to ~/.local/share/dimaist
+install-linux:
+    @just build-linux
+    rm -rf ~/.local/share/dimaist
+    cp -r frontend/build/linux/x64/release/bundle ~/.local/share/dimaist
+    @echo "Installed to ~/.local/share/dimaist"
+
 # Build and install phone APK
 install-phone:
     @just build-phone
