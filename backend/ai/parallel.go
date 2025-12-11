@@ -475,7 +475,7 @@ func streamRequests(targets []TargetSpec, messages []ChatCompletionMessage) <-ch
 	cmd := general.NewCommandWithTimeout(generalTargets, nil, 2*time.Minute)
 	tools := GetToolDefinitions()
 	request := general.ChatCompletionRequest{
-		MaxTokens:   10000,
+		MaxTokens:   4000,
 		Temperature: 0.1,
 		Messages:    generalMsgs,
 		Tools:       tools,
