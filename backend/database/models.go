@@ -2,8 +2,10 @@ package database
 
 import (
 	"database/sql/driver"
-	"github.com/lib/pq"
+	"fmt"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 // TimeArray is a custom type for handling timestamp arrays
@@ -104,4 +106,35 @@ type Audio struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	Data      string    `gorm:"type:text;not null" json:"data"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// ValidateLabels returns error if labels contain empty strings
+func ValidateLabels(labels []string) error {
+	for _, label := range labels {
+		if label == "" {
+			return fmt.Errorf("labels cannot contain empty strings")
+		}
+	}
+	return nil
+}
+
+// CreateTask validates and creates a task with proper defaults
+func CreateTask(task *Task) error {
+	if err := ValidateLabels(task.Labels); err != nil {
+		return err
+	}
+
+	// Set order if not provided
+	if task.Order == 0 {
+		var maxOrder int
+		DB.Model(&Task{}).Select("COALESCE(MAX(\"order\"), 0)").Where("project_id = ? AND deleted_at IS NULL", task.ProjectID).Scan(&maxOrder)
+		task.Order = maxOrder + 1
+	}
+
+	// Ensure CreatedAt is set
+	if task.CreatedAt.IsZero() {
+		task.CreatedAt = time.Now()
+	}
+
+	return DB.Create(task).Error
 }

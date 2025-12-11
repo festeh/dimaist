@@ -22,14 +22,14 @@ class EditProjectDialog extends ConsumerStatefulWidget {
 class _EditProjectDialogState extends ConsumerState<EditProjectDialog> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-  String? _selectedColor;
+  late ProjectColor _selectedColor;
   String? _selectedIcon;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.project.name);
-    _selectedColor = normalizeColor(widget.project.color);
+    _selectedColor = ProjectColor.fromString(widget.project.color);
     _selectedIcon = widget.project.icon;
   }
 
@@ -59,7 +59,7 @@ class _EditProjectDialogState extends ConsumerState<EditProjectDialog> {
                 final updatedProject = Project(
                   id: widget.project.id,
                   name: _nameController.text,
-                  color: _selectedColor!,
+                  color: _selectedColor.displayName,
                   icon: _selectedIcon,
                   order: widget.project.order,
                 );

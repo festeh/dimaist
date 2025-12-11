@@ -415,18 +415,9 @@ func createTaskCRUDTool(args map[string]any) (string, error) {
 		return "", fmt.Errorf("invalid recurrence pattern: %w", err)
 	}
 
-	// Set order
-	var maxOrder int
-	orderResult := database.DB.Model(&database.Task{}).Select("COALESCE(MAX(\"order\"), 0)").Where("project_id = ? AND deleted_at IS NULL", task.ProjectID).Scan(&maxOrder)
-	if orderResult.Error != nil {
-		return "", fmt.Errorf("failed to get max order: %w", orderResult.Error)
-	}
-	task.Order = maxOrder + 1
-
 	// Create the task
-	result := database.DB.Create(&task)
-	if result.Error != nil {
-		return "", fmt.Errorf("failed to create task: %w", result.Error)
+	if err := database.CreateTask(&task); err != nil {
+		return "", fmt.Errorf("failed to create task: %w", err)
 	}
 
 	// Sync to Google Calendar if task has "calendar" label

@@ -158,16 +158,6 @@ func getTask(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(task)
 }
 
-// validateLabels returns error if labels contain empty strings
-func validateLabels(labels []string) error {
-	for _, label := range labels {
-		if label == "" {
-			return fmt.Errorf("labels cannot contain empty strings")
-		}
-	}
-	return nil
-}
-
 func createTask(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Creating new task").Send()
 
@@ -175,12 +165,6 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&t)
 	if err != nil {
 		logger.Error("Failed to decode task request").Err(err).Send()
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if err := validateLabels(t.Labels); err != nil {
-		logger.Error("Invalid labels").Err(err).Send()
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -198,17 +182,9 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set order if not provided
-	if t.Order == 0 {
-		var maxOrder int
-		database.DB.Model(&database.Task{}).Select("COALESCE(MAX(\"order\"), 0)").Where("project_id = ? AND deleted_at IS NULL", t.ProjectID).Scan(&maxOrder)
-		t.Order = maxOrder + 1
-	}
-
-	result := database.DB.Create(&t)
-	if result.Error != nil {
-		logger.Error("Failed to create task").Err(result.Error).Str("description", t.Description).Send()
-		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+	if err := database.CreateTask(&t); err != nil {
+		logger.Error("Failed to create task").Err(err).Str("description", t.Description).Send()
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -243,7 +219,7 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := validateLabels(t.Labels); err != nil {
+	if err := database.ValidateLabels(t.Labels); err != nil {
 		logger.Error("Invalid labels").Err(err).Send()
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

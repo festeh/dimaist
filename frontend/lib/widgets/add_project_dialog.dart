@@ -16,14 +16,8 @@ class AddProjectDialog extends ConsumerStatefulWidget {
 class AddProjectDialogState extends ConsumerState<AddProjectDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  String? _selectedColor;
+  ProjectColor _selectedColor = ProjectColor.grey;
   String? _selectedIcon;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedColor = colorMap.keys.first;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +44,7 @@ class AddProjectDialogState extends ConsumerState<AddProjectDialog> {
               try {
                 await ref.read(projectProvider.notifier).addProject(
                       _nameController.text,
-                      _selectedColor!,
+                      _selectedColor.displayName,
                       _selectedIcon,
                     );
                 navigator.pop();

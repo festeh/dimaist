@@ -9,9 +9,9 @@ import 'icon_picker_dialog.dart';
 class ProjectFormWidget extends StatelessWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController nameController;
-  final String? selectedColor;
+  final ProjectColor selectedColor;
   final String? selectedIcon;
-  final ValueChanged<String?> onColorChanged;
+  final ValueChanged<ProjectColor> onColorChanged;
   final ValueChanged<String?> onIconChanged;
 
   const ProjectFormWidget({
@@ -28,7 +28,7 @@ class ProjectFormWidget extends StatelessWidget {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => IconPickerDialog(
-        iconColor: getColor(selectedColor ?? 'Grey'),
+        iconColor: selectedColor.color,
         selectedIcon: selectedIcon,
       ),
     );
@@ -39,11 +39,10 @@ class ProjectFormWidget extends StatelessWidget {
   }
 
   Widget _buildIconPreview() {
-    final color = getColor(selectedColor ?? 'Grey');
     if (selectedIcon != null && selectedIcon!.isNotEmpty) {
       return PhosphorIcon(
         getIcon(selectedIcon),
-        color: color,
+        color: selectedColor.color,
         size: Sizes.iconMd,
       );
     }
@@ -51,7 +50,7 @@ class ProjectFormWidget extends StatelessWidget {
       width: Sizes.iconMd,
       height: Sizes.iconMd,
       decoration: BoxDecoration(
-        color: color,
+        color: selectedColor.color,
         shape: BoxShape.circle,
       ),
     );
@@ -78,21 +77,21 @@ class ProjectFormWidget extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
+                child: DropdownButtonFormField<ProjectColor>(
                   initialValue: selectedColor,
                   decoration: const InputDecoration(labelText: 'Color'),
-                  items: colorMap.keys.map((String colorName) {
-                    return DropdownMenuItem<String>(
-                      value: colorName,
+                  items: ProjectColor.values.map((color) {
+                    return DropdownMenuItem<ProjectColor>(
+                      value: color,
                       child: Row(
                         children: [
                           CircleAvatar(
-                            backgroundColor: colorMap[colorName],
+                            backgroundColor: color.color,
                             radius: 10,
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            colorName,
+                            color.displayName,
                             style: TextStyle(
                               color: Theme.of(context).colorScheme.onSurface,
                             ),
@@ -101,12 +100,8 @@ class ProjectFormWidget extends StatelessWidget {
                       ),
                     );
                   }).toList(),
-                  onChanged: onColorChanged,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please select a color';
-                    }
-                    return null;
+                  onChanged: (value) {
+                    if (value != null) onColorChanged(value);
                   },
                 ),
               ),
