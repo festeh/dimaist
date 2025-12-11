@@ -1,13 +1,10 @@
 package ai
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"dimaist/database"
-	"dimaist/logger"
 
 	"github.com/festeh/general"
 )
@@ -46,152 +43,6 @@ func NewAgent(apiKey, endpoint string, tools []Tool, model string) *Agent {
 		tools:  tools,
 		cmd:    general.NewCommand([]general.Target{target}, nil),
 	}
-}
-
-func (a *Agent) Execute(userInput string) (string, error) {
-	logger.Info("Starting AI agent execution").
-		Str("user_input", userInput).
-		Str("model", a.target.Model).
-		Send()
-
-	messages := []ChatCompletionMessage{
-		{
-			Role:    "user",
-			Content: userInput,
-		},
-	}
-
-	maxIterations := 10
-	for i := 0; i < maxIterations; i++ {
-		logger.Info("Agent iteration").Int("iteration", i+1).Send()
-
-		response, err := a.callModel(messages)
-		if err != nil {
-			logger.Error("Model call failed").Err(err).Send()
-			return "", fmt.Errorf("model call failed: %w", err)
-		}
-
-		logEvent := logger.Info("Model response received").
-			Str("content", response.Choices[0].Message.Content).
-			Int("tool_calls_count", len(response.Choices[0].Message.ToolCalls))
-		
-		if len(response.Choices[0].Message.ToolCalls) > 0 {
-			toolNames := make([]string, len(response.Choices[0].Message.ToolCalls))
-			for i, toolCall := range response.Choices[0].Message.ToolCalls {
-				toolNames[i] = toolCall.Function.Name
-			}
-			logEvent = logEvent.Strs("tool_calls", toolNames)
-		}
-		
-		logEvent.Send()
-
-		if !a.hasToolCalls(response) {
-			logger.Info("No tool call found, returning response").Send()
-			return response.Choices[0].Message.Content, nil
-		}
-
-		// Process tool calls
-		messages = append(messages, response.Choices[0].Message)
-
-		for _, toolCall := range response.Choices[0].Message.ToolCalls {
-			logger.Info("Tool call detected").
-				Str("tool", toolCall.Function.Name).
-				Str("arguments", toolCall.Function.Arguments).
-				Send()
-
-			// Check for respond tool (final response)
-			if toolCall.Function.Name == "respond" {
-				var args map[string]any
-				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err == nil {
-					if text, ok := args["text"].(string); ok {
-						return text, nil
-					}
-				}
-				return "Invalid response format", nil
-			}
-
-			toolResult, err := a.executeTool(toolCall)
-			if err != nil {
-				logger.Error("Tool execution failed").Str("tool", toolCall.Function.Name).Err(err).Send()
-				return "", fmt.Errorf("tool execution failed: %w", err)
-			}
-
-			// Add tool result to conversation
-			messages = append(messages, ChatCompletionMessage{
-				Role:       "tool",
-				Content:    toolResult,
-				ToolCallID: toolCall.ID,
-			})
-
-			logger.Info("Tool executed successfully").Str("tool", toolCall.Function.Name).Str("result", toolResult).Send()
-		}
-	}
-
-	return "", fmt.Errorf("maximum iterations reached without final response")
-}
-
-func (a *Agent) callModel(messages []ChatCompletionMessage) (*ChatCompletionResponse, error) {
-	return a.callModelWithTimeout(context.Background(), messages)
-}
-
-func (a *Agent) callModelWithTimeout(ctx context.Context, messages []ChatCompletionMessage) (*ChatCompletionResponse, error) {
-	// Convert local tools to general.Tool (without handlers)
-	generalTools := make([]general.Tool, len(a.tools))
-	for i, t := range a.tools {
-		generalTools[i] = t.Tool
-	}
-
-	request := ChatCompletionRequest{
-		Model:       a.target.Model,
-		MaxTokens:   10000,
-		Temperature: 0.1,
-		Messages:    messages,
-		Tools:       generalTools,
-		ToolChoice:  "auto",
-	}
-
-	// Debug: Log the request being sent
-	logger.Info("Sending request to LLM").
-		Str("endpoint", a.target.Provider.Endpoint).
-		Str("model", request.Model).
-		Int("tools_count", len(request.Tools)).
-		Send()
-
-	// Debug: Log full request (only visible with --verbose flag)
-	logger.Debug("AI request").Interface("request", request).Send()
-
-	// Use general.Command for the HTTP call with retry
-	resp, err := a.cmd.ExecuteOne(request)
-	if err != nil {
-		return nil, err
-	}
-
-	// Debug: Log full response (only visible with --verbose flag)
-	logger.Debug("AI response").Interface("response", resp).Send()
-
-	return &resp, nil
-}
-
-func (a *Agent) hasToolCalls(response *ChatCompletionResponse) bool {
-	if len(response.Choices) == 0 {
-		return false
-	}
-	return len(response.Choices[0].Message.ToolCalls) > 0
-}
-
-func (a *Agent) executeTool(toolCall ToolCall) (string, error) {
-	for _, tool := range a.tools {
-		if tool.Function.Name == toolCall.Function.Name {
-			// Parse arguments from JSON string
-			var args map[string]any
-			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
-				return "", fmt.Errorf("failed to parse tool arguments: %w", err)
-			}
-			return tool.Handler(args)
-		}
-	}
-
-	return "", fmt.Errorf("tool not found: %s", toolCall.Function.Name)
 }
 
 // executeToolWithArgs executes a tool with pre-parsed arguments

@@ -64,15 +64,6 @@ func (w *WSWriter) SendThinking(message string, duration float64) error {
 	})
 }
 
-// SendToolsPending sends multiple tools at once for batch confirmation
-func (w *WSWriter) SendToolsPending(tools []PendingToolCall, duration float64) error {
-	return w.write(WSMessage{
-		Type:      WSMsgToolsPending,
-		ToolCalls: tools,
-		Duration:  duration,
-	})
-}
-
 // SendToolResult sends a tool execution result
 func (w *WSWriter) SendToolResult(result string, duration float64) error {
 	return w.write(WSMessage{
