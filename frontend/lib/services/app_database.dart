@@ -130,7 +130,8 @@ class ListOfDateTimeConverter extends TypeConverter<List<DateTime>?, String?> {
 @UseRowClass(task_model.Task)
 class Tasks extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get description => text()();
+  TextColumn get title => text()();
+  TextColumn get description => text().nullable()();
   IntColumn get projectId => integer()();
   DateTimeColumn get dueDate => dateTime().nullable()();
   DateTimeColumn get dueDatetime => dateTime().nullable()();
@@ -158,7 +159,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -182,6 +183,11 @@ class AppDatabase extends _$AppDatabase {
       if (from < 7) {
         // Migration to 7: Add createdAt column to tasks
         await m.addColumn(tasks, tasks.createdAt);
+      }
+      if (from < 8) {
+        // Migration to 8: Rename description to title, add description
+        await m.renameColumn(tasks, 'description', tasks.title);
+        await m.addColumn(tasks, tasks.description);
       }
     },
   );
@@ -323,6 +329,7 @@ class AppDatabase extends _$AppDatabase {
 
     return TasksCompanion(
       id: task.id != null ? Value(task.id!) : const Value.absent(),
+      title: Value(task.title),
       description: Value(task.description),
       projectId: Value(task.projectId),
       dueDate: Value(dueDate),

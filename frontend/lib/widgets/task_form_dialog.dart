@@ -38,6 +38,7 @@ class TaskFormDialog extends ConsumerStatefulWidget {
 
 class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
   final _formKey = GlobalKey<FormState>();
+  late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   String? _recurrence;
   List<String> _selectedLabels = [];
@@ -64,6 +65,9 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
   void initState() {
     super.initState();
     final task = widget.task;
+    _titleController = TextEditingController(
+      text: task?.title ?? '',
+    );
     _descriptionController = TextEditingController(
       text: task?.description ?? '',
     );
@@ -159,13 +163,33 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
               const SizedBox(height: Spacing.sm),
               TextFormField(
                 autofocus: true,
-                controller: _descriptionController,
+                controller: _titleController,
+                minLines: 1,
+                maxLines: 3,
+                textInputAction: TextInputAction.newline,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a title';
                   }
                   return null;
                 },
+              ),
+
+              const SizedBox(height: Spacing.lg),
+
+              // Description
+              Text(
+                'Description',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: Spacing.sm),
+              TextFormField(
+                controller: _descriptionController,
+                minLines: 1,
+                maxLines: 5,
+                textInputAction: TextInputAction.newline,
               ),
 
               const SizedBox(height: Spacing.lg),
@@ -713,9 +737,11 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
           }
         }
 
+        final descriptionText = _descriptionController.text.trim();
         final task = Task(
           id: widget.task?.id,
-          description: _descriptionController.text,
+          title: _titleController.text,
+          description: descriptionText.isEmpty ? null : descriptionText,
           projectId: _selectedProjectId!,
           dueDate: dueDate,
           dueDatetime: dueDatetime,

@@ -56,7 +56,7 @@ class CompletedTaskWidget extends StatelessWidget {
                     // Title with strikethrough
                     Expanded(
                       child: Text(
-                        task.description,
+                        task.title,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           decoration: TextDecoration.lineThrough,
                           color: colors.onSurfaceVariant,

@@ -22,7 +22,8 @@ func (t timeMinutes) MarshalJSON() ([]byte, error) {
 // Slim DTOs for AI context (excludes created_at/updated_at/order to reduce token usage)
 type taskForAI struct {
 	ID          uint               `json:"id"`
-	Description string             `json:"description"`
+	Title       string             `json:"title"`
+	Description *string            `json:"description,omitempty"`
 	ProjectID   *uint              `json:"project_id,omitempty"`
 	DueDate     *timeMinutes       `json:"due_date,omitempty"`
 	DueDatetime *timeMinutes       `json:"due_datetime,omitempty"`
@@ -102,6 +103,7 @@ func BuildSystemPrompt(tasks []database.Task, projects []database.Project, curre
 	for i, t := range tasks {
 		slimTasks[i] = taskForAI{
 			ID:          t.ID,
+			Title:       t.Title,
 			Description: t.Description,
 			ProjectID:   t.ProjectID,
 			DueDate:     toTimeMinutes(t.DueDate),

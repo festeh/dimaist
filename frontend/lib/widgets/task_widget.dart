@@ -89,7 +89,7 @@ class TaskWidget extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            task.description,
+                            task.title,
                             style: theme.textTheme.bodyLarge,
                           ),
                         ),

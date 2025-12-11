@@ -3,7 +3,8 @@ import 'package:dimaist/services/logging_service.dart';
 
 class Task {
   final int? id;
-  final String description;
+  final String title;
+  final String? description;
   final int projectId;
   final DateTime? _dueDate;      // Private - use due/hasTime getters
   final DateTime? _dueDatetime;  // Private - use due/hasTime getters
@@ -18,7 +19,8 @@ class Task {
 
   Task({
     this.id,
-    required this.description,
+    required this.title,
+    this.description,
     required this.projectId,
     DateTime? dueDate,
     DateTime? dueDatetime,
@@ -113,6 +115,7 @@ class Task {
     try {
       return Task(
         id: json['id'],
+        title: json['title'],
         description: json['description'],
         projectId: json['project_id'],
         dueDate: _parseDate(json['due_date']),
@@ -134,7 +137,7 @@ class Task {
       );
     } catch (e) {
       LoggingService.logger.severe(
-        'Task.fromJson: Error processing task JSON (id: ${json['id']}, description: "${json['description']}"): $e. Raw JSON: $json',
+        'Task.fromJson: Error processing task JSON (id: ${json['id']}, title: "${json['title']}"): $e. Raw JSON: $json',
       );
       rethrow;
     }
@@ -143,6 +146,7 @@ class Task {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'title': title,
       'description': description,
       'project_id': projectId,
       'due_date': _dueDate?.toUtc().toIso8601String(),
@@ -160,7 +164,8 @@ class Task {
 
   Task copyWith({
     int? id,
-    String? description,
+    String? title,
+    ValueWrapper<String?>? description,
     int? projectId,
     ValueWrapper<DateTime?>? due,  // Unified due parameter
     bool? hasTime,                  // Whether due has specific time
@@ -194,7 +199,8 @@ class Task {
 
     return Task(
       id: id ?? this.id,
-      description: description ?? this.description,
+      title: title ?? this.title,
+      description: description != null ? description.value : this.description,
       projectId: projectId ?? this.projectId,
       dueDate: newDueDate,
       dueDatetime: newDueDatetime,

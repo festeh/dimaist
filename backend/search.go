@@ -36,8 +36,8 @@ func findItems(w http.ResponseWriter, r *http.Request) {
 	// Search tasks
 	var tasks []database.Task
 	taskResult := database.DB.Preload("Project").
-		Where("LOWER(description) LIKE LOWER(?) OR array_to_string(labels, ',') ILIKE ?",
-			"%"+query+"%", "%"+query+"%").
+		Where("LOWER(title) LIKE LOWER(?) OR LOWER(COALESCE(description, '')) LIKE LOWER(?) OR array_to_string(labels, ',') ILIKE ?",
+			"%"+query+"%", "%"+query+"%", "%"+query+"%").
 		Find(&tasks)
 
 	if taskResult.Error != nil {
@@ -54,7 +54,7 @@ func findItems(w http.ResponseWriter, r *http.Request) {
 		results = append(results, SearchResult{
 			Type:     "task",
 			ID:       task.ID,
-			Title:    task.Description,
+			Title:    task.Title,
 			Subtitle: subtitle,
 		})
 	}

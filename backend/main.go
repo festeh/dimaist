@@ -183,12 +183,12 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := database.CreateTask(&t); err != nil {
-		logger.Error("Failed to create task").Err(err).Str("description", t.Description).Send()
+		logger.Error("Failed to create task").Err(err).Str("title", t.Title).Send()
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	logger.Info("Successfully created task").Uint("task_id", t.ID).Str("description", t.Description).Send()
+	logger.Info("Successfully created task").Uint("task_id", t.ID).Str("title", t.Title).Send()
 
 	// Sync to calendar synchronously
 	var calendarWarning string

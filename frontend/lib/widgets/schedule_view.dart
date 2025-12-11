@@ -364,7 +364,7 @@ class _ScheduleViewState extends State<ScheduleView> {
             ),
           ),
           child: Text(
-            task.description,
+            task.title,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -402,7 +402,7 @@ class _ScheduleViewState extends State<ScheduleView> {
             const SizedBox(width: 4),
             Flexible(
               child: Text(
-                task.description,
+                task.title,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -485,7 +485,7 @@ class _ScheduleViewState extends State<ScheduleView> {
               const SizedBox(width: 2),
               Flexible(
                 child: Text(
-                  task.description,
+                  task.title,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
@@ -556,7 +556,7 @@ class _ScheduleViewState extends State<ScheduleView> {
             ),
           ),
           child: Text(
-            task.description,
+            task.title,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -592,7 +592,7 @@ class _ScheduleViewState extends State<ScheduleView> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                task.description,
+                task.title,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
@@ -643,7 +643,7 @@ class _ScheduleViewState extends State<ScheduleView> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                task.description,
+                task.title,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,

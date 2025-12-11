@@ -71,7 +71,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
 
     final buffer = StringBuffer();
     final now = DateTime.now();
-    buffer.writeln('Information: Today is ${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}\n');
+    const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final weekday = weekdays[now.weekday - 1];
+    buffer.writeln('Information: Today is $weekday, ${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}\n');
     buffer.writeln('=== PROJECTS AND TASKS ===\n');
 
     // Build project name lookup
@@ -103,7 +105,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
 
       buffer.writeln('PROJECT: ${project.name}');
       for (final task in projectTasks) {
-        buffer.writeln('  ○ ${task.description}');
+        buffer.writeln('  ○ ${task.title}');
         if (task.createdAt != null) {
           final d = task.createdAt!.toLocal();
           buffer.writeln('    Created: ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}');
@@ -124,7 +126,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       buffer.writeln('=== COMPLETED (last 30 days) ===\n');
       for (final item in allCompletedTasks) {
         final projectName = projectMap[item.projectId] ?? 'Unknown';
-        buffer.writeln('  ✓ ${item.task.description}');
+        buffer.writeln('  ✓ ${item.task.title}');
         buffer.writeln('    Project: $projectName');
         if (item.task.createdAt != null) {
           final d = item.task.createdAt!.toLocal();

@@ -89,9 +89,13 @@ func CreateCRUDTools() []Tool {
 					Parameters: general.ToolParameters{
 						Type: "object",
 						Properties: map[string]general.ToolParameterProperty{
+							"title": {
+								Type:        "string",
+								Description: "Task title",
+							},
 							"description": {
 								Type:        "string",
-								Description: "Task description",
+								Description: "Optional task description/notes",
 							},
 							"project_id": {
 								Type:        "number",
@@ -126,7 +130,7 @@ func CreateCRUDTools() []Tool {
 								Description: "Recurrence pattern",
 							},
 						},
-						Required: []string{"description"},
+						Required: []string{"title"},
 					},
 				},
 			},
@@ -145,9 +149,13 @@ func CreateCRUDTools() []Tool {
 								Type:        "number",
 								Description: "ID of the task to update",
 							},
+							"title": {
+								Type:        "string",
+								Description: "New task title",
+							},
 							"description": {
 								Type:        "string",
-								Description: "New task description",
+								Description: "New task description/notes",
 							},
 							"project_id": {
 								Type:        "number",
@@ -316,13 +324,18 @@ func respondTool(args map[string]any) (string, error) {
 
 // Task CRUD Tools
 func createTaskCRUDTool(args map[string]any) (string, error) {
-	description, ok := args["description"].(string)
+	title, ok := args["title"].(string)
 	if !ok {
-		return "", fmt.Errorf("description is required")
+		return "", fmt.Errorf("title is required")
 	}
 
 	task := database.Task{
-		Description: description,
+		Title: title,
+	}
+
+	// Optional description
+	if description, ok := args["description"].(string); ok {
+		task.Description = &description
 	}
 
 	// Optional project ID - if not provided, assign to Inbox
@@ -425,7 +438,7 @@ func createTaskCRUDTool(args map[string]any) (string, error) {
 		return fmt.Sprintf("Task created with ID %d but calendar sync failed: %s", task.ID, err.Error()), nil
 	}
 
-	return fmt.Sprintf("Task created successfully with ID %d: %s", task.ID, task.Description), nil
+	return fmt.Sprintf("Task created successfully with ID %d: %s", task.ID, task.Title), nil
 }
 
 func updateTaskCRUDTool(args map[string]any) (string, error) {
@@ -443,6 +456,10 @@ func updateTaskCRUDTool(args map[string]any) (string, error) {
 
 	// Update fields if provided
 	updates := make(map[string]any)
+
+	if title, ok := args["title"].(string); ok {
+		updates["title"] = title
+	}
 
 	if description, ok := args["description"].(string); ok {
 		updates["description"] = description

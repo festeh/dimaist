@@ -247,6 +247,15 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _descriptionMeta = const VerificationMeta(
     'description',
   );
@@ -254,9 +263,9 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
   late final GeneratedColumn<String> description = GeneratedColumn<String>(
     'description',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _projectIdMeta = const VerificationMeta(
     'projectId',
@@ -377,6 +386,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    title,
     description,
     projectId,
     dueDate,
@@ -405,6 +415,14 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
     if (data.containsKey('description')) {
       context.handle(
         _descriptionMeta,
@@ -413,8 +431,6 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
           _descriptionMeta,
         ),
       );
-    } else if (isInserting) {
-      context.missing(_descriptionMeta);
     }
     if (data.containsKey('project_id')) {
       context.handle(
@@ -499,10 +515,14 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
       description: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}description'],
-      )!,
+      ),
       projectId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}project_id'],
@@ -567,7 +587,8 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
 
 class TasksCompanion extends UpdateCompanion<task_model.Task> {
   final Value<int> id;
-  final Value<String> description;
+  final Value<String> title;
+  final Value<String?> description;
   final Value<int> projectId;
   final Value<DateTime?> dueDate;
   final Value<DateTime?> dueDatetime;
@@ -581,6 +602,7 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
   final Value<DateTime?> createdAt;
   const TasksCompanion({
     this.id = const Value.absent(),
+    this.title = const Value.absent(),
     this.description = const Value.absent(),
     this.projectId = const Value.absent(),
     this.dueDate = const Value.absent(),
@@ -596,7 +618,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
   });
   TasksCompanion.insert({
     this.id = const Value.absent(),
-    required String description,
+    required String title,
+    this.description = const Value.absent(),
     required int projectId,
     this.dueDate = const Value.absent(),
     this.dueDatetime = const Value.absent(),
@@ -608,11 +631,12 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     this.reminders = const Value.absent(),
     this.recurrence = const Value.absent(),
     this.createdAt = const Value.absent(),
-  }) : description = Value(description),
+  }) : title = Value(title),
        projectId = Value(projectId),
        order = Value(order);
   static Insertable<task_model.Task> custom({
     Expression<int>? id,
+    Expression<String>? title,
     Expression<String>? description,
     Expression<int>? projectId,
     Expression<DateTime>? dueDate,
@@ -628,6 +652,7 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (title != null) 'title': title,
       if (description != null) 'description': description,
       if (projectId != null) 'project_id': projectId,
       if (dueDate != null) 'due_date': dueDate,
@@ -645,7 +670,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
 
   TasksCompanion copyWith({
     Value<int>? id,
-    Value<String>? description,
+    Value<String>? title,
+    Value<String?>? description,
     Value<int>? projectId,
     Value<DateTime?>? dueDate,
     Value<DateTime?>? dueDatetime,
@@ -660,6 +686,7 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
   }) {
     return TasksCompanion(
       id: id ?? this.id,
+      title: title ?? this.title,
       description: description ?? this.description,
       projectId: projectId ?? this.projectId,
       dueDate: dueDate ?? this.dueDate,
@@ -680,6 +707,9 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
     }
     if (description.present) {
       map['description'] = Variable<String>(description.value);
@@ -728,6 +758,7 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
   String toString() {
     return (StringBuffer('TasksCompanion(')
           ..write('id: $id, ')
+          ..write('title: $title, ')
           ..write('description: $description, ')
           ..write('projectId: $projectId, ')
           ..write('dueDate: $dueDate, ')
@@ -958,7 +989,8 @@ typedef $$ProjectsTableProcessedTableManager =
 typedef $$TasksTableCreateCompanionBuilder =
     TasksCompanion Function({
       Value<int> id,
-      required String description,
+      required String title,
+      Value<String?> description,
       required int projectId,
       Value<DateTime?> dueDate,
       Value<DateTime?> dueDatetime,
@@ -974,7 +1006,8 @@ typedef $$TasksTableCreateCompanionBuilder =
 typedef $$TasksTableUpdateCompanionBuilder =
     TasksCompanion Function({
       Value<int> id,
-      Value<String> description,
+      Value<String> title,
+      Value<String?> description,
       Value<int> projectId,
       Value<DateTime?> dueDate,
       Value<DateTime?> dueDatetime,
@@ -998,6 +1031,11 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
   });
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1078,6 +1116,11 @@ class $$TasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get description => $composableBuilder(
     column: $table.description,
     builder: (column) => ColumnOrderings(column),
@@ -1150,6 +1193,9 @@ class $$TasksTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
 
   GeneratedColumn<String> get description => $composableBuilder(
     column: $table.description,
@@ -1232,7 +1278,8 @@ class $$TasksTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
-                Value<String> description = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String?> description = const Value.absent(),
                 Value<int> projectId = const Value.absent(),
                 Value<DateTime?> dueDate = const Value.absent(),
                 Value<DateTime?> dueDatetime = const Value.absent(),
@@ -1246,6 +1293,7 @@ class $$TasksTableTableManager
                 Value<DateTime?> createdAt = const Value.absent(),
               }) => TasksCompanion(
                 id: id,
+                title: title,
                 description: description,
                 projectId: projectId,
                 dueDate: dueDate,
@@ -1262,7 +1310,8 @@ class $$TasksTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
-                required String description,
+                required String title,
+                Value<String?> description = const Value.absent(),
                 required int projectId,
                 Value<DateTime?> dueDate = const Value.absent(),
                 Value<DateTime?> dueDatetime = const Value.absent(),
@@ -1276,6 +1325,7 @@ class $$TasksTableTableManager
                 Value<DateTime?> createdAt = const Value.absent(),
               }) => TasksCompanion.insert(
                 id: id,
+                title: title,
                 description: description,
                 projectId: projectId,
                 dueDate: dueDate,

@@ -43,7 +43,8 @@ func (ta *TimeArray) Scan(value any) error {
 
 type Task struct {
 	ID            uint           `gorm:"primaryKey" json:"id"`
-	Description   string         `gorm:"not null" json:"description"`
+	Title         string         `gorm:"column:title;not null" json:"title"`
+	Description   *string        `json:"description,omitempty"`
 	ProjectID     *uint          `gorm:"index" json:"project_id,omitempty"`
 	Project       *Project       `gorm:"foreignKey:ProjectID" json:"project,omitempty"`
 	DueDate       *time.Time     `json:"due_date,omitempty"`

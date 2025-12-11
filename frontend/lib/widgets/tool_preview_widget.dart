@@ -257,7 +257,12 @@ class _ToolPreviewWidgetState extends State<ToolPreviewWidget> {
         projects: widget.projects,
         onSave: (updatedTask) async {
           setState(() {
-            _editedArguments['description'] = updatedTask.description;
+            _editedArguments['title'] = updatedTask.title;
+            if (updatedTask.description != null && updatedTask.description!.isNotEmpty) {
+              _editedArguments['description'] = updatedTask.description;
+            } else {
+              _editedArguments.remove('description');
+            }
             _editedArguments['project_id'] = updatedTask.projectId;
 
             // Handle due date using unified getter
