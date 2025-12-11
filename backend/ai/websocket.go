@@ -36,7 +36,8 @@ type Session struct {
 	Targets          []TargetSpec
 	SelectedModel    string // "provider:model" format, empty = not yet selected
 	IncludeCompleted bool
-	TurnID           int // Increments each turn, used to filter stale responses
+	CurrentProjectID *uint  // Project user is currently viewing (nil = Inbox/all tasks)
+	TurnID           int    // Increments each turn, used to filter stale responses
 }
 
 // WSMessage represents a WebSocket message for AI chat
@@ -47,6 +48,7 @@ type WSMessage struct {
 	Messages         []ChatCompletionMessage `json:"messages,omitempty"`
 	Targets          []TargetSpec            `json:"targets,omitempty"`
 	IncludeCompleted bool                    `json:"include_completed,omitempty"`
+	CurrentProjectID *uint                   `json:"current_project_id,omitempty"`
 
 	// Target identification
 	TargetID string `json:"target_id,omitempty"`
@@ -128,6 +130,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		Messages:         startMsg.Messages,
 		Targets:          startMsg.Targets,
 		IncludeCompleted: startMsg.IncludeCompleted,
+		CurrentProjectID: startMsg.CurrentProjectID,
 	}
 
 	// Main conversation loop

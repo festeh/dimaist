@@ -65,8 +65,9 @@ class ChatMessage {
 class AiChatScreen extends ConsumerStatefulWidget {
   final List<int>? initialAudioBytes;
   final String? initialMessage;
+  final int? currentProjectId;
 
-  const AiChatScreen({super.key, this.initialAudioBytes, this.initialMessage});
+  const AiChatScreen({super.key, this.initialAudioBytes, this.initialMessage, this.currentProjectId});
 
   @override
   ConsumerState<AiChatScreen> createState() => _AiChatScreenState();
@@ -347,6 +348,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           message: message,
           targets: targets,
           includeCompleted: includeCompleted,
+          currentProjectId: widget.currentProjectId,
         );
         _conversationStarted = true;
       } else {

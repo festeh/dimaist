@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../providers/task_provider.dart';
@@ -10,6 +11,7 @@ import '../providers/parallel_ai_provider.dart';
 import '../providers/asr_language_provider.dart';
 import '../providers/include_completed_provider.dart';
 import '../services/logging_service.dart';
+import '../services/app_database.dart';
 import '../config/design_tokens.dart';
 import 'model_list_dialog.dart';
 import 'model_display.dart';
@@ -59,6 +61,83 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         });
       }
     }
+  }
+
+  Future<void> _copyDataToClipboard() async {
+    final projects = ref.read(projectProvider).valueOrNull ?? [];
+    final includeCompleted = ref.read(includeCompletedInAiProvider);
+    final db = AppDatabase();
+    final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
+
+    final buffer = StringBuffer();
+    final now = DateTime.now();
+    buffer.writeln('Information: Today is ${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}\n');
+    buffer.writeln('=== PROJECTS AND TASKS ===\n');
+
+    // Build project name lookup
+    final projectMap = {for (final p in projects) p.id: p.name};
+
+    // Collect all tasks
+    final allIncompleteTasks = <({int projectId, dynamic task})>[];
+    final allCompletedTasks = <({int projectId, dynamic task})>[];
+
+    for (final project in projects) {
+      final tasks = await db.getTasksByProject(project.id!);
+      for (final task in tasks) {
+        if (task.completedAt == null) {
+          allIncompleteTasks.add((projectId: project.id!, task: task));
+        } else if (includeCompleted && task.completedAt!.isAfter(thirtyDaysAgo)) {
+          allCompletedTasks.add((projectId: project.id!, task: task));
+        }
+      }
+    }
+
+    // Write incomplete tasks by project
+    for (final project in projects) {
+      final projectTasks = allIncompleteTasks
+          .where((t) => t.projectId == project.id)
+          .map((t) => t.task)
+          .toList();
+
+      if (projectTasks.isEmpty) continue;
+
+      buffer.writeln('PROJECT: ${project.name}');
+      for (final task in projectTasks) {
+        buffer.writeln('  ○ ${task.description}');
+        if (task.createdAt != null) {
+          final d = task.createdAt!.toLocal();
+          buffer.writeln('    Created: ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}');
+        }
+        if (task.due != null) {
+          final d = task.due!.toLocal();
+          buffer.writeln('    Due: ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}');
+        }
+        if (task.labels.isNotEmpty) {
+          buffer.writeln('    Labels: ${task.labels.join(', ')}');
+        }
+      }
+      buffer.writeln();
+    }
+
+    // Write completed tasks (last 30 days) if enabled
+    if (includeCompleted && allCompletedTasks.isNotEmpty) {
+      buffer.writeln('=== COMPLETED (last 30 days) ===\n');
+      for (final item in allCompletedTasks) {
+        final projectName = projectMap[item.projectId] ?? 'Unknown';
+        buffer.writeln('  ✓ ${item.task.description}');
+        buffer.writeln('    Project: $projectName');
+        if (item.task.createdAt != null) {
+          final d = item.task.createdAt!.toLocal();
+          buffer.writeln('    Created: ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}');
+        }
+        if (item.task.completedAt != null) {
+          final d = item.task.completedAt!.toLocal();
+          buffer.writeln('    Completed: ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}');
+        }
+      }
+    }
+
+    await Clipboard.setData(ClipboardData(text: buffer.toString()));
   }
 
   void _openModelManager() {
@@ -284,6 +363,29 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                       )
                     : PhosphorIcon(PhosphorIcons.arrowsClockwise(), size: Sizes.iconSm),
                 label: Text(_isSyncing ? 'Syncing...' : 'Sync Now'),
+              ),
+            ),
+
+            const SizedBox(height: Spacing.sm),
+
+            // Copy data button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  await _copyDataToClipboard();
+                  if (mounted) {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Data copied to clipboard'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                icon: PhosphorIcon(PhosphorIcons.copy(), size: Sizes.iconSm),
+                label: const Text('Copy All Data'),
               ),
             ),
           ],

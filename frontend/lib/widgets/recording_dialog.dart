@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:record/record.dart';
 import '../screens/ai_chat_screen.dart';
+import '../providers/view_provider.dart';
 
 class RecordingDialog extends ConsumerStatefulWidget {
   final Function(List<int>)? onAudioRecorded;
@@ -98,10 +99,14 @@ class _RecordingDialogState extends ConsumerState<RecordingDialog>
         // Use callback if provided (for in-chat recording)
         widget.onAudioRecorded!(bytes);
       } else {
-        // Navigate to new chat screen (for recording from elsewhere)
+        // Navigate to new chat screen with current project context
+        final currentProjectId = ref.read(viewProvider).currentProject?.id;
         navigator.push(
           MaterialPageRoute(
-            builder: (context) => AiChatScreen(initialAudioBytes: bytes),
+            builder: (context) => AiChatScreen(
+              initialAudioBytes: bytes,
+              currentProjectId: currentProjectId,
+            ),
           ),
         );
       }

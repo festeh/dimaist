@@ -96,7 +96,7 @@ func toTimeMinutes(t *time.Time) *timeMinutes {
 	return &tm
 }
 
-func BuildSystemPrompt(tasks []database.Task, projects []database.Project) (string, error) {
+func BuildSystemPrompt(tasks []database.Task, projects []database.Project, currentProjectID *uint) (string, error) {
 	// Convert to slim DTOs to reduce token usage
 	slimTasks := make([]taskForAI, len(tasks))
 	for i, t := range tasks {
@@ -131,6 +131,18 @@ func BuildSystemPrompt(tasks []database.Task, projects []database.Project) (stri
 		return "", fmt.Errorf("failed to marshal projects: %w", err)
 	}
 
+	// Build current project context rule if applicable
+	var currentProjectRule string
+	if currentProjectID != nil {
+		// Find project name and check if it's not Inbox
+		for _, p := range projects {
+			if p.ID == *currentProjectID && p.Name != "Inbox" {
+				currentProjectRule = fmt.Sprintf("\n8. User is currently viewing project: %s (ID: %d). When creating or editing tasks, use this project unless user specifies otherwise.", p.Name, p.ID)
+				break
+			}
+		}
+	}
+
 	tz, _ := time.Now().Zone()
 	return fmt.Sprintf(`You are a task management assistant for "Dimaist".
 
@@ -141,7 +153,7 @@ RULES:
 4. Only complete tasks when user explicitly says they finished something
 5. To sync a task to Google Calendar, add label "calendar"
 6. All datetimes are in %s timezone
-7. When making tool calls, do NOT include any text output - only use tool calls
+7. When making tool calls, do NOT include any text output - only use tool calls%s
 
 Current time: %s
 
@@ -149,7 +161,7 @@ Tasks: %s
 
 Projects: %s
 `,
-		tz, time.Now().Format("2006-01-02T15:04"), tasksJSON, projectsJSON), nil
+		tz, currentProjectRule, time.Now().Format("2006-01-02T15:04"), tasksJSON, projectsJSON), nil
 }
 
 func createAIAgent(provider, model string) *Agent {

@@ -14,6 +14,7 @@ class Task {
   final DateTime? completedAt;
   final List<DateTime>? _reminders;
   final String? recurrence;
+  final DateTime? createdAt;
 
   Task({
     this.id,
@@ -28,6 +29,7 @@ class Task {
     this.completedAt,
     List<DateTime>? reminders,
     this.recurrence,
+    this.createdAt,
   }) : _dueDate = dueDate,
        _dueDatetime = dueDatetime,
        _labels = labels,
@@ -128,6 +130,7 @@ class Task {
                   .toList()
             : [],
         recurrence: json['recurrence'],
+        createdAt: _parseDate(json['created_at']),
       );
     } catch (e) {
       LoggingService.logger.severe(
@@ -151,6 +154,7 @@ class Task {
       'completed_at': completedAt?.toUtc().toIso8601String(),
       'reminders': reminders.map((e) => e.toUtc().toIso8601String()).toList(),
       'recurrence': recurrence?.trim(),
+      'created_at': createdAt?.toIso8601String(),
     };
   }
 
@@ -167,6 +171,7 @@ class Task {
     ValueWrapper<DateTime?>? completedAt,
     List<DateTime>? reminders,
     String? recurrence,
+    DateTime? createdAt,
   }) {
     // Determine new due date/datetime values
     DateTime? newDueDate;
@@ -202,6 +207,7 @@ class Task {
       completedAt: completedAt != null ? completedAt.value : this.completedAt,
       reminders: reminders ?? this.reminders,
       recurrence: recurrence ?? this.recurrence,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }

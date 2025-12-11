@@ -363,6 +363,17 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -377,6 +388,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
     completedAt,
     reminders,
     recurrence,
+    createdAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -468,6 +480,12 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
         recurrence.isAcceptableOrUnknown(data['recurrence']!, _recurrenceMeta),
       );
     }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
     return context;
   }
 
@@ -529,6 +547,10 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
         DriftSqlType.string,
         data['${effectivePrefix}recurrence'],
       ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      ),
     );
   }
 
@@ -556,6 +578,7 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
   final Value<DateTime?> completedAt;
   final Value<List<DateTime>?> reminders;
   final Value<String?> recurrence;
+  final Value<DateTime?> createdAt;
   const TasksCompanion({
     this.id = const Value.absent(),
     this.description = const Value.absent(),
@@ -569,6 +592,7 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     this.completedAt = const Value.absent(),
     this.reminders = const Value.absent(),
     this.recurrence = const Value.absent(),
+    this.createdAt = const Value.absent(),
   });
   TasksCompanion.insert({
     this.id = const Value.absent(),
@@ -583,6 +607,7 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     this.completedAt = const Value.absent(),
     this.reminders = const Value.absent(),
     this.recurrence = const Value.absent(),
+    this.createdAt = const Value.absent(),
   }) : description = Value(description),
        projectId = Value(projectId),
        order = Value(order);
@@ -599,6 +624,7 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     Expression<DateTime>? completedAt,
     Expression<String>? reminders,
     Expression<String>? recurrence,
+    Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -613,6 +639,7 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
       if (completedAt != null) 'completed_at': completedAt,
       if (reminders != null) 'reminders': reminders,
       if (recurrence != null) 'recurrence': recurrence,
+      if (createdAt != null) 'created_at': createdAt,
     });
   }
 
@@ -629,6 +656,7 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     Value<DateTime?>? completedAt,
     Value<List<DateTime>?>? reminders,
     Value<String?>? recurrence,
+    Value<DateTime?>? createdAt,
   }) {
     return TasksCompanion(
       id: id ?? this.id,
@@ -643,6 +671,7 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
       completedAt: completedAt ?? this.completedAt,
       reminders: reminders ?? this.reminders,
       recurrence: recurrence ?? this.recurrence,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 
@@ -689,6 +718,9 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     if (recurrence.present) {
       map['recurrence'] = Variable<String>(recurrence.value);
     }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
     return map;
   }
 
@@ -706,7 +738,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
           ..write('order: $order, ')
           ..write('completedAt: $completedAt, ')
           ..write('reminders: $reminders, ')
-          ..write('recurrence: $recurrence')
+          ..write('recurrence: $recurrence, ')
+          ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
@@ -936,6 +969,7 @@ typedef $$TasksTableCreateCompanionBuilder =
       Value<DateTime?> completedAt,
       Value<List<DateTime>?> reminders,
       Value<String?> recurrence,
+      Value<DateTime?> createdAt,
     });
 typedef $$TasksTableUpdateCompanionBuilder =
     TasksCompanion Function({
@@ -951,6 +985,7 @@ typedef $$TasksTableUpdateCompanionBuilder =
       Value<DateTime?> completedAt,
       Value<List<DateTime>?> reminders,
       Value<String?> recurrence,
+      Value<DateTime?> createdAt,
     });
 
 class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
@@ -1020,6 +1055,11 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<String> get recurrence => $composableBuilder(
     column: $table.recurrence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1092,6 +1132,11 @@ class $$TasksTableOrderingComposer
     column: $table.recurrence,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TasksTableAnnotationComposer
@@ -1150,6 +1195,9 @@ class $$TasksTableAnnotationComposer
     column: $table.recurrence,
     builder: (column) => column,
   );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
 }
 
 class $$TasksTableTableManager
@@ -1195,6 +1243,7 @@ class $$TasksTableTableManager
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<List<DateTime>?> reminders = const Value.absent(),
                 Value<String?> recurrence = const Value.absent(),
+                Value<DateTime?> createdAt = const Value.absent(),
               }) => TasksCompanion(
                 id: id,
                 description: description,
@@ -1208,6 +1257,7 @@ class $$TasksTableTableManager
                 completedAt: completedAt,
                 reminders: reminders,
                 recurrence: recurrence,
+                createdAt: createdAt,
               ),
           createCompanionCallback:
               ({
@@ -1223,6 +1273,7 @@ class $$TasksTableTableManager
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<List<DateTime>?> reminders = const Value.absent(),
                 Value<String?> recurrence = const Value.absent(),
+                Value<DateTime?> createdAt = const Value.absent(),
               }) => TasksCompanion.insert(
                 id: id,
                 description: description,
@@ -1236,6 +1287,7 @@ class $$TasksTableTableManager
                 completedAt: completedAt,
                 reminders: reminders,
                 recurrence: recurrence,
+                createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

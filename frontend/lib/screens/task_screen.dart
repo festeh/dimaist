@@ -253,11 +253,13 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
     });
 
     try {
-      // For now, just navigate to AI chat screen with the message
-      // Later we can integrate inline AI processing
+      // Navigate to AI chat screen with the message and current project context
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => AiChatScreen(initialMessage: message),
+          builder: (context) => AiChatScreen(
+            initialMessage: message,
+            currentProjectId: widget.project?.id,
+          ),
         ),
       );
     } catch (e) {

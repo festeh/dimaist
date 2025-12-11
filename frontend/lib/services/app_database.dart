@@ -143,6 +143,7 @@ class Tasks extends Table {
   TextColumn get reminders =>
       text().map(const ListOfDateTimeConverter()).nullable()();
   TextColumn get recurrence => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().nullable()();
 }
 
 @DriftDatabase(tables: [Projects, Tasks])
@@ -157,7 +158,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -177,6 +178,10 @@ class AppDatabase extends _$AppDatabase {
       if (from < 6) {
         // Migration to 6: Add icon column to projects
         await m.addColumn(projects, projects.icon);
+      }
+      if (from < 7) {
+        // Migration to 7: Add createdAt column to tasks
+        await m.addColumn(tasks, tasks.createdAt);
       }
     },
   );
@@ -329,6 +334,7 @@ class AppDatabase extends _$AppDatabase {
       completedAt: Value(task.completedAt),
       reminders: Value(task.reminders),
       recurrence: Value(task.recurrence),
+      createdAt: Value(task.createdAt),
     );
   }
 

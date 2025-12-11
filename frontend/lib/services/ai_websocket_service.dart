@@ -92,19 +92,21 @@ class AiWebSocketService {
     required String message,
     required List<TargetSpec> targets,
     required bool includeCompleted,
+    int? currentProjectId,
   }) {
     if (_channel == null) {
       _logger.warning('Cannot send start: WebSocket not connected');
       return;
     }
 
-    _logger.info('Sending start message with ${targets.length} targets');
+    _logger.info('Sending start message with ${targets.length} targets, project: $currentProjectId');
 
     final startMessage = {
       'type': WSMessageType.start.toJson(),
       'messages': [{'role': 'user', 'content': message}],
       'targets': targets.map((t) => t.toJson()).toList(),
       'include_completed': includeCompleted,
+      if (currentProjectId != null) 'current_project_id': currentProjectId,
     };
     _channel!.sink.add(jsonEncode(startMessage));
   }
