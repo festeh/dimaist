@@ -149,14 +149,20 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Description
+              // Title
+              Text(
+                'Title',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: Spacing.sm),
               TextFormField(
                 autofocus: true,
                 controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter a description';
+                    return 'Please enter a title';
                   }
                   return null;
                 },
@@ -164,51 +170,58 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
 
               const SizedBox(height: Spacing.lg),
 
-              // Project + Due Date Row
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Project dropdown
-                  Expanded(
-                    child: DropdownButtonFormField<int>(
-                      initialValue: _selectedProjectId,
-                      decoration: const InputDecoration(
-                        labelText: 'Project',
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: Spacing.md,
-                          vertical: Spacing.sm,
-                        ),
-                      ),
-                      items: widget.projects.map((project) {
-                        return DropdownMenuItem<int>(
-                          value: project.id,
-                          child: Text(
-                            project.name,
-                            style: theme.textTheme.bodyMedium,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedProjectId = value;
-                        });
-                      },
-                      validator: (value) {
-                        if (value == null) {
-                          return 'Required';
-                        }
-                        return null;
-                      },
+              // Project dropdown
+              Text(
+                'Project',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: Spacing.sm),
+              IntrinsicWidth(
+                child: DropdownButtonFormField<int>(
+                  initialValue: _selectedProjectId,
+                  decoration: const InputDecoration(
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: Spacing.md,
+                      vertical: Spacing.sm,
                     ),
                   ),
-
-                  const SizedBox(width: Spacing.md),
-
-                  // Due date picker
-                  Expanded(child: _buildDueDatePicker(theme, colors)),
-                ],
+                  items: widget.projects.map((project) {
+                    return DropdownMenuItem<int>(
+                      value: project.id,
+                      child: Text(
+                        project.name,
+                        style: theme.textTheme.bodyMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedProjectId = value;
+                    });
+                  },
+                  validator: (value) {
+                    if (value == null) {
+                      return 'Required';
+                    }
+                    return null;
+                  },
+                ),
               ),
+
+              const SizedBox(height: Spacing.lg),
+
+              // Due date picker
+              Text(
+                'Due',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: Spacing.sm),
+              _buildDueDatePicker(theme, colors),
 
               const SizedBox(height: Spacing.lg),
 
@@ -256,10 +269,10 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
         borderRadius: BorderRadius.circular(Radii.sm),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Date button
-          Expanded(
-            child: InkWell(
+          InkWell(
               onTap: _showDatePickerDialog,
               borderRadius: BorderRadius.horizontal(
                 left: Radius.circular(Radii.sm),
@@ -267,6 +280,7 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
               child: Padding(
                 padding: const EdgeInsets.all(Spacing.md),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     PhosphorIcon(
                       PhosphorIcons.calendar(),
@@ -274,23 +288,19 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
                       color: colors.onSurfaceVariant,
                     ),
                     const SizedBox(width: Spacing.sm),
-                    Expanded(
-                      child: Text(
-                        _selectedDate != null
-                            ? DateFormat('MMM d').format(_selectedDate!)
-                            : 'Date',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: _selectedDate != null
-                              ? colors.onSurface
-                              : colors.onSurfaceVariant,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      _selectedDate != null
+                          ? DateFormat('MMM d').format(_selectedDate!)
+                          : 'Date',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: _selectedDate != null
+                            ? colors.onSurface
+                            : colors.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
           ),
 
           // Divider

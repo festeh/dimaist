@@ -3,3 +3,4 @@ go-task-backend
 audiocli
 dimaist
 dimaist-cli
+cmd/google-auth/google-auth

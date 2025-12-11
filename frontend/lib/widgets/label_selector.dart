@@ -37,11 +37,11 @@ class LabelSelector extends ConsumerWidget {
       children: [
         Text(
           'Labels',
-          style: theme.textTheme.bodySmall?.copyWith(
+          style: theme.textTheme.labelMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: Spacing.xs),
+        const SizedBox(height: Spacing.sm),
         Wrap(
           spacing: Spacing.sm,
           runSpacing: Spacing.sm,
