@@ -1,8 +1,8 @@
 package ai
 
 import (
+	"encoding/json"
 	"fmt"
-	"time"
 
 	"dimaist/database"
 
@@ -73,34 +73,25 @@ func resolveToolDefaults(toolName string, args map[string]any) map[string]any {
 		}
 	}
 
-	// For task operations, fetch task details for preview
+	// For task operations, fetch full task from DB for preview
 	if toolName == "complete_task" || toolName == "delete_task" || toolName == "update_task" {
 		if taskID, ok := result["id"].(float64); ok {
 			var task database.Task
 			if err := database.DB.Where("deleted_at IS NULL").First(&task, int(taskID)).Error; err != nil {
-				// Task not found - add error info for frontend
 				result["_error"] = fmt.Sprintf("Task #%d not found", int(taskID))
 			} else {
-				// For update_task, only fill missing fields (preserve AI-provided updates)
-				// For complete/delete, always set fields (they don't modify anything)
-				if _, exists := result["description"]; !exists {
-					result["description"] = task.Description
-				}
-				if _, exists := result["project_id"]; !exists && task.ProjectID != nil {
-					result["project_id"] = float64(*task.ProjectID)
-				}
-				if _, hasDue := result["due_datetime"]; !hasDue {
-					if _, hasDate := result["due_date"]; !hasDate && task.Due() != nil {
-						if task.HasTime() {
-							result["due_datetime"] = task.Due().Format(time.RFC3339)
-						} else {
-							result["due_date"] = task.Due().Format("2006-01-02")
-						}
+				// Marshal task to JSON, then unmarshal to map - gets all fields automatically
+				taskJSON, _ := json.Marshal(task)
+				var taskData map[string]any
+				json.Unmarshal(taskJSON, &taskData)
+
+				// For update_task, overlay AI-provided fields on top of DB data
+				if toolName == "update_task" {
+					for k, v := range result {
+						taskData[k] = v
 					}
 				}
-				if _, exists := result["labels"]; !exists && len(task.Labels) > 0 {
-					result["labels"] = task.Labels
-				}
+				result = taskData
 			}
 		}
 	}
