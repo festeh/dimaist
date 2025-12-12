@@ -161,6 +161,13 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 8;
 
+  Future<bool> _columnExists(String table, String column) async {
+    final result = await customSelect(
+      "SELECT COUNT(*) as cnt FROM pragma_table_info('$table') WHERE name = '$column'",
+    ).getSingle();
+    return (result.data['cnt'] as int) > 0;
+  }
+
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
@@ -178,16 +185,24 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 6) {
         // Migration to 6: Add icon column to projects
-        await m.addColumn(projects, projects.icon);
+        if (!await _columnExists('projects', 'icon')) {
+          await m.addColumn(projects, projects.icon);
+        }
       }
       if (from < 7) {
         // Migration to 7: Add createdAt column to tasks
-        await m.addColumn(tasks, tasks.createdAt);
+        if (!await _columnExists('tasks', 'created_at')) {
+          await m.addColumn(tasks, tasks.createdAt);
+        }
       }
       if (from < 8) {
         // Migration to 8: Rename description to title, add description
-        await m.renameColumn(tasks, 'description', tasks.title);
-        await m.addColumn(tasks, tasks.description);
+        if (await _columnExists('tasks', 'description') && !await _columnExists('tasks', 'title')) {
+          await m.renameColumn(tasks, 'description', tasks.title);
+        }
+        if (!await _columnExists('tasks', 'description')) {
+          await m.addColumn(tasks, tasks.description);
+        }
       }
     },
   );
