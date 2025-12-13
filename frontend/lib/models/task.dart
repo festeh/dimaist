@@ -35,11 +35,7 @@ class Task {
   }) : _dueDate = dueDate,
        _dueDatetime = dueDatetime,
        _labels = labels,
-       _reminders = reminders,
-       assert(
-         dueDate == null || dueDatetime == null,
-         'Cannot have both dueDate and dueDatetime',
-       );
+       _reminders = reminders;
 
   // Unified getters - THE ONLY PUBLIC INTERFACE for due dates
   DateTime? get due => _dueDatetime ?? _dueDate;
