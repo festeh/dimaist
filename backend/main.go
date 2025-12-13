@@ -130,7 +130,7 @@ func listTasks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Info("Successfully retrieved tasks").Int64("count", result.RowsAffected).Send()
-	json.NewEncoder(w).Encode(tasks)
+	utils.RespondJSON(w, http.StatusOK, tasks)
 }
 
 func getTask(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +155,7 @@ func getTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Info("Successfully retrieved task").Uint("task_id", id).Send()
-	json.NewEncoder(w).Encode(task)
+	utils.RespondJSON(w, http.StatusOK, task)
 }
 
 func createTask(w http.ResponseWriter, r *http.Request) {
@@ -172,13 +172,7 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 	// Validate recurrence pattern
 	if err := utils.ValidateTaskRecurrence(t.Recurrence, t.Due()); err != nil {
 		logger.Error("Invalid task recurrence").Str("recurrence", t.Recurrence).Err(err).Send()
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "Invalid recurrence pattern",
-			"message": err.Error(),
-			"field": "recurrence",
-		})
+		utils.RespondValidationError(w, "recurrence", err.Error())
 		return
 	}
 
@@ -200,7 +194,7 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 	if calendarWarning != "" {
 		response["warning"] = calendarWarning
 	}
-	json.NewEncoder(w).Encode(response)
+	utils.RespondJSON(w, http.StatusOK, response)
 }
 
 func updateTask(w http.ResponseWriter, r *http.Request) {
@@ -228,13 +222,7 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 	// Validate recurrence pattern
 	if err := utils.ValidateTaskRecurrence(t.Recurrence, t.Due()); err != nil {
 		logger.Error("Invalid task recurrence").Str("recurrence", t.Recurrence).Err(err).Send()
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "Invalid recurrence pattern",
-			"message": err.Error(),
-			"field": "recurrence",
-		})
+		utils.RespondValidationError(w, "recurrence", err.Error())
 		return
 	}
 
@@ -259,7 +247,7 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if calendarWarning != "" {
-		json.NewEncoder(w).Encode(map[string]string{"warning": calendarWarning})
+		utils.RespondJSON(w, http.StatusOK, map[string]string{"warning": calendarWarning})
 	} else {
 		w.WriteHeader(http.StatusOK)
 	}
@@ -277,13 +265,9 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 	var task database.Task
 	database.DB.Select("google_event_id").First(&task, id)
 
-	result := database.DB.Model(&database.Task{}).Where("id = ?", id).Updates(map[string]any{
-		"deleted_at": time.Now(),
-		"updated_at": time.Now(),
-	})
-	if result.Error != nil {
-		logger.Error("Failed to delete task").Uint("task_id", id).Err(result.Error).Send()
-		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+	if _, err := database.SoftDelete(&database.Task{}, id); err != nil {
+		logger.Error("Failed to delete task").Uint("task_id", id).Err(err).Send()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -318,34 +302,14 @@ func completeTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now()
-	updates := map[string]any{
-		"completed_at": &now,
+	updates, isRecurring, err := database.CompleteTask(&task)
+	if err != nil {
+		logger.Error("Failed to calculate next due date").Str("recurrence", task.Recurrence).Err(err).Send()
+		http.Error(w, fmt.Sprintf("Failed to calculate next due date: %s", err.Error()), http.StatusInternalServerError)
+		return
 	}
 
-	// Handle recurring tasks
-	if task.Recurrence != "" {
-		// Calculate next due date/datetime using unified getter
-		nextDue, err := utils.CalculateNextDueDate(task.Recurrence, task.Due())
-		if err != nil {
-			logger.Error("Failed to calculate next due date").Str("recurrence", task.Recurrence).Err(err).Send()
-			http.Error(w, fmt.Sprintf("Failed to calculate next due date: %s", err.Error()), http.StatusInternalServerError)
-			return
-		}
-
-		if nextDue != nil {
-			// Update the appropriate due field based on whether original had time
-			if task.HasTime() {
-				updates["due_datetime"] = nextDue
-			} else {
-				// For date-only, set to date part only
-				dateOnly := time.Date(nextDue.Year(), nextDue.Month(), nextDue.Day(), 0, 0, 0, 0, nextDue.Location())
-				updates["due_date"] = &dateOnly
-			}
-		}
-
-		// For recurring tasks, clear completed_at to keep them active
-		updates["completed_at"] = nil
+	if isRecurring {
 		logger.Info("Recurring task - updated due date and cleared completion").Uint("task_id", id).Send()
 	}
 
@@ -372,7 +336,7 @@ func listProjects(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Info("Successfully retrieved projects").Int64("count", result.RowsAffected).Send()
-	json.NewEncoder(w).Encode(projects)
+	utils.RespondJSON(w, http.StatusOK, projects)
 }
 
 func createProject(w http.ResponseWriter, r *http.Request) {
@@ -401,7 +365,7 @@ func createProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Info("Successfully created project").Uint("project_id", p.ID).Str("name", p.Name).Send()
-	json.NewEncoder(w).Encode(p)
+	utils.RespondJSON(w, http.StatusOK, p)
 }
 
 func updateProject(w http.ResponseWriter, r *http.Request) {
@@ -439,13 +403,9 @@ func deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := database.DB.Model(&database.Project{}).Where("id = ?", id).Updates(map[string]any{
-		"deleted_at": time.Now(),
-		"updated_at": time.Now(),
-	})
-	if result.Error != nil {
-		logger.Error("Failed to delete project").Uint("project_id", id).Err(result.Error).Send()
-		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+	if _, err := database.SoftDelete(&database.Project{}, id); err != nil {
+		logger.Error("Failed to delete project").Uint("project_id", id).Err(err).Send()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -621,6 +581,5 @@ func syncData(w http.ResponseWriter, r *http.Request) {
 		Str("new_sync_token", newSyncToken).
 		Send()
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	utils.RespondJSON(w, http.StatusOK, response)
 }

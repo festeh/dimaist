@@ -3,9 +3,8 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 import '../models/project.dart';
 import '../models/task.dart';
-import '../utils/color_utils.dart';
-import '../utils/icon_utils.dart';
 import 'due_widget.dart';
+import 'project_icon_widget.dart';
 
 class TaskWidget extends StatelessWidget {
   final Task task;
@@ -116,35 +115,9 @@ class TaskWidget extends StatelessWidget {
   }
 
   Widget _buildProjectIndicator(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (project!.icon != null && project!.icon!.isNotEmpty)
-          PhosphorIcon(
-            getIcon(project!.icon),
-            size: Sizes.iconXs,
-            color: getColor(project!.color),
-          )
-        else
-          Container(
-            width: Sizes.iconXs,
-            height: Sizes.iconXs,
-            decoration: BoxDecoration(
-              color: getColor(project!.color),
-              shape: BoxShape.circle,
-            ),
-          ),
-        const SizedBox(width: Spacing.xs),
-        Text(
-          project!.name,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: colors.onSurfaceVariant,
-          ),
-        ),
-      ],
+    return ProjectIconWidget.small(
+      project: project!,
+      showName: true,
     );
   }
 

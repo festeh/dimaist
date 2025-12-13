@@ -6,8 +6,10 @@ import 'package:dimaist/models/project.dart';
 import 'package:dimaist/models/task.dart';
 import 'package:dimaist/services/app_database.dart';
 import 'package:dimaist/config/design_tokens.dart';
+import 'datetime_field.dart';
 import 'label_selector.dart';
 import 'recurrence_picker.dart';
+import 'reminder_picker.dart';
 
 class TaskFormDialog extends ConsumerStatefulWidget {
   final Task? task;
@@ -52,15 +54,6 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
   final AppDatabase _db = AppDatabase();
   List<String> _selectedReminders = [];
 
-  final List<String> _reminderOptions = [
-    '5 minutes',
-    '30 minutes',
-    '1 hour',
-    '12 hours',
-    '1 day',
-    '1 week',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -91,31 +84,11 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
       }
       if (task.reminders.isNotEmpty) {
         _selectedReminders = task.reminders
-            .map(
-              (e) => _reminderStringFromDateTime(
-                e,
-                task.due!,
-              ),
-            )
+            .map((e) => reminderDateTimeToString(e, task.due!))
             .toList();
       }
     } else if (widget.defaultDueDate != null) {
       _selectedDate = widget.defaultDueDate;
-    }
-  }
-
-  String _reminderStringFromDateTime(DateTime reminder, DateTime dueDate) {
-    final difference = dueDate.difference(reminder);
-    if (difference.inDays >= 7) {
-      return '${difference.inDays ~/ 7} week';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays} day';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} hour';
-    } else if (difference.inMinutes >= 30) {
-      return '30 minutes';
-    } else {
-      return '5 minutes';
     }
   }
 
@@ -381,36 +354,9 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
   }
 
   Widget _buildRemindersSection(ThemeData theme, ColorScheme colors) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Reminders',
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: colors.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: Spacing.sm),
-        Wrap(
-          spacing: Spacing.sm,
-          runSpacing: Spacing.sm,
-          children: _reminderOptions.map((reminder) {
-            return FilterChip(
-              label: Text(reminder),
-              selected: _selectedReminders.contains(reminder),
-              onSelected: (selected) {
-                setState(() {
-                  if (selected) {
-                    _selectedReminders.add(reminder);
-                  } else {
-                    _selectedReminders.remove(reminder);
-                  }
-                });
-              },
-            );
-          }).toList(),
-        ),
-      ],
+    return ReminderPicker(
+      selectedReminders: _selectedReminders,
+      onChanged: (reminders) => setState(() => _selectedReminders = reminders),
     );
   }
 
@@ -486,7 +432,7 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
           children: [
             // Start
             Expanded(
-              child: _DateTimeField(
+              child: DateTimeField(
                 label: 'Start',
                 date: _selectedStartDate,
                 time: _selectedStartTime,
@@ -506,7 +452,7 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
 
             // End
             Expanded(
-              child: _DateTimeField(
+              child: DateTimeField(
                 label: 'End',
                 date: _selectedEndDate,
                 time: _selectedEndTime,
@@ -726,13 +672,13 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
         if (dueDatetime != null) {
           for (final reminderString in _selectedReminders) {
             reminders.add(
-              dueDatetime.subtract(_getDuration(reminderString)),
+              dueDatetime.subtract(reminderStringToDuration(reminderString)),
             );
           }
         } else if (dueDate != null) {
           for (final reminderString in _selectedReminders) {
             reminders.add(
-              dueDate.subtract(_getDuration(reminderString)),
+              dueDate.subtract(reminderStringToDuration(reminderString)),
             );
           }
         }
@@ -782,94 +728,5 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
         );
       }
     }
-  }
-
-  Duration _getDuration(String reminderString) {
-    final parts = reminderString.split(' ');
-    final value = int.parse(parts[0]);
-    final unit = parts[1];
-
-    switch (unit) {
-      case 'minutes':
-        return Duration(minutes: value);
-      case 'hour':
-        return Duration(hours: value);
-      case 'hours':
-        return Duration(hours: value);
-      case 'day':
-        return Duration(days: value);
-      case 'week':
-        return Duration(days: value * 7);
-      default:
-        return Duration.zero;
-    }
-  }
-}
-
-/// Compact date+time field for schedule section
-class _DateTimeField extends StatelessWidget {
-  final String label;
-  final DateTime? date;
-  final TimeOfDay? time;
-  final VoidCallback onDateTap;
-  final VoidCallback onTimeTap;
-
-  const _DateTimeField({
-    required this.label,
-    required this.date,
-    required this.time,
-    required this.onDateTap,
-    required this.onTimeTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: colors.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: Spacing.xs),
-        Row(
-          children: [
-            InkWell(
-              onTap: onDateTap,
-              child: Text(
-                date != null
-                    ? DateFormat('M/d').format(date!)
-                    : 'Date',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: date != null ? colors.primary : colors.onSurfaceVariant,
-                ),
-              ),
-            ),
-            Text(
-              ' @ ',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
-            ),
-            InkWell(
-              onTap: onTimeTap,
-              child: Text(
-                time != null
-                    ? '${time!.hour.toString().padLeft(2, '0')}:${time!.minute.toString().padLeft(2, '0')}'
-                    : 'Time',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: time != null ? colors.primary : colors.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
   }
 }

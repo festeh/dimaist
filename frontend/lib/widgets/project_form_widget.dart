@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
+import '../models/project.dart';
 import '../utils/color_utils.dart';
-import '../utils/icon_utils.dart';
 import 'icon_picker_dialog.dart';
+import 'project_icon_widget.dart';
 
 /// Shared form widget for project name, color, and icon selection
 class ProjectFormWidget extends StatelessWidget {
@@ -39,21 +39,15 @@ class ProjectFormWidget extends StatelessWidget {
   }
 
   Widget _buildIconPreview() {
-    if (selectedIcon != null && selectedIcon!.isNotEmpty) {
-      return PhosphorIcon(
-        getIcon(selectedIcon),
-        color: selectedColor.color,
-        size: Sizes.iconMd,
-      );
-    }
-    return Container(
-      width: Sizes.iconMd,
-      height: Sizes.iconMd,
-      decoration: BoxDecoration(
-        color: selectedColor.color,
-        shape: BoxShape.circle,
-      ),
+    // Create a temporary project for preview
+    final previewProject = Project(
+      id: 0,
+      name: '',
+      color: selectedColor.name,
+      icon: selectedIcon,
+      order: 0,
     );
+    return ProjectIconWidget.medium(project: previewProject);
   }
 
   @override

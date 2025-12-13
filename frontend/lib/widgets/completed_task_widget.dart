@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 import '../models/project.dart';
 import '../models/task.dart';
-import '../utils/color_utils.dart';
-import '../utils/icon_utils.dart';
+import 'project_icon_widget.dart';
 
 class CompletedTaskWidget extends StatelessWidget {
   final Task task;
@@ -66,32 +64,10 @@ class CompletedTaskWidget extends StatelessWidget {
                     // Project indicator
                     if (project != null) ...[
                       const SizedBox(width: Spacing.sm),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (project!.icon != null && project!.icon!.isNotEmpty)
-                            PhosphorIcon(
-                              getIcon(project!.icon),
-                              size: Sizes.iconXs,
-                              color: getColor(project!.color).withValues(alpha: 0.6),
-                            )
-                          else
-                            Container(
-                              width: Sizes.iconXs,
-                              height: Sizes.iconXs,
-                              decoration: BoxDecoration(
-                                color: getColor(project!.color).withValues(alpha: 0.6),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          const SizedBox(width: Spacing.xs),
-                          Text(
-                            project!.name,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: colors.onSurfaceVariant.withValues(alpha: 0.6),
-                            ),
-                          ),
-                        ],
+                      ProjectIconWidget.small(
+                        project: project!,
+                        showName: true,
+                        opacity: 0.6,
                       ),
                     ],
                   ],

@@ -568,15 +568,12 @@ func deleteTaskCRUDTool(args map[string]any) (string, error) {
 	}
 	taskID := uint(taskIDFloat)
 
-	result := database.DB.Model(&database.Task{}).Where("id = ?", taskID).Updates(map[string]any{
-		"deleted_at": time.Now(),
-		"updated_at": time.Now(),
-	})
-	if result.Error != nil {
-		return "", fmt.Errorf("failed to delete task: %w", result.Error)
+	rowsAffected, err := database.SoftDelete(&database.Task{}, taskID)
+	if err != nil {
+		return "", fmt.Errorf("failed to delete task: %w", err)
 	}
 
-	if result.RowsAffected == 0 {
+	if rowsAffected == 0 {
 		return "", fmt.Errorf("task not found")
 	}
 
@@ -600,36 +597,16 @@ func completeTaskCRUDTool(args map[string]any) (string, error) {
 		return "Task is already completed", nil
 	}
 
-	now := time.Now()
-	updates := map[string]any{
-		"completed_at": &now,
-	}
-
-	// Handle recurring tasks
-	if task.Recurrence != "" {
-		nextDue, err := utils.CalculateNextDueDate(task.Recurrence, task.Due())
-		if err != nil {
-			return "", fmt.Errorf("failed to calculate next due date: %w", err)
-		}
-
-		if nextDue != nil {
-			if task.HasTime() {
-				updates["due_datetime"] = nextDue
-			} else {
-				dateOnly := time.Date(nextDue.Year(), nextDue.Month(), nextDue.Day(), 0, 0, 0, 0, nextDue.Location())
-				updates["due_date"] = &dateOnly
-			}
-		}
-
-		// For recurring tasks, clear completed_at to keep them active
-		updates["completed_at"] = nil
+	updates, isRecurring, err := database.CompleteTask(&task)
+	if err != nil {
+		return "", fmt.Errorf("failed to calculate next due date: %w", err)
 	}
 
 	if err := database.DB.Model(&task).Where("id = ?", taskID).Updates(updates).Error; err != nil {
 		return "", fmt.Errorf("failed to complete task: %w", err)
 	}
 
-	if task.Recurrence != "" {
+	if isRecurring {
 		return fmt.Sprintf("Recurring task %d completed and scheduled for next occurrence", taskID), nil
 	}
 	return fmt.Sprintf("Task %d completed successfully", taskID), nil
@@ -704,15 +681,12 @@ func deleteProjectCRUDTool(args map[string]any) (string, error) {
 	}
 	projectID := uint(projectIDFloat)
 
-	result := database.DB.Model(&database.Project{}).Where("id = ?", projectID).Updates(map[string]any{
-		"deleted_at": time.Now(),
-		"updated_at": time.Now(),
-	})
-	if result.Error != nil {
-		return "", fmt.Errorf("failed to delete project: %w", result.Error)
+	rowsAffected, err := database.SoftDelete(&database.Project{}, projectID)
+	if err != nil {
+		return "", fmt.Errorf("failed to delete project: %w", err)
 	}
 
-	if result.RowsAffected == 0 {
+	if rowsAffected == 0 {
 		return "", fmt.Errorf("project not found")
 	}
 

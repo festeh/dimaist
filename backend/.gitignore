@@ -1,4 +1,5 @@
 .env
+backend
 go-task-backend
 audiocli
 dimaist

@@ -4,7 +4,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 import '../models/project.dart';
 import '../providers/project_provider.dart';
-import '../utils/color_utils.dart';
+import 'project_icon_widget.dart';
 
 class ArrangeProjectsDialog extends ConsumerStatefulWidget {
   final List<Project> projects;
@@ -79,14 +79,7 @@ class _ArrangeProjectsDialogState extends ConsumerState<ArrangeProjectsDialog> {
                     final project = _projects[index];
                     return ListTile(
                       key: Key(project.id.toString()),
-                      leading: Container(
-                        width: Sizes.avatarSm * 2,
-                        height: Sizes.avatarSm * 2,
-                        decoration: BoxDecoration(
-                          color: getColor(project.color),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
+                      leading: ProjectIconWidget.large(project: project),
                       title: Text(project.name),
                       trailing: ReorderableDragStartListener(
                         index: index,

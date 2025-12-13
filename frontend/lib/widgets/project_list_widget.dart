@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 import '../models/project.dart';
-import '../utils/color_utils.dart';
-import '../utils/icon_utils.dart';
+import 'project_icon_widget.dart';
 
 class ProjectList extends StatelessWidget {
   final List<Project> projects;
@@ -49,21 +48,7 @@ class ProjectList extends StatelessWidget {
               child: Row(
                 children: [
                   // Icon or color dot
-                  if (project.icon != null && project.icon!.isNotEmpty)
-                    PhosphorIcon(
-                      getIcon(project.icon),
-                      color: getColor(project.color),
-                      size: Sizes.avatarSm * 2,
-                    )
-                  else
-                    Container(
-                      width: Sizes.avatarSm * 2,
-                      height: Sizes.avatarSm * 2,
-                      decoration: BoxDecoration(
-                        color: getColor(project.color),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
+                  ProjectIconWidget.large(project: project),
                   const SizedBox(width: Spacing.md),
 
                   // Project name
