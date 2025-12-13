@@ -123,6 +123,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Initialize session
 	ws := NewWSWriter(conn)
+	defer ws.Close() // Stop ping goroutine when connection ends
 	ws.StartReading() // Start background reader for concurrent message handling
 
 	s := &Session{

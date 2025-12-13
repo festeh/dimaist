@@ -35,6 +35,13 @@ class AiWebSocketService {
   void Function()? _onConnectionClosed;
   void Function(String)? _onError;
 
+  // Connection state for response timeout
+  bool _waitingForResponse = false;
+  Timer? _responseTimeoutTimer;
+
+  // If no response received within this time after sending, assume connection is dead
+  static const _responseTimeout = Duration(seconds: 60);
+
   /// Connect to the WebSocket server and set up message listener
   void connect({
     required String baseUrl,
@@ -50,6 +57,7 @@ class AiWebSocketService {
     _onMessage = onMessage;
     _onConnectionClosed = onConnectionClosed;
     _onError = onError;
+    _waitingForResponse = false;
 
     final wsUrl = baseUrl.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
     final uri = Uri.parse('$wsUrl/ai');
@@ -59,6 +67,10 @@ class AiWebSocketService {
     // Set up message listener once
     _subscription = _channel!.stream.listen(
       (data) {
+        // Got a response, cancel timeout
+        _cancelResponseTimeout();
+        _waitingForResponse = false;
+
         try {
           final msg = jsonDecode(data as String) as Map<String, dynamic>;
           final typeStr = msg['type'] as String?;
@@ -78,13 +90,45 @@ class AiWebSocketService {
       },
       onError: (error) {
         _logger.severe('WebSocket error: $error');
+        _cancelResponseTimeout();
         _onError?.call(error.toString());
+        _handleDisconnect();
       },
       onDone: () {
         _logger.info('WebSocket connection closed');
+        _cancelResponseTimeout();
         _onConnectionClosed?.call();
       },
     );
+  }
+
+  void _startResponseTimeout() {
+    _cancelResponseTimeout();
+    _waitingForResponse = true;
+    _responseTimeoutTimer = Timer(_responseTimeout, () {
+      if (_waitingForResponse && _channel != null) {
+        _logger.warning('Response timeout (${_responseTimeout.inSeconds}s), connection appears dead');
+        _handleDisconnect();
+      }
+    });
+  }
+
+  void _cancelResponseTimeout() {
+    _responseTimeoutTimer?.cancel();
+    _responseTimeoutTimer = null;
+  }
+
+  void _handleDisconnect() {
+    _cancelResponseTimeout();
+    _waitingForResponse = false;
+    final wasConnected = _channel != null;
+    _subscription?.cancel();
+    _subscription = null;
+    _channel?.sink.close();
+    _channel = null;
+    if (wasConnected) {
+      _onConnectionClosed?.call();
+    }
   }
 
   /// Send start message (first message of conversation)
@@ -109,6 +153,7 @@ class AiWebSocketService {
       if (currentProjectId != null) 'current_project_id': currentProjectId,
     };
     _channel!.sink.add(jsonEncode(startMessage));
+    _startResponseTimeout();
   }
 
   /// Send continue message (subsequent messages)
@@ -125,6 +170,7 @@ class AiWebSocketService {
       'new_message': message,
     };
     _channel!.sink.add(jsonEncode(continueMessage));
+    _startResponseTimeout();
   }
 
   /// Confirm a single tool for execution
@@ -144,6 +190,7 @@ class AiWebSocketService {
     }
     _logger.info('Confirming tool: $toolCallId for target: $targetId');
     _channel!.sink.add(jsonEncode(message));
+    _startResponseTimeout();
   }
 
   /// Select a winning model (when user engages with its tools)
@@ -164,6 +211,8 @@ class AiWebSocketService {
   /// Close the WebSocket connection
   void close() {
     _logger.info('Closing WebSocket connection');
+    _cancelResponseTimeout();
+    _waitingForResponse = false;
     _subscription?.cancel();
     _subscription = null;
     _channel?.sink.close();
