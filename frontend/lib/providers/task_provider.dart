@@ -88,6 +88,9 @@ class TaskNotifier extends AsyncNotifier<TaskViewData> {
             'next',
             sortMode: sortMode,
           ),
+          BuiltInViewType.all => _repository.getAllUncompletedTasks(
+            sortMode: sortMode,
+          ),
         },
         null => Future.value(<Task>[]),
       };
@@ -203,6 +206,9 @@ class TaskNotifier extends AsyncNotifier<TaskViewData> {
         ),
         BuiltInViewType.next => _repository.getTasksByLabel(
           'next',
+          sortMode: newSortMode,
+        ),
+        BuiltInViewType.all => _repository.getAllUncompletedTasks(
           sortMode: newSortMode,
         ),
       },

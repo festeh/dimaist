@@ -7,6 +7,7 @@ class SortPreferences {
   static const String _todayKey = 'sort_mode_today';
   static const String _upcomingKey = 'sort_mode_upcoming';
   static const String _nextKey = 'sort_mode_next';
+  static const String _allKey = 'sort_mode_all';
 
   static Future<SortMode> getSortModeForProject(int projectId) async {
     final prefs = await SharedPreferences.getInstance();
@@ -37,6 +38,7 @@ class SortPreferences {
       BuiltInViewType.today => _todayKey,
       BuiltInViewType.upcoming => _upcomingKey,
       BuiltInViewType.next => _nextKey,
+      BuiltInViewType.all => _allKey,
     };
   }
 }

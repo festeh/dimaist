@@ -327,6 +327,27 @@ class AppDatabase extends _$AppDatabase {
     return query.get();
   }
 
+  Future<List<task_model.Task>> getAllUncompletedTasks({SortMode sortMode = SortMode.order}) {
+    final query = select(tasks)
+      ..where((t) => t.completedAt.isNull());
+
+    if (sortMode == SortMode.dueDate) {
+      query.orderBy([
+        (t) => OrderingTerm(expression: t.dueDate, nulls: NullsOrder.last),
+        (t) => OrderingTerm(expression: t.dueDatetime, nulls: NullsOrder.last),
+        (t) => OrderingTerm(expression: t.order),
+      ]);
+    } else {
+      // Order by project first, then by order within each project
+      query.orderBy([
+        (t) => OrderingTerm(expression: t.projectId),
+        (t) => OrderingTerm(expression: t.order),
+      ]);
+    }
+
+    return query.get();
+  }
+
   Future<task_model.Task?> getTaskById(int id) =>
       (select(tasks)..where((t) => t.id.equals(id))).getSingleOrNull();
 

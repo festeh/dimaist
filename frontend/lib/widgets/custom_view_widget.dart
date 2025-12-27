@@ -6,7 +6,8 @@ import 'dynamic_calendar_icon.dart';
 enum BuiltInViewType {
   today('Today'),
   upcoming('Upcoming'),
-  next('Next');
+  next('Next'),
+  all('All');
 
   const BuiltInViewType(this.displayName);
 
@@ -20,6 +21,8 @@ enum BuiltInViewType {
         return PhosphorIcons.clockCountdown();
       case BuiltInViewType.next:
         return PhosphorIcons.play();
+      case BuiltInViewType.all:
+        return PhosphorIcons.listChecks();
     }
   }
 }
@@ -45,6 +48,7 @@ class CustomViewWidget extends StatelessWidget {
     const CustomView(BuiltInViewType.today),
     const CustomView(BuiltInViewType.upcoming),
     const CustomView(BuiltInViewType.next),
+    const CustomView(BuiltInViewType.all),
   ];
 
   final String? selectedView;

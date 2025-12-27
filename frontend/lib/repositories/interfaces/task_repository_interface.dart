@@ -15,6 +15,9 @@ abstract class ITaskRepository {
   /// Get tasks by label
   Future<List<Task>> getTasksByLabel(String label, {SortMode sortMode = SortMode.order});
 
+  /// Get all uncompleted tasks
+  Future<List<Task>> getAllUncompletedTasks({SortMode sortMode = SortMode.order});
+
   /// Get a specific task by ID
   Future<Task?> getTaskById(int id);
 

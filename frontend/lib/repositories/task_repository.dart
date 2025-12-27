@@ -38,6 +38,11 @@ class TaskRepository implements ITaskRepository {
   }
 
   @override
+  Future<List<Task>> getAllUncompletedTasks({SortMode sortMode = SortMode.order}) async {
+    return _database.getAllUncompletedTasks(sortMode: sortMode);
+  }
+
+  @override
   Future<Task?> getTaskById(int id) async {
     return _database.getTaskById(id);
   }

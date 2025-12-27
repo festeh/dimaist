@@ -325,6 +325,11 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
       return projects.where((p) => p.id == task.projectId).firstOrNull;
     }
 
+    // Filter out tasks with deleted projects for All view
+    final filteredNonCompletedTasks = widget.customView?.type == BuiltInViewType.all
+        ? nonCompletedTasks.where((task) => findProject(task) != null).toList()
+        : nonCompletedTasks;
+
     return Column(
       children: [
         // Inline toolbar
@@ -403,20 +408,22 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                   ),
                 )
               : (() {
-                  final canReorder = taskData.sortMode == SortMode.order;
+                  // Disable reordering for All view (tasks span multiple projects)
+                  final canReorder = taskData.sortMode == SortMode.order &&
+                      widget.customView?.type != BuiltInViewType.all;
 
                   if (canReorder) {
                     return ReorderableListView.builder(
                       buildDefaultDragHandles: false,
                       padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
                       itemCount:
-                          nonCompletedTasks.length +
+                          filteredNonCompletedTasks.length +
                           (completedTasks.isNotEmpty
                               ? (_showCompletedTasks ? completedTasks.length + 1 : 1)
                               : 0),
                       itemBuilder: (context, index) {
-                        if (index < nonCompletedTasks.length) {
-                          final task = nonCompletedTasks[index];
+                        if (index < filteredNonCompletedTasks.length) {
+                          final task = filteredNonCompletedTasks[index];
                           return TaskWidget(
                             key: Key(task.id.toString()),
                             task: task,
@@ -426,7 +433,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                             dragIndex: index,
                             project: findProject(task),
                           );
-                        } else if (index == nonCompletedTasks.length &&
+                        } else if (index == filteredNonCompletedTasks.length &&
                             completedTasks.isNotEmpty) {
                           return InkWell(
                             key: const Key('completed_tasks_header'),
@@ -478,7 +485,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                         } else {
                           final task =
                               completedTasks[index -
-                                  nonCompletedTasks.length -
+                                  filteredNonCompletedTasks.length -
                                   1];
                           return CompletedTaskWidget(
                             key: Key(task.id.toString()),
@@ -498,17 +505,17 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                       },
                     );
                   } else {
-                    // Non-reorderable ListView for date sorting
+                    // Non-reorderable ListView for date sorting or All view
                     return ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
                       itemCount:
-                          nonCompletedTasks.length +
+                          filteredNonCompletedTasks.length +
                           (completedTasks.isNotEmpty
                               ? (_showCompletedTasks ? completedTasks.length + 1 : 1)
                               : 0),
                       itemBuilder: (context, index) {
-                        if (index < nonCompletedTasks.length) {
-                          final task = nonCompletedTasks[index];
+                        if (index < filteredNonCompletedTasks.length) {
+                          final task = filteredNonCompletedTasks[index];
                           return TaskWidget(
                             key: Key(task.id.toString()),
                             task: task,
@@ -518,7 +525,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                             dragIndex: null,
                             project: findProject(task),
                           );
-                        } else if (index == nonCompletedTasks.length &&
+                        } else if (index == filteredNonCompletedTasks.length &&
                             completedTasks.isNotEmpty) {
                           return InkWell(
                             onTap: () => setState(() => _showCompletedTasks = !_showCompletedTasks),
@@ -569,7 +576,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                         } else {
                           final task =
                               completedTasks[index -
-                                  nonCompletedTasks.length -
+                                  filteredNonCompletedTasks.length -
                                   1];
                           return CompletedTaskWidget(
                             key: Key(task.id.toString()),
