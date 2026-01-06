@@ -6,10 +6,10 @@ class Task {
   final String title;
   final String? description;
   final int projectId;
-  final DateTime? _dueDate;      // Private - use due/hasTime getters
-  final DateTime? _dueDatetime;  // Private - use due/hasTime getters
-  final DateTime? startDatetime;
-  final DateTime? endDatetime;
+  final DateTime? _dueDate;       // Private - use due/hasTime getters
+  final DateTime? _dueDatetime;   // Private - use due/hasTime getters
+  final DateTime? _startDatetime; // Private - use getter
+  final DateTime? _endDatetime;   // Private - use getter
   final List<String>? _labels;
   final int order;
   final DateTime? completedAt;
@@ -24,8 +24,8 @@ class Task {
     required this.projectId,
     DateTime? dueDate,
     DateTime? dueDatetime,
-    this.startDatetime,
-    this.endDatetime,
+    DateTime? startDatetime,
+    DateTime? endDatetime,
     List<String>? labels,
     required this.order,
     this.completedAt,
@@ -34,12 +34,16 @@ class Task {
     this.createdAt,
   }) : _dueDate = dueDate,
        _dueDatetime = dueDatetime,
+       _startDatetime = startDatetime,
+       _endDatetime = endDatetime,
        _labels = labels,
        _reminders = reminders;
 
-  // Unified getters - THE ONLY PUBLIC INTERFACE for due dates
+  // Unified getters - THE ONLY PUBLIC INTERFACE for dates
   DateTime? get due => _dueDatetime ?? _dueDate;
   bool get hasTime => _dueDatetime != null;
+  DateTime? get startDatetime => _startDatetime;
+  DateTime? get endDatetime => _endDatetime;
 
   List<String> get labels => _labels ?? [];
   List<DateTime> get reminders => _reminders ?? [];
@@ -92,7 +96,7 @@ class Task {
         return DateTime.parse(processedDateStr);
       }
 
-      return DateTime.parse(processedDateStr).toUtc();
+      return DateTime.parse(processedDateStr).toLocal();
     } catch (e) {
       // Fallback: try parsing as-is
       try {
@@ -100,7 +104,7 @@ class Task {
         if (isDateOnly) {
           return DateTime.parse(dateStr);
         }
-        return DateTime.parse(dateStr).toUtc();
+        return DateTime.parse(dateStr).toLocal();
       } catch (e2) {
         return null;
       }
@@ -145,14 +149,14 @@ class Task {
       'title': title,
       'description': description,
       'project_id': projectId,
-      'due_date': _dueDate?.toUtc().toIso8601String(),
-      'due_datetime': _dueDatetime?.toUtc().toIso8601String(),
-      'start_datetime': startDatetime?.toUtc().toIso8601String(),
-      'end_datetime': endDatetime?.toUtc().toIso8601String(),
+      'due_date': _dueDate?.toIso8601String(),
+      'due_datetime': _dueDatetime?.toIso8601String(),
+      'start_datetime': _startDatetime?.toIso8601String(),
+      'end_datetime': _endDatetime?.toIso8601String(),
       'labels': labels,
       'order': order,
-      'completed_at': completedAt?.toUtc().toIso8601String(),
-      'reminders': reminders.map((e) => e.toUtc().toIso8601String()).toList(),
+      'completed_at': completedAt?.toIso8601String(),
+      'reminders': reminders.map((e) => e.toIso8601String()).toList(),
       'recurrence': recurrence?.trim(),
       'created_at': createdAt?.toIso8601String(),
     };
@@ -202,8 +206,8 @@ class Task {
       dueDatetime: newDueDatetime,
       startDatetime: startDatetime != null
           ? startDatetime.value
-          : this.startDatetime,
-      endDatetime: endDatetime != null ? endDatetime.value : this.endDatetime,
+          : _startDatetime,
+      endDatetime: endDatetime != null ? endDatetime.value : _endDatetime,
       labels: labels ?? this.labels,
       order: order ?? this.order,
       completedAt: completedAt != null ? completedAt.value : this.completedAt,
