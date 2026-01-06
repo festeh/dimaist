@@ -8,9 +8,7 @@ import (
 )
 
 const (
-	// Time allowed to read the next pong message from the peer
-	pongWait = 60 * time.Second
-	// Send pings to peer with this period (must be less than pongWait)
+	// Send pings to peer with this period
 	pingPeriod = 30 * time.Second
 	// Time allowed to write a message to the peer
 	writeWait = 10 * time.Second
@@ -25,7 +23,7 @@ type WSWriter struct {
 	done    chan struct{}   // Signal to stop ping goroutine
 }
 
-// NewWSWriter creates a new WebSocket writer with ping-pong heartbeat
+// NewWSWriter creates a new WebSocket writer with ping heartbeat
 func NewWSWriter(conn *websocket.Conn) *WSWriter {
 	w := &WSWriter{
 		conn:    conn,
@@ -34,14 +32,7 @@ func NewWSWriter(conn *websocket.Conn) *WSWriter {
 		done:    make(chan struct{}),
 	}
 
-	// Set up pong handler to extend read deadline on each pong
-	conn.SetReadDeadline(time.Now().Add(pongWait))
-	conn.SetPongHandler(func(string) error {
-		conn.SetReadDeadline(time.Now().Add(pongWait))
-		return nil
-	})
-
-	// Start ping ticker goroutine
+	// Start ping ticker goroutine - detects dead connections via write failures
 	go w.pingLoop()
 
 	return w
