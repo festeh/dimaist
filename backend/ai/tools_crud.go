@@ -12,24 +12,6 @@ import (
 	"github.com/lib/pq"
 )
 
-// parseDatetime tries multiple formats to parse datetime strings from AI
-// For formats without timezone, assumes local timezone
-func parseDatetime(s string) (time.Time, error) {
-	// Formats with timezone
-	for _, f := range []string{time.RFC3339, "2006-01-02T15:04Z07:00", "2006-01-02T15:04:05Z07:00"} {
-		if t, err := time.Parse(f, s); err == nil {
-			return t, nil
-		}
-	}
-	// Formats without timezone - parse in local timezone
-	for _, f := range []string{"2006-01-02T15:04:05", "2006-01-02T15:04", "2006-01-02 15:04:05", "2006-01-02 15:04", "2006-01-02T15:04:05.000"} {
-		if t, err := time.ParseInLocation(f, s, time.Local); err == nil {
-			return t, nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("unable to parse datetime: %s", s)
-}
-
 // parseDueDate parses a due_date string, returning (dueDate, dueDatetime, error).
 // If the string is date-only, returns (date, nil, nil).
 // If the string is datetime (AI mistake), returns (nil, datetime, nil).
@@ -39,7 +21,7 @@ func parseDueDate(s string) (*time.Time, *time.Time, error) {
 		return &dueDate, nil, nil
 	}
 	// Fallback: AI sent datetime to due_date field
-	if dueDatetime, err := parseDatetime(s); err == nil {
+	if dueDatetime, err := utils.ParseDatetime(s); err == nil {
 		return nil, &dueDatetime, nil
 	}
 	return nil, nil, fmt.Errorf("invalid due_date format, use YYYY-MM-DD")
@@ -357,35 +339,35 @@ func createTaskCRUDTool(args map[string]any) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		task.DueDate = dueDate
-		task.DueDatetime = dueDatetime
+		task.DueDate = utils.NewFlexibleTimePtr(dueDate)
+		task.DueDatetime = utils.NewFlexibleTimePtr(dueDatetime)
 	}
 
 	// Optional due datetime
 	if dueDatetimeStr, ok := args["due_datetime"].(string); ok {
-		dueDatetime, err := parseDatetime(dueDatetimeStr)
+		dueDatetime, err := utils.ParseDatetime(dueDatetimeStr)
 		if err != nil {
 			return "", fmt.Errorf("invalid due_datetime format: %w", err)
 		}
-		task.DueDatetime = &dueDatetime
+		task.DueDatetime = utils.NewFlexibleTime(dueDatetime)
 	}
 
 	// Optional start datetime
 	if startDatetimeStr, ok := args["start_datetime"].(string); ok {
-		startDatetime, err := parseDatetime(startDatetimeStr)
+		startDatetime, err := utils.ParseDatetime(startDatetimeStr)
 		if err != nil {
 			return "", fmt.Errorf("invalid start_datetime format: %w", err)
 		}
-		task.StartDatetime = &startDatetime
+		task.StartDatetime = utils.NewFlexibleTime(startDatetime)
 	}
 
 	// Optional end datetime
 	if endDatetimeStr, ok := args["end_datetime"].(string); ok {
-		endDatetime, err := parseDatetime(endDatetimeStr)
+		endDatetime, err := utils.ParseDatetime(endDatetimeStr)
 		if err != nil {
 			return "", fmt.Errorf("invalid end_datetime format: %w", err)
 		}
-		task.EndDatetime = &endDatetime
+		task.EndDatetime = utils.NewFlexibleTime(endDatetime)
 	}
 
 	// Optional labels
@@ -406,7 +388,7 @@ func createTaskCRUDTool(args map[string]any) (string, error) {
 		reminders := make(database.TimeArray, len(remindersInterface))
 		for i, reminder := range remindersInterface {
 			if reminderStr, ok := reminder.(string); ok {
-				reminderTime, err := parseDatetime(reminderStr)
+				reminderTime, err := utils.ParseDatetime(reminderStr)
 				if err != nil {
 					return "", fmt.Errorf("invalid reminder format: %w", err)
 				}
@@ -484,27 +466,27 @@ func updateTaskCRUDTool(args map[string]any) (string, error) {
 	}
 
 	if dueDatetimeStr, ok := args["due_datetime"].(string); ok {
-		dueDatetime, err := parseDatetime(dueDatetimeStr)
+		dueDatetime, err := utils.ParseDatetime(dueDatetimeStr)
 		if err != nil {
 			return "", fmt.Errorf("invalid due_datetime format: %w", err)
 		}
-		updates["due_datetime"] = &dueDatetime
+		updates["due_datetime"] = utils.NewFlexibleTime(dueDatetime)
 	}
 
 	if startDatetimeStr, ok := args["start_datetime"].(string); ok {
-		startDatetime, err := parseDatetime(startDatetimeStr)
+		startDatetime, err := utils.ParseDatetime(startDatetimeStr)
 		if err != nil {
 			return "", fmt.Errorf("invalid start_datetime format: %w", err)
 		}
-		updates["start_datetime"] = &startDatetime
+		updates["start_datetime"] = utils.NewFlexibleTime(startDatetime)
 	}
 
 	if endDatetimeStr, ok := args["end_datetime"].(string); ok {
-		endDatetime, err := parseDatetime(endDatetimeStr)
+		endDatetime, err := utils.ParseDatetime(endDatetimeStr)
 		if err != nil {
 			return "", fmt.Errorf("invalid end_datetime format: %w", err)
 		}
-		updates["end_datetime"] = &endDatetime
+		updates["end_datetime"] = utils.NewFlexibleTime(endDatetime)
 	}
 
 	if labelsInterface, ok := args["labels"].([]any); ok {
@@ -523,7 +505,7 @@ func updateTaskCRUDTool(args map[string]any) (string, error) {
 		reminders := make(database.TimeArray, len(remindersInterface))
 		for i, reminder := range remindersInterface {
 			if reminderStr, ok := reminder.(string); ok {
-				reminderTime, err := parseDatetime(reminderStr)
+				reminderTime, err := utils.ParseDatetime(reminderStr)
 				if err != nil {
 					return "", fmt.Errorf("invalid reminder format: %w", err)
 				}

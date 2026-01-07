@@ -6,6 +6,7 @@ import (
 
 	"dimaist/database"
 	"dimaist/logger"
+	"dimaist/utils"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -75,40 +76,40 @@ func createTestTasks(db *gorm.DB) error {
 	tasks := []database.Task{
 		// Active task (should be included)
 		{
-			Description: "Active task",
-			ProjectID:   &project.ID,
-			CreatedAt:   now,
-			UpdatedAt:   now,
+			Title:     "Active task",
+			ProjectID: &project.ID,
+			CreatedAt: now,
+			UpdatedAt: now,
 		},
 		// Recently completed task (should be included)
 		{
-			Description: "Recently completed task",
+			Title:       "Recently completed task",
 			ProjectID:   &project.ID,
-			CompletedAt: &fiveDaysAgo,
+			CompletedAt: utils.NewFlexibleTime(fiveDaysAgo),
 			CreatedAt:   now,
 			UpdatedAt:   now,
 		},
 		// Old completed task (should be excluded)
 		{
-			Description: "Old completed task",
+			Title:       "Old completed task",
 			ProjectID:   &project.ID,
-			CompletedAt: &fortyDaysAgo,
+			CompletedAt: utils.NewFlexibleTime(fortyDaysAgo),
 			CreatedAt:   now,
 			UpdatedAt:   now,
 		},
 		// Deleted task (should be excluded)
 		{
-			Description: "Deleted task",
-			ProjectID:   &project.ID,
-			DeletedAt:   &thirtyDaysAgo,
-			CreatedAt:   now,
-			UpdatedAt:   now,
+			Title:     "Deleted task",
+			ProjectID: &project.ID,
+			DeletedAt: &thirtyDaysAgo,
+			CreatedAt: now,
+			UpdatedAt: now,
 		},
 		// Recently completed task exactly 30 days ago (should be excluded)
 		{
-			Description: "Task completed exactly 30 days ago",
+			Title:       "Task completed exactly 30 days ago",
 			ProjectID:   &project.ID,
-			CompletedAt: &thirtyDaysAgo,
+			CompletedAt: utils.NewFlexibleTime(thirtyDaysAgo),
 			CreatedAt:   now,
 			UpdatedAt:   now,
 		},
@@ -146,20 +147,20 @@ func TestLoadRecentTasks_FiltersByCompletionDate(t *testing.T) {
 	// We should have 2 tasks: 1 active + 1 recently completed
 	assert.Len(t, tasks, 2)
 
-	// Check task descriptions to verify correct filtering
-	descriptions := make(map[string]bool)
+	// Check task titles to verify correct filtering
+	titles := make(map[string]bool)
 	for _, task := range tasks {
-		descriptions[task.Description] = true
+		titles[task.Title] = true
 	}
 
 	// Should include active and recently completed tasks
-	assert.True(t, descriptions["Active task"], "Active task should be included")
-	assert.True(t, descriptions["Recently completed task"], "Recently completed task should be included")
+	assert.True(t, titles["Active task"], "Active task should be included")
+	assert.True(t, titles["Recently completed task"], "Recently completed task should be included")
 
 	// Should not include old completed, deleted, or exactly 30-day-old tasks
-	assert.False(t, descriptions["Old completed task"], "Old completed task should be excluded")
-	assert.False(t, descriptions["Deleted task"], "Deleted task should be excluded")
-	assert.False(t, descriptions["Task completed exactly 30 days ago"], "Task completed exactly 30 days ago should be excluded")
+	assert.False(t, titles["Old completed task"], "Old completed task should be excluded")
+	assert.False(t, titles["Deleted task"], "Deleted task should be excluded")
+	assert.False(t, titles["Task completed exactly 30 days ago"], "Task completed exactly 30 days ago should be excluded")
 }
 
 func TestLoadRecentTasks_ExcludesDeletedTasks(t *testing.T) {
@@ -190,18 +191,18 @@ func TestLoadRecentTasks_ExcludesDeletedTasks(t *testing.T) {
 	tasks := []database.Task{
 		// Active non-deleted task
 		{
-			Description: "Active task",
-			ProjectID:   &project.ID,
-			CreatedAt:   now,
-			UpdatedAt:   now,
+			Title:     "Active task",
+			ProjectID: &project.ID,
+			CreatedAt: now,
+			UpdatedAt: now,
 		},
 		// Deleted task
 		{
-			Description: "Deleted task",
-			ProjectID:   &project.ID,
-			DeletedAt:   &deletedTime,
-			CreatedAt:   now,
-			UpdatedAt:   now,
+			Title:     "Deleted task",
+			ProjectID: &project.ID,
+			DeletedAt: &deletedTime,
+			CreatedAt: now,
+			UpdatedAt: now,
 		},
 	}
 
@@ -216,7 +217,7 @@ func TestLoadRecentTasks_ExcludesDeletedTasks(t *testing.T) {
 
 	// Should only have 1 task (the non-deleted one)
 	assert.Len(t, loadedTasks, 1)
-	assert.Equal(t, "Active task", loadedTasks[0].Description)
+	assert.Equal(t, "Active task", loadedTasks[0].Title)
 }
 
 func TestLoadRecentTasks_IncludesRecentlyCompletedTasks(t *testing.T) {
@@ -247,16 +248,16 @@ func TestLoadRecentTasks_IncludesRecentlyCompletedTasks(t *testing.T) {
 	// Create recently completed tasks
 	tasks := []database.Task{
 		{
-			Description: "Task completed 1 day ago",
+			Title:       "Task completed 1 day ago",
 			ProjectID:   &project.ID,
-			CompletedAt: &oneDayAgo,
+			CompletedAt: utils.NewFlexibleTime(oneDayAgo),
 			CreatedAt:   now,
 			UpdatedAt:   now,
 		},
 		{
-			Description: "Task completed 29 days ago",
+			Title:       "Task completed 29 days ago",
 			ProjectID:   &project.ID,
-			CompletedAt: &twentyNineDaysAgo,
+			CompletedAt: utils.NewFlexibleTime(twentyNineDaysAgo),
 			CreatedAt:   now,
 			UpdatedAt:   now,
 		},
@@ -274,11 +275,11 @@ func TestLoadRecentTasks_IncludesRecentlyCompletedTasks(t *testing.T) {
 	// Should have both recently completed tasks
 	assert.Len(t, loadedTasks, 2)
 
-	descriptions := make(map[string]bool)
+	titles := make(map[string]bool)
 	for _, task := range loadedTasks {
-		descriptions[task.Description] = true
+		titles[task.Title] = true
 	}
 
-	assert.True(t, descriptions["Task completed 1 day ago"])
-	assert.True(t, descriptions["Task completed 29 days ago"])
+	assert.True(t, titles["Task completed 1 day ago"])
+	assert.True(t, titles["Task completed 29 days ago"])
 }

@@ -8,6 +8,7 @@ import (
 	"dimaist/database"
 	"dimaist/env"
 	"dimaist/logger"
+	"dimaist/utils"
 
 	"github.com/lib/pq"
 )
@@ -89,11 +90,11 @@ func LoadRecentProjects(limit int) ([]database.Project, error) {
 	return projects, nil
 }
 
-func toTimeMinutes(t *time.Time) *timeMinutes {
-	if t == nil {
+func toTimeMinutes(t *utils.FlexibleTime) *timeMinutes {
+	if t == nil || t.IsZero() {
 		return nil
 	}
-	tm := timeMinutes(*t)
+	tm := timeMinutes(t.Time)
 	return &tm
 }
 

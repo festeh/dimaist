@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"dimaist/utils"
+
 	"github.com/lib/pq"
 )
 
@@ -42,32 +44,35 @@ func (ta *TimeArray) Scan(value any) error {
 }
 
 type Task struct {
-	ID            uint           `gorm:"primaryKey" json:"id"`
-	Title         string         `gorm:"column:title;not null" json:"title"`
-	Description   *string        `json:"description,omitempty"`
-	ProjectID     *uint          `gorm:"index" json:"project_id,omitempty"`
-	Project       *Project       `gorm:"foreignKey:ProjectID" json:"project,omitempty"`
-	DueDate       *time.Time     `json:"due_date,omitempty"`
-	DueDatetime   *time.Time     `json:"due_datetime,omitempty"`
-	StartDatetime *time.Time     `json:"start_datetime,omitempty"`
-	EndDatetime   *time.Time     `json:"end_datetime,omitempty"`
-	Labels        pq.StringArray `gorm:"type:text[]" json:"labels,omitempty"`
-	Reminders     TimeArray      `gorm:"type:timestamp[]" json:"reminders,omitempty"`
-	Recurrence    string         `json:"recurrence,omitempty"`
-	Order         int            `gorm:"default:0" json:"order"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	DeletedAt     *time.Time     `gorm:"index" json:"deleted_at,omitempty"`
-	CompletedAt   *time.Time     `json:"completed_at,omitempty"`
-	GoogleEventID *string        `json:"google_event_id,omitempty"`
+	ID            uint                `gorm:"primaryKey" json:"id"`
+	Title         string              `gorm:"column:title;not null" json:"title"`
+	Description   *string             `json:"description,omitempty"`
+	ProjectID     *uint               `gorm:"index" json:"project_id,omitempty"`
+	Project       *Project            `gorm:"foreignKey:ProjectID" json:"project,omitempty"`
+	DueDate       *utils.FlexibleTime `json:"due_date,omitempty"`
+	DueDatetime   *utils.FlexibleTime `json:"due_datetime,omitempty"`
+	StartDatetime *utils.FlexibleTime `json:"start_datetime,omitempty"`
+	EndDatetime   *utils.FlexibleTime `json:"end_datetime,omitempty"`
+	Labels        pq.StringArray      `gorm:"type:text[]" json:"labels,omitempty"`
+	Reminders     TimeArray           `gorm:"type:timestamp[]" json:"reminders,omitempty"`
+	Recurrence    string              `json:"recurrence,omitempty"`
+	Order         int                 `gorm:"default:0" json:"order"`
+	CreatedAt     time.Time           `json:"created_at"`
+	UpdatedAt     time.Time           `json:"updated_at"`
+	DeletedAt     *time.Time          `gorm:"index" json:"deleted_at,omitempty"`
+	CompletedAt   *utils.FlexibleTime `json:"completed_at,omitempty"`
+	GoogleEventID *string             `json:"google_event_id,omitempty"`
 }
 
 // Due returns the effective due date/datetime (DueDatetime takes precedence)
 func (t *Task) Due() *time.Time {
 	if t.DueDatetime != nil {
-		return t.DueDatetime
+		return t.DueDatetime.ToTimePtr()
 	}
-	return t.DueDate
+	if t.DueDate != nil {
+		return t.DueDate.ToTimePtr()
+	}
+	return nil
 }
 
 // HasTime returns true if task has a specific time (DueDatetime) vs date-only

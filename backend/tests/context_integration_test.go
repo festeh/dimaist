@@ -7,6 +7,7 @@ import (
 
 	"dimaist/ai"
 	"dimaist/database"
+	"dimaist/utils"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
 )
@@ -70,31 +71,31 @@ func createTestTasksForPrompt(db *gorm.DB) error {
 
 	tasks := []database.Task{
 		{
-			Description: "Active task for prompt test",
+			Title:     "Active task for prompt test",
+			ProjectID: &project.ID,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		{
+			Title:       "Recently completed task for prompt test",
 			ProjectID:   &project.ID,
+			CompletedAt: utils.NewFlexibleTime(fiveDaysAgo),
 			CreatedAt:   now,
 			UpdatedAt:   now,
 		},
 		{
-			Description: "Recently completed task for prompt test",
+			Title:       "Old completed task for prompt test",
 			ProjectID:   &project.ID,
-			CompletedAt: &fiveDaysAgo,
+			CompletedAt: utils.NewFlexibleTime(fortyDaysAgo),
 			CreatedAt:   now,
 			UpdatedAt:   now,
 		},
 		{
-			Description: "Old completed task for prompt test",
-			ProjectID:   &project.ID,
-			CompletedAt: &fortyDaysAgo,
-			CreatedAt:   now,
-			UpdatedAt:   now,
-		},
-		{
-			Description: "Deleted task for prompt test",
-			ProjectID:   &project.ID,
-			DeletedAt:   &thirtyDaysAgo,
-			CreatedAt:   now,
-			UpdatedAt:   now,
+			Title:     "Deleted task for prompt test",
+			ProjectID: &project.ID,
+			DeletedAt: &thirtyDaysAgo,
+			CreatedAt: now,
+			UpdatedAt: now,
 		},
 	}
 
