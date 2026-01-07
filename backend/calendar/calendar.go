@@ -11,6 +11,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/calendar/v3"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 )
 
@@ -157,6 +158,15 @@ func updateEvent(task *database.Task) error {
 	event := buildEvent(task)
 	_, err = srv.Events.Update("primary", *task.GoogleEventID, event).Do()
 	if err != nil {
+		// Check if event is inaccessible (403/404/410) - recreate it
+		if apiErr, ok := err.(*googleapi.Error); ok {
+			if apiErr.Code == 403 || apiErr.Code == 404 || apiErr.Code == 410 {
+				logger.Warn("Event inaccessible, recreating").Err(err).Str("event_id", *task.GoogleEventID).Send()
+				clearEventID(task.ID)
+				task.GoogleEventID = nil
+				return createEvent(task)
+			}
+		}
 		logger.Error("Failed to update calendar event").Err(err).Str("event_id", *task.GoogleEventID).Send()
 		return err
 	}
@@ -174,6 +184,13 @@ func deleteEvent(eventID string) error {
 
 	err = srv.Events.Delete("primary", eventID).Do()
 	if err != nil {
+		// Ignore 403/404/410 - event is gone or inaccessible, which is fine for delete
+		if apiErr, ok := err.(*googleapi.Error); ok {
+			if apiErr.Code == 403 || apiErr.Code == 404 || apiErr.Code == 410 {
+				logger.Warn("Event already gone or inaccessible").Err(err).Str("event_id", eventID).Send()
+				return nil
+			}
+		}
 		logger.Error("Failed to delete calendar event").Err(err).Str("event_id", eventID).Send()
 		return err
 	}
