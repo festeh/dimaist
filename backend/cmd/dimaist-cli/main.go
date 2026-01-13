@@ -67,8 +67,48 @@ func main() {
 func handleTask(command string) {
 	switch command {
 	case "list":
+		// Parse --due flag
+		var dueFilter string
+		args := os.Args[3:]
+		for i := 0; i < len(args); i++ {
+			if args[i] == "--due" {
+				if i+1 >= len(args) {
+					fmt.Fprintf(os.Stderr, "error: --due requires a value\n")
+					os.Exit(1)
+				}
+				dueFilter = args[i+1]
+				i++
+			} else if strings.HasPrefix(args[i], "--") {
+				fmt.Fprintf(os.Stderr, "error: unknown flag: %s\n", args[i])
+				fmt.Fprintf(os.Stderr, "usage: dimaist-cli task list [--due YYYY-MM-DD|today]\n")
+				os.Exit(1)
+			}
+		}
+
+		query := database.DB.Preload("Project").Where("deleted_at IS NULL")
+
+		if dueFilter != "" {
+			var dueDate time.Time
+			if dueFilter == "today" {
+				now := time.Now()
+				dueDate = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+			} else {
+				var err error
+				dueDate, err = time.Parse("2006-01-02", dueFilter)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "error: invalid due date (use YYYY-MM-DD or 'today'): %v\n", err)
+					os.Exit(1)
+				}
+			}
+			nextDay := dueDate.AddDate(0, 0, 1)
+			query = query.Where(
+				"(due_date >= ? AND due_date < ?) OR (due_datetime >= ? AND due_datetime < ?)",
+				dueDate, nextDay, dueDate, nextDay,
+			)
+		}
+
 		var tasks []database.Task
-		result := database.DB.Preload("Project").Where("deleted_at IS NULL").Order("\"order\"").Find(&tasks)
+		result := query.Order("\"order\"").Find(&tasks)
 		if result.Error != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", result.Error)
 			os.Exit(1)
@@ -430,7 +470,7 @@ Resources:
   ai                Generate AI request
 
 Task Commands:
-  list                                    List all tasks
+  list [--due YYYY-MM-DD|today]           List tasks (optionally filter by due date)
   get <id>                                Get a single task
   create --title "..." [--due YYYY-MM-DD] [--project-id N]
                                           Create a new task
@@ -448,6 +488,7 @@ AI Commands:
 
 Examples:
   dimaist-cli task list
+  dimaist-cli task list --due today
   dimaist-cli task create --title "Buy milk" --due 2026-01-15
   dimaist-cli task complete 42
   dimaist-cli task update 42 --title "Buy groceries"
