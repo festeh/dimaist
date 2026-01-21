@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var prettyJSON bool
+
 var rootCmd = &cobra.Command{
 	Use:   "dimaist-cli",
 	Short: "CLI for Dimaist task management",
@@ -37,6 +39,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
+	rootCmd.PersistentFlags().BoolVar(&prettyJSON, "pretty", false, "Pretty print JSON output")
 	rootCmd.AddCommand(taskCmd)
 	rootCmd.AddCommand(projectCmd)
 	rootCmd.AddCommand(aiCmd)
@@ -50,7 +53,9 @@ func main() {
 
 func printJSON(v any) {
 	encoder := json.NewEncoder(os.Stdout)
-	encoder.SetIndent("", "  ")
+	if prettyJSON {
+		encoder.SetIndent("", "  ")
+	}
 	if err := encoder.Encode(v); err != nil {
 		fmt.Fprintf(os.Stderr, "error: failed to encode JSON: %v\n", err)
 		os.Exit(1)

@@ -48,7 +48,7 @@ func setupTestDB() (*gorm.DB, error) {
 	}
 
 	// Run migrations
-	err = db.AutoMigrate(&database.Project{}, &database.Task{}, &database.Audio{})
+	err = db.AutoMigrate(&database.Project{}, &database.Task{})
 	if err != nil {
 		return nil, err
 	}

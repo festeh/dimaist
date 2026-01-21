@@ -51,7 +51,8 @@ func (ft FlexibleTime) MarshalJSON() ([]byte, error) {
 	if ft.IsZero() {
 		return []byte("null"), nil
 	}
-	return json.Marshal(ft.Time.Format(time.RFC3339))
+	// Minute granularity (no seconds) for cleaner output
+	return json.Marshal(ft.Time.Format("2006-01-02T15:04-07:00"))
 }
 
 // Value implements driver.Valuer for GORM

@@ -57,9 +57,9 @@ type Task struct {
 	Reminders     TimeArray           `gorm:"type:timestamp[]" json:"reminders,omitempty"`
 	Recurrence    string              `json:"recurrence,omitempty"`
 	Order         int                 `gorm:"default:0" json:"order"`
-	CreatedAt     time.Time           `json:"created_at"`
-	UpdatedAt     time.Time           `json:"updated_at"`
-	DeletedAt     *time.Time          `gorm:"index" json:"deleted_at,omitempty"`
+	CreatedAt     utils.FlexibleTime  `json:"created_at"`
+	UpdatedAt     utils.FlexibleTime  `json:"updated_at"`
+	DeletedAt     *utils.FlexibleTime `gorm:"index" json:"deleted_at,omitempty"`
 	CompletedAt   *utils.FlexibleTime `json:"completed_at,omitempty"`
 	GoogleEventID *string             `json:"google_event_id,omitempty"`
 }
@@ -87,15 +87,9 @@ type Project struct {
 	Icon      *string    `json:"icon,omitempty"`
 	Order     int        `gorm:"default:0" json:"order"`
 	Tasks     []Task     `gorm:"foreignKey:ProjectID" json:"tasks,omitempty"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	DeletedAt *time.Time `gorm:"index" json:"deleted_at,omitempty"`
-}
-
-type Audio struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	Data      string    `gorm:"type:text;not null" json:"data"`
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt utils.FlexibleTime  `json:"created_at"`
+	UpdatedAt utils.FlexibleTime  `json:"updated_at"`
+	DeletedAt *utils.FlexibleTime `gorm:"index" json:"deleted_at,omitempty"`
 }
 
 // ValidateLabels returns error if labels contain empty strings
@@ -123,7 +117,7 @@ func CreateTask(task *Task) error {
 
 	// Ensure CreatedAt is set
 	if task.CreatedAt.IsZero() {
-		task.CreatedAt = time.Now()
+		task.CreatedAt = utils.FlexibleTime{Time: time.Now()}
 	}
 
 	return DB.Create(task).Error
