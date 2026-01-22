@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -11,6 +12,12 @@ import (
 
 // Logger is the global logger instance
 var Logger zerolog.Logger
+
+func init() {
+	// Default: disabled logger (for CLI usage where logs interfere with JSON output)
+	Logger = zerolog.New(io.Discard)
+	log.Logger = Logger
+}
 
 // InitLogger initializes the global logger with configuration
 func InitLogger(logLevel, logFormat string, verbose bool) {
@@ -83,4 +90,38 @@ func Debug(message string) *zerolog.Event {
 // Warn logs a warning message
 func Warn(message string) *zerolog.Event {
 	return Logger.Warn().Str("message", message)
+}
+
+// InitCLILogger initializes logger for CLI usage (outputs to stderr to not interfere with JSON)
+func InitCLILogger(logLevel string) {
+	zerolog.TimeFieldFormat = time.RFC3339Nano
+
+	logLevel = strings.ToLower(logLevel)
+	var level zerolog.Level
+
+	switch logLevel {
+	case "debug":
+		level = zerolog.DebugLevel
+	case "info":
+		level = zerolog.InfoLevel
+	case "warn":
+		level = zerolog.WarnLevel
+	case "error":
+		level = zerolog.ErrorLevel
+	default:
+		level = zerolog.InfoLevel
+	}
+
+	// CLI uses stderr with pretty format
+	Logger = zerolog.New(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: "15:04:05",
+	}).
+		Level(level).
+		With().
+		Timestamp().
+		Caller().
+		Logger()
+
+	log.Logger = Logger
 }

@@ -2,18 +2,26 @@ package database
 
 import (
 	"dimaist/logger"
+	"time"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"time"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 var DB *gorm.DB
 
 // InitDBLight connects to database without running migrations (for CLI tools)
-func InitDBLight(databaseURL string) error {
+func InitDBLight(databaseURL string, showLogs bool) error {
+	logMode := gormlogger.Silent
+	if showLogs {
+		logMode = gormlogger.Info
+	}
+
 	var err error
 	DB, err = gorm.Open(postgres.Open(databaseURL), &gorm.Config{
 		PrepareStmt: false,
+		Logger:      gormlogger.Default.LogMode(logMode),
 	})
 	if err != nil {
 		return err

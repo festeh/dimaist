@@ -6,12 +6,14 @@ import (
 	"os"
 
 	"dimaist/database"
+	"dimaist/logger"
 
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
 var prettyJSON bool
+var showLogs bool
 
 var rootCmd = &cobra.Command{
 	Use:   "dimaist-cli",
@@ -23,6 +25,11 @@ var rootCmd = &cobra.Command{
 			return nil
 		}
 
+		// Initialize logger if --show-logs flag is set
+		if showLogs {
+			logger.InitCLILogger("debug")
+		}
+
 		godotenv.Load()
 
 		databaseURL := os.Getenv("DATABASE_URL")
@@ -30,7 +37,7 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("DATABASE_URL environment variable is required")
 		}
 
-		if err := database.InitDBLight(databaseURL); err != nil {
+		if err := database.InitDBLight(databaseURL, showLogs); err != nil {
 			return fmt.Errorf("failed to connect to database: %w", err)
 		}
 
@@ -39,6 +46,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
+	rootCmd.PersistentFlags().BoolVar(&showLogs, "show-logs", false, "Show debug logs (to stderr)")
 	rootCmd.PersistentFlags().BoolVar(&prettyJSON, "pretty", false, "Pretty print JSON output")
 	rootCmd.AddCommand(taskCmd)
 	rootCmd.AddCommand(projectCmd)
