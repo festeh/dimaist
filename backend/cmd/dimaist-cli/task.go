@@ -20,28 +20,37 @@ var taskCmd = &cobra.Command{
 var taskListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List tasks",
-	Long:  "List all tasks, optionally filtered by due date.",
+	Long:  "List all tasks, optionally filtered to show tasks due on or before a given date.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dueFilter, _ := cmd.Flags().GetString("due")
+		showCompleted, _ := cmd.Flags().GetBool("show-completed")
 
 		query := database.DB.Preload("Project").Where("deleted_at IS NULL")
 
+		if !showCompleted {
+			query = query.Where("completed_at IS NULL")
+		}
+
 		if dueFilter != "" {
 			var dueDate time.Time
-			if dueFilter == "today" {
-				now := time.Now()
-				dueDate = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-			} else {
+			now := time.Now()
+			today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+			switch dueFilter {
+			case "today":
+				dueDate = today
+			case "tomorrow":
+				dueDate = today.AddDate(0, 0, 1)
+			default:
 				var err error
 				dueDate, err = time.Parse("2006-01-02", dueFilter)
 				if err != nil {
-					return fmt.Errorf("invalid due date (use YYYY-MM-DD or 'today'): %w", err)
+					return fmt.Errorf("invalid due date (use YYYY-MM-DD, 'today', or 'tomorrow'): %w", err)
 				}
 			}
-			nextDay := dueDate.AddDate(0, 0, 1)
+			endOfDay := dueDate.AddDate(0, 0, 1)
 			query = query.Where(
-				"(due_date >= ? AND due_date < ?) OR (due_datetime >= ? AND due_datetime < ?)",
-				dueDate, nextDay, dueDate, nextDay,
+				"(due_date < ?) OR (due_datetime < ?)",
+				endOfDay, endOfDay,
 			)
 		}
 
@@ -263,7 +272,8 @@ var taskCleanupLabelsCmd = &cobra.Command{
 
 func init() {
 	// task list
-	taskListCmd.Flags().String("due", "", "Filter by due date (YYYY-MM-DD or 'today')")
+	taskListCmd.Flags().String("due", "", "Filter tasks due on or before date (YYYY-MM-DD, 'today', or 'tomorrow')")
+	taskListCmd.Flags().Bool("show-completed", false, "Include completed tasks in output")
 	taskCmd.AddCommand(taskListCmd)
 
 	// task get
