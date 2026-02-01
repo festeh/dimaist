@@ -592,7 +592,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                 })(),
         ),
         ChatInputWidget(
-          onSendMessage: _handleAiMessage,
+          onSendMessage: (text, {List<String>? images}) => _handleAiMessage(text),
           isProcessing: _isAiProcessing,
         ),
       ],

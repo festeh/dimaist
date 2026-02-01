@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	"dimaist/logger"
+
+	"github.com/festeh/general"
 	"github.com/gorilla/websocket"
 )
 
@@ -36,8 +38,8 @@ type Session struct {
 	Targets          []TargetSpec
 	SelectedModel    string // "provider:model" format, empty = not yet selected
 	IncludeCompleted bool
-	CurrentProjectID *uint  // Project user is currently viewing (nil = Inbox/all tasks)
-	TurnID           int    // Increments each turn, used to filter stale responses
+	CurrentProjectID *uint // Project user is currently viewing (nil = Inbox/all tasks)
+	TurnID           int   // Increments each turn, used to filter stale responses
 }
 
 // WSMessage represents a WebSocket message for AI chat
@@ -66,12 +68,38 @@ type WSMessage struct {
 	Error      string  `json:"error,omitempty"`
 	Duration   float64 `json:"duration,omitempty"`
 
+	// Image attachments (base64 data URIs)
+	Images []string `json:"images,omitempty"`
+
 	// All complete event fields
 	SuccessfulTargets []string `json:"successful_targets,omitempty"`
 	FailedTargets     []string `json:"failed_targets,omitempty"`
 
 	// Turn tracking
 	TurnID int `json:"turn_id,omitempty"`
+}
+
+// buildUserContent creates a MessageContent from text and optional images.
+// Returns multipart content when images are present, plain text otherwise.
+func buildUserContent(text string, images []string) general.MessageContent {
+	if len(images) == 0 {
+		return general.TextContent(text)
+	}
+
+	parts := make([]general.ContentPart, 0, len(images)+1)
+	for _, img := range images {
+		parts = append(parts, general.ContentPart{
+			Type:     "image_url",
+			ImageURL: &general.ImageURL{URL: img},
+		})
+	}
+	if text != "" {
+		parts = append(parts, general.ContentPart{
+			Type: "text",
+			Text: text,
+		})
+	}
+	return general.MultiContent(parts...)
 }
 
 // HandleWebSocket handles WebSocket connections for AI chat
@@ -115,7 +143,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		if msg.Role == "user" {
 			logger.Info("AI request").
 				Int("idx", i).
-				Str("content", msg.Content).
+				Str("content", msg.Content.String()).
 				Int("targets", len(startMsg.Targets)).
 				Send()
 		}
@@ -166,7 +194,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				logger.Info("Continue message received").Str("content", msg.NewMessage).Send()
 				s.Messages = append(s.Messages, ChatCompletionMessage{
 					Role:    "user",
-					Content: msg.NewMessage,
+					Content: buildUserContent(msg.NewMessage, msg.Images),
 				})
 			} else {
 				logger.Warn("Unexpected message type").Str("type", string(msg.Type)).Send()

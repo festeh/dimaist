@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -36,12 +38,14 @@ class ChatMessage {
   final String role; // 'user', 'assistant', 'system'
   final DateTime timestamp;
   final double? duration; // duration in seconds
+  final List<String>? imageDataUris; // base64 data URIs for attached images
 
   ChatMessage({
     required this.text,
     required this.role,
     required this.timestamp,
     this.duration,
+    this.imageDataUris,
   });
 
   // Helper getter for backward compatibility
@@ -203,12 +207,12 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     }
   }
 
-  Future<void> _processTextMessage(String message) async {
-    await _sendTextMessage(message);
+  Future<void> _processTextMessage(String message, {List<String>? images}) async {
+    await _sendTextMessage(message, images: images);
   }
 
-  Future<void> _sendTextMessage(String userMessage, {bool addUserMessage = true}) async {
-    if (userMessage.trim().isEmpty) return;
+  Future<void> _sendTextMessage(String userMessage, {bool addUserMessage = true, List<String>? images}) async {
+    if (userMessage.trim().isEmpty && (images == null || images.isEmpty)) return;
     // Note: ChatInputWidget already controls when input is enabled based on response state
 
     final message = userMessage.trim();
@@ -225,7 +229,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     }
 
     // All requests use parallel path (unified flow for 1 or N models)
-    await _sendParallelMessage(message, addUserMessage: addUserMessage);
+    await _sendParallelMessage(message, addUserMessage: addUserMessage, images: images);
   }
 
   /// Get the currently selected/viewed response (for finalizing turns)
@@ -254,7 +258,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     return sortedResponses.isNotEmpty ? sortedResponses.first.value : null;
   }
 
-  Future<void> _sendParallelMessage(String userMessage, {bool addUserMessage = true}) async {
+  Future<void> _sendParallelMessage(String userMessage, {bool addUserMessage = true, List<String>? images}) async {
     final message = userMessage.trim();
     final parallelState = ref.read(parallelAiProvider);
     final modelState = ref.read(aiModelProvider);
@@ -298,6 +302,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           text: message,
           role: 'user',
           timestamp: DateTime.now(),
+          imageDataUris: images,
         );
       }
       _isProcessing = true;
@@ -349,10 +354,11 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           targets: targets,
           includeCompleted: includeCompleted,
           currentProjectId: widget.currentProjectId,
+          images: images,
         );
         _conversationStarted = true;
       } else {
-        _wsService.sendContinue(message);
+        _wsService.sendContinue(message, images: images);
       }
     } catch (e) {
       LoggingService.logger.severe('Error sending parallel AI request: $e');
@@ -618,11 +624,38 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 color: colors.primary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(Radii.lg),
               ),
-              child: SelectableText(
-                message.text,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.onSurface,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (message.imageDataUris != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Spacing.sm),
+                      child: Wrap(
+                        spacing: Spacing.xs,
+                        runSpacing: Spacing.xs,
+                        children: message.imageDataUris!.map((dataUri) {
+                          final base64Str = dataUri.split(',').last;
+                          final bytes = base64Decode(base64Str);
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(Radii.sm),
+                            child: Image.memory(
+                              Uint8List.fromList(bytes),
+                              width: 200,
+                              fit: BoxFit.cover,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  if (message.text.isNotEmpty)
+                    SelectableText(
+                      message.text,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurface,
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -815,7 +848,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             ),
           ),
           ChatInputWidget(
-            onSendMessage: _sendTextMessage,
+            onSendMessage: (text, {List<String>? images}) => _sendTextMessage(text, images: images),
             onAudioRecorded: _processAudioMessage,
             // Enable input once first response arrives (even if still waiting for others)
             isProcessing: _isProcessing && !_currentResponses.values.any((r) => r.status != ResponseStatus.pending),
