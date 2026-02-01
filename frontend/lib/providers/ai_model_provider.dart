@@ -9,12 +9,8 @@ class AiModelState {
 
 class AiModelNotifier extends StateNotifier<AiModelState> {
   static final List<AiModel> defaultModels = [
-    // Chutes models
-    AiModel(modelName: 'zai-org/GLM-4.7-TEE', provider: AiProvider.chutes),
-    AiModel(modelName: 'XiaomiMiMo/MiMo-V2-Flash', provider: AiProvider.chutes),
-    AiModel(modelName: 'MiniMaxAI/MiniMax-M2.1-TEE', provider: AiProvider.chutes),
-    AiModel(modelName: 'moonshotai/Kimi-K2-Thinking-TEE', provider: AiProvider.chutes),
-    AiModel(modelName: 'deepseek-ai/DeepSeek-V3.1-Terminus-TEE', provider: AiProvider.chutes),
+    // Kimi models
+    AiModel(modelName: 'kimi-for-coding', provider: AiProvider.kimi),
     // OpenRouter models
     AiModel(modelName: 'z-ai/glm-4.6:turbo', provider: AiProvider.openrouter),
     // Google Gemini models

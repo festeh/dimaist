@@ -173,9 +173,9 @@ func createAIAgent(provider, model string) *Agent {
 	// Select endpoint and token based on provider
 	var apiKey, endpoint string
 	switch provider {
-	case "chutes":
-		apiKey = appEnv.ChutesToken
-		endpoint = appEnv.ChutesEndpoint
+	case "kimi":
+		apiKey = appEnv.KimiToken
+		endpoint = appEnv.KimiEndpoint
 	case "google":
 		apiKey = appEnv.GoogleAIToken
 		endpoint = appEnv.GoogleAIEndpoint

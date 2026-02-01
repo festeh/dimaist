@@ -9,8 +9,8 @@ type Env struct {
 	LogLevel           string
 	LogFormat          string
 	DatabaseURL        string
-	ChutesEndpoint     string
-	ChutesToken        string
+	KimiEndpoint       string
+	KimiToken          string
 	OpenrouterEndpoint string
 	OpenrouterToken    string
 	GoogleAIEndpoint   string
@@ -32,17 +32,12 @@ func New() (*Env, error) {
 	}
 	env.DatabaseURL = databaseURL
 
-	chutesEndpoint := os.Getenv("CHUTES_ENDPOINT")
-	if chutesEndpoint == "" {
-		return nil, fmt.Errorf("CHUTES_ENDPOINT environment variable is required")
+	kimiToken := os.Getenv("KIMI_API_KEY")
+	if kimiToken == "" {
+		return nil, fmt.Errorf("KIMI_API_KEY environment variable is required")
 	}
-	env.ChutesEndpoint = chutesEndpoint
-
-	chutesToken := os.Getenv("CHUTES_TOKEN")
-	if chutesToken == "" {
-		return nil, fmt.Errorf("CHUTES_TOKEN environment variable is required")
-	}
-	env.ChutesToken = chutesToken
+	env.KimiToken = kimiToken
+	env.KimiEndpoint = getEnvOrDefault("KIMI_ENDPOINT", "https://api.kimi.com/coding/v1/chat/completions")
 
 	openrouterEndpoint := os.Getenv("OPENROUTER_ENDPOINT")
 	if openrouterEndpoint == "" {

@@ -562,8 +562,8 @@ func findTargetIndex(targets []general.Target, target general.Target) int {
 
 func getProvider(name string) general.Provider {
 	switch name {
-	case "chutes":
-		return general.Provider{Endpoint: appEnv.ChutesEndpoint, APIKey: appEnv.ChutesToken}
+	case "kimi":
+		return general.Provider{Endpoint: appEnv.KimiEndpoint, APIKey: appEnv.KimiToken, Headers: map[string]string{"User-Agent": "KimiCLI/1.3"}}
 	case "google":
 		return general.Provider{Endpoint: appEnv.GoogleAIEndpoint, APIKey: appEnv.GoogleAIToken}
 	case "groq":
