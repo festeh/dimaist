@@ -62,14 +62,14 @@ func HandleAI(s *Session) error {
 
 	// Build messages with system prompt
 	messagesWithSystem := append(
-		[]ChatCompletionMessage{{Role: "system", Content: systemPrompt}},
+		[]ChatCompletionMessage{{Role: "system", Content: general.TextContent(systemPrompt)}},
 		s.Messages...,
 	)
 
 	// Log conversation history (excluding system prompt)
 	logger.Debug("Conversation history").Int("messages", len(s.Messages)).Send()
 	for i, msg := range s.Messages {
-		preview := msg.Content
+		preview := msg.Content.String()
 		if len(preview) > 200 {
 			preview = preview[:200] + "..."
 		}
@@ -117,7 +117,7 @@ func HandleAI(s *Session) error {
 				} else {
 					responseText := ""
 					if result.Response != nil && len(result.Response.Choices) > 0 {
-						responseText = result.Response.Choices[0].Message.Content
+						responseText = result.Response.Choices[0].Message.Content.String()
 					}
 					logger.Info("Model response").Str("target", result.TargetID).Send()
 					s.WS.SendModelResponse(result.TargetID, responseText, result.Duration.Seconds(), s.TurnID)
@@ -197,17 +197,17 @@ func handleContinueDuringResponses(s *Session, results map[string]*ParallelResul
 			for _, tc := range result.ToolCalls {
 				s.Messages = append(s.Messages, ChatCompletionMessage{
 					Role:       "tool",
-					Content:    "User rejected this action",
+					Content:    general.TextContent("User rejected this action"),
 					ToolCallID: tc.ToolCallID,
 				})
 			}
 		} else if result.Response != nil && len(result.Response.Choices) > 0 {
 			// Model had text response
-			text := result.Response.Choices[0].Message.Content
+			text := result.Response.Choices[0].Message.Content.String()
 			if text != "" {
 				s.Messages = append(s.Messages, ChatCompletionMessage{
 					Role:    "assistant",
-					Content: text,
+					Content: general.TextContent(text),
 				})
 			}
 		}
@@ -217,7 +217,7 @@ func handleContinueDuringResponses(s *Session, results map[string]*ParallelResul
 	if msg.NewMessage != "" {
 		s.Messages = append(s.Messages, ChatCompletionMessage{
 			Role:    "user",
-			Content: msg.NewMessage,
+			Content: buildUserContent(msg.NewMessage, msg.Images),
 		})
 	}
 }
@@ -268,17 +268,17 @@ func handleUserAction(s *Session, results map[string]*ParallelResult, messagesWi
 						for _, tc := range result.ToolCalls {
 							s.Messages = append(s.Messages, ChatCompletionMessage{
 								Role:       "tool",
-								Content:    "User rejected this action",
+								Content:    general.TextContent("User rejected this action"),
 								ToolCallID: tc.ToolCallID,
 							})
 						}
 					} else if result.Response != nil && len(result.Response.Choices) > 0 {
 						// Model had text response
-						text := result.Response.Choices[0].Message.Content
+						text := result.Response.Choices[0].Message.Content.String()
 						if text != "" {
 							s.Messages = append(s.Messages, ChatCompletionMessage{
 								Role:    "assistant",
-								Content: text,
+								Content: general.TextContent(text),
 							})
 						}
 					}
@@ -288,7 +288,7 @@ func handleUserAction(s *Session, results map[string]*ParallelResult, messagesWi
 				if msg.NewMessage != "" {
 					s.Messages = append(s.Messages, ChatCompletionMessage{
 						Role:    "user",
-						Content: msg.NewMessage,
+						Content: buildUserContent(msg.NewMessage, msg.Images),
 					})
 				}
 				logger.Info("Continue during action wait").Str("selected", s.SelectedModel).Str("newMessage", msg.NewMessage).Send()
@@ -344,12 +344,12 @@ func handleToolConfirm(s *Session, results map[string]*ParallelResult, messagesW
 		if err != nil {
 			logger.Error("Tool failed").Str("tool", tc.Name).Err(err).Send()
 			messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
-				Role: "tool", Content: "Error: " + err.Error(), ToolCallID: toolCallID,
+				Role: "tool", Content: general.TextContent("Error: " + err.Error()), ToolCallID: toolCallID,
 			})
 		} else {
 			s.WS.SendToolResult(toolResult, duration)
 			messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
-				Role: "tool", Content: toolResult, ToolCallID: toolCallID,
+				Role: "tool", Content: general.TextContent(toolResult), ToolCallID: toolCallID,
 			})
 		}
 		delete(pending, toolCallID)
@@ -383,12 +383,12 @@ func handleToolConfirm(s *Session, results map[string]*ParallelResult, messagesW
 
 				if err != nil {
 					messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
-						Role: "tool", Content: "Error: " + err.Error(), ToolCallID: msg.ToolCallID,
+						Role: "tool", Content: general.TextContent("Error: " + err.Error()), ToolCallID: msg.ToolCallID,
 					})
 				} else {
 					s.WS.SendToolResult(toolResult, duration)
 					messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
-						Role: "tool", Content: toolResult, ToolCallID: msg.ToolCallID,
+						Role: "tool", Content: general.TextContent(toolResult), ToolCallID: msg.ToolCallID,
 					})
 				}
 				delete(pending, msg.ToolCallID)
@@ -397,13 +397,13 @@ func handleToolConfirm(s *Session, results map[string]*ParallelResult, messagesW
 				// Reject remaining tools
 				for tcID := range pending {
 					messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
-						Role: "tool", Content: "User rejected this action", ToolCallID: tcID,
+						Role: "tool", Content: general.TextContent("User rejected this action"), ToolCallID: tcID,
 					})
 				}
 				// Add user message
 				if msg.NewMessage != "" {
 					messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
-						Role: "user", Content: msg.NewMessage,
+						Role: "user", Content: buildUserContent(msg.NewMessage, msg.Images),
 					})
 				}
 				// Update session and return early
@@ -437,11 +437,11 @@ func handleModelSelection(s *Session, results map[string]*ParallelResult, target
 
 	// Add text response to session
 	if result.Response != nil && len(result.Response.Choices) > 0 {
-		text := result.Response.Choices[0].Message.Content
+		text := result.Response.Choices[0].Message.Content.String()
 		if text != "" {
 			s.Messages = append(s.Messages, ChatCompletionMessage{
 				Role:    "assistant",
-				Content: text,
+				Content: general.TextContent(text),
 			})
 		}
 	}
@@ -531,7 +531,7 @@ func streamRequests(targets []TargetSpec, messages []ChatCompletionMessage) <-ch
 									var args map[string]any
 									if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil {
 										if text, ok := args["text"].(string); ok {
-											pr.Response.Choices[0].Message.Content = text
+											pr.Response.Choices[0].Message.Content = general.TextContent(text)
 										}
 									}
 									break

@@ -245,7 +245,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
     }
   }
 
-  Future<void> _handleAiMessage(String message) async {
+  Future<void> _handleAiMessage(AiPrompt prompt) async {
     if (_isAiProcessing) return;
 
     setState(() {
@@ -253,11 +253,11 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
     });
 
     try {
-      // Navigate to AI chat screen with the message and current project context
+      // Navigate to AI chat screen with the prompt and current project context
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => AiChatScreen(
-            initialMessage: message,
+            initialPrompt: prompt,
             currentProjectId: widget.project?.id,
           ),
         ),

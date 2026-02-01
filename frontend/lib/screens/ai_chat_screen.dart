@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -36,13 +38,23 @@ class ChatMessage {
   final String role; // 'user', 'assistant', 'system'
   final DateTime timestamp;
   final double? duration; // duration in seconds
+  final List<String>? imageDataUris; // base64 data URIs for attached images
+  late final List<Uint8List>? _decodedImages;
 
   ChatMessage({
     required this.text,
     required this.role,
     required this.timestamp,
     this.duration,
-  });
+    this.imageDataUris,
+  }) {
+    _decodedImages = imageDataUris?.map((dataUri) {
+      final base64Str = dataUri.split(',').last;
+      return Uint8List.fromList(base64Decode(base64Str));
+    }).toList();
+  }
+
+  List<Uint8List>? get decodedImages => _decodedImages;
 
   // Helper getter for backward compatibility
   bool get isUser => role == 'user';
@@ -64,10 +76,10 @@ class ChatMessage {
 
 class AiChatScreen extends ConsumerStatefulWidget {
   final List<int>? initialAudioBytes;
-  final String? initialMessage;
+  final AiPrompt? initialPrompt;
   final int? currentProjectId;
 
-  const AiChatScreen({super.key, this.initialAudioBytes, this.initialMessage, this.currentProjectId});
+  const AiChatScreen({super.key, this.initialAudioBytes, this.initialPrompt, this.currentProjectId});
 
   @override
   ConsumerState<AiChatScreen> createState() => _AiChatScreenState();
@@ -103,10 +115,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       });
     }
 
-    // If we have initial text message, process it immediately
-    if (widget.initialMessage != null) {
+    // If we have initial prompt, process it immediately
+    if (widget.initialPrompt != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _processTextMessage(widget.initialMessage!);
+        _processTextMessage(widget.initialPrompt!.text, images: widget.initialPrompt!.images);
       });
     }
   }
@@ -203,12 +215,12 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     }
   }
 
-  Future<void> _processTextMessage(String message) async {
-    await _sendTextMessage(message);
+  Future<void> _processTextMessage(String message, {List<String>? images}) async {
+    await _sendTextMessage(message, images: images);
   }
 
-  Future<void> _sendTextMessage(String userMessage, {bool addUserMessage = true}) async {
-    if (userMessage.trim().isEmpty) return;
+  Future<void> _sendTextMessage(String userMessage, {bool addUserMessage = true, List<String>? images}) async {
+    if (userMessage.trim().isEmpty && (images == null || images.isEmpty)) return;
     // Note: ChatInputWidget already controls when input is enabled based on response state
 
     final message = userMessage.trim();
@@ -225,7 +237,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     }
 
     // All requests use parallel path (unified flow for 1 or N models)
-    await _sendParallelMessage(message, addUserMessage: addUserMessage);
+    await _sendParallelMessage(message, addUserMessage: addUserMessage, images: images);
   }
 
   /// Get the currently selected/viewed response (for finalizing turns)
@@ -254,7 +266,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     return sortedResponses.isNotEmpty ? sortedResponses.first.value : null;
   }
 
-  Future<void> _sendParallelMessage(String userMessage, {bool addUserMessage = true}) async {
+  Future<void> _sendParallelMessage(String userMessage, {bool addUserMessage = true, List<String>? images}) async {
     final message = userMessage.trim();
     final parallelState = ref.read(parallelAiProvider);
     final modelState = ref.read(aiModelProvider);
@@ -298,6 +310,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           text: message,
           role: 'user',
           timestamp: DateTime.now(),
+          imageDataUris: images,
         );
       }
       _isProcessing = true;
@@ -349,10 +362,11 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           targets: targets,
           includeCompleted: includeCompleted,
           currentProjectId: widget.currentProjectId,
+          images: images,
         );
         _conversationStarted = true;
       } else {
-        _wsService.sendContinue(message);
+        _wsService.sendContinue(message, images: images);
       }
     } catch (e) {
       LoggingService.logger.severe('Error sending parallel AI request: $e');
@@ -618,11 +632,36 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 color: colors.primary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(Radii.lg),
               ),
-              child: SelectableText(
-                message.text,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.onSurface,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (message.decodedImages != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Spacing.sm),
+                      child: Wrap(
+                        spacing: Spacing.xs,
+                        runSpacing: Spacing.xs,
+                        children: message.decodedImages!.map((bytes) {
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(Radii.sm),
+                            child: Image.memory(
+                              bytes,
+                              width: 200,
+                              fit: BoxFit.cover,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  if (message.text.isNotEmpty)
+                    SelectableText(
+                      message.text,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurface,
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -815,7 +854,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             ),
           ),
           ChatInputWidget(
-            onSendMessage: _sendTextMessage,
+            onSendMessage: (prompt) => _sendTextMessage(prompt.text, images: prompt.images),
             onAudioRecorded: _processAudioMessage,
             // Enable input once first response arrives (even if still waiting for others)
             isProcessing: _isProcessing && !_currentResponses.values.any((r) => r.status != ResponseStatus.pending),

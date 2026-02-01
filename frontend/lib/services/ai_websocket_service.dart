@@ -137,40 +137,57 @@ class AiWebSocketService {
     required List<TargetSpec> targets,
     required bool includeCompleted,
     int? currentProjectId,
+    List<String>? images,
   }) {
     if (_channel == null) {
       _logger.warning('Cannot send start: WebSocket not connected');
       return;
     }
 
-    _logger.info('Sending start message with ${targets.length} targets, project: $currentProjectId');
+    _logger.info('Sending start message with ${targets.length} targets, project: $currentProjectId, images: ${images?.length ?? 0}');
 
+    final content = _buildContent(message, images);
     final startMessage = {
       'type': WSMessageType.start.toJson(),
-      'messages': [{'role': 'user', 'content': message}],
+      'messages': [{'role': 'user', 'content': content}],
       'targets': targets.map((t) => t.toJson()).toList(),
       'include_completed': includeCompleted,
       if (currentProjectId != null) 'current_project_id': currentProjectId,
+      if (images != null && images.isNotEmpty) 'images': images,
     };
     _channel!.sink.add(jsonEncode(startMessage));
     _startResponseTimeout();
   }
 
   /// Send continue message (subsequent messages)
-  void sendContinue(String message) {
+  void sendContinue(String message, {List<String>? images}) {
     if (_channel == null) {
       _logger.warning('Cannot send continue: WebSocket not connected');
       return;
     }
 
-    _logger.info('Sending continue message');
+    _logger.info('Sending continue message, images: ${images?.length ?? 0}');
 
     final continueMessage = {
       'type': WSMessageType.continueMsg.toJson(),
       'new_message': message,
+      if (images != null && images.isNotEmpty) 'images': images,
     };
     _channel!.sink.add(jsonEncode(continueMessage));
     _startResponseTimeout();
+  }
+
+  /// Build content for a message — plain string or multipart array with images.
+  dynamic _buildContent(String text, List<String>? images) {
+    if (images == null || images.isEmpty) return text;
+    final parts = <Map<String, dynamic>>[];
+    for (final img in images) {
+      parts.add({'type': 'image_url', 'image_url': {'url': img}});
+    }
+    if (text.isNotEmpty) {
+      parts.add({'type': 'text', 'text': text});
+    }
+    return parts;
   }
 
   /// Confirm a single tool for execution
