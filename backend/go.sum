@@ -15,6 +15,8 @@ github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/festeh/general v0.0.0-20251207170104-25cee62dd9b5 h1:jFQi9uYc66KQIkB7GEhzNZXclu0HmrOxug/PpHjWVRY=
 github.com/festeh/general v0.0.0-20251207170104-25cee62dd9b5/go.mod h1:gyqpM4FAeQd657U1WWJV/q0jUyENAApLpB2OcccqtNw=
+github.com/festeh/general v0.0.0-20260201174850-ef94c297d0dc h1:pzN7VegYSOJXEKA+p20wvv6zNTD1sipI6xteIb1Q21s=
+github.com/festeh/general v0.0.0-20260201174850-ef94c297d0dc/go.mod h1:gyqpM4FAeQd657U1WWJV/q0jUyENAApLpB2OcccqtNw=
 github.com/go-chi/chi/v5 v5.2.3 h1:WQIt9uxdsAbgIYgid+BpYc+liqQZGMHRaUwp0JUcvdE=
 github.com/go-chi/chi/v5 v5.2.3/go.mod h1:L2yAIGWB3H+phAw1NxKwWM+7eUH/lU8pOMm5hHcoops=
 github.com/go-chi/cors v1.2.2 h1:Jmey33TE+b+rB7fT8MUy1u0I4L+NARQlK6LhzKPSyQE=

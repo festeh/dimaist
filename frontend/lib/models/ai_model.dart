@@ -1,13 +1,13 @@
 enum AiProvider {
-  chutes,
+  kimi,
   openrouter,
   google,
   groq;
 
   String get displayName {
     switch (this) {
-      case AiProvider.chutes:
-        return 'Chutes';
+      case AiProvider.kimi:
+        return 'Kimi';
       case AiProvider.openrouter:
         return 'OpenRouter';
       case AiProvider.google:
@@ -19,8 +19,8 @@ enum AiProvider {
 
   String get iconPath {
     switch (this) {
-      case AiProvider.chutes:
-        return 'assets/icons/chutes.png';
+      case AiProvider.kimi:
+        return 'assets/icons/kimi.png';
       case AiProvider.openrouter:
         return 'assets/icons/openrouter.png';
       case AiProvider.google:
@@ -57,7 +57,7 @@ class AiModel {
       modelName: json['modelName'] as String,
       provider: AiProvider.values.firstWhere(
         (p) => p.name == json['provider'],
-        orElse: () => AiProvider.chutes,
+        orElse: () => AiProvider.kimi,
       ),
     );
   }
