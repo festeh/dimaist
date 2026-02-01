@@ -138,12 +138,30 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If images were sent at the top level, ensure the first user message has multipart content
+	if len(startMsg.Images) > 0 {
+		for i, msg := range startMsg.Messages {
+			if msg.Role == "user" {
+				startMsg.Messages[i].Content = buildUserContent(msg.Content.String(), startMsg.Images)
+				logger.Info("AI request with images").
+					Int("idx", i).
+					Str("text", msg.Content.String()).
+					Int("images", len(startMsg.Images)).
+					Int("targets", len(startMsg.Targets)).
+					Send()
+				break
+			}
+		}
+	}
+
 	// Log first user message
 	for i, msg := range startMsg.Messages {
 		if msg.Role == "user" {
+			hasImages := msg.Content.Parts != nil
 			logger.Info("AI request").
 				Int("idx", i).
 				Str("content", msg.Content.String()).
+				Bool("has_images", hasImages).
 				Int("targets", len(startMsg.Targets)).
 				Send()
 		}
@@ -191,7 +209,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if msg.Type == WSMsgContinue {
-				logger.Info("Continue message received").Str("content", msg.NewMessage).Send()
+				logger.Info("Continue message received").Str("content", msg.NewMessage).Int("images", len(msg.Images)).Send()
 				s.Messages = append(s.Messages, ChatCompletionMessage{
 					Role:    "user",
 					Content: buildUserContent(msg.NewMessage, msg.Images),

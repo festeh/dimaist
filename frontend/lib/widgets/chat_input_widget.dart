@@ -3,11 +3,25 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:logging/logging.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../widgets/recording_dialog.dart';
 
+final _logger = Logger('ChatInputWidget');
+
+/// A single object capturing everything the user wants to send.
+/// Add new attachment types here — callers forwarding AiPrompt need no changes.
+class AiPrompt {
+  final String text;
+  final List<String>? images;
+
+  const AiPrompt({required this.text, this.images});
+
+  bool get hasImages => images != null && images!.isNotEmpty;
+}
+
 class ChatInputWidget extends StatefulWidget {
-  final Function(String, {List<String>? images}) onSendMessage;
+  final void Function(AiPrompt prompt) onSendMessage;
   final VoidCallback? onVoicePressed;
   final Function(List<int>)? onAudioRecorded;
   final bool isProcessing;
@@ -66,7 +80,9 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
       images = [_attachedImageDataUri!];
     }
 
-    widget.onSendMessage(text, images: images);
+    final prompt = AiPrompt(text: text, images: images);
+    _logger.info('Sending message: text="${text.length > 50 ? '${text.substring(0, 50)}...' : text}", images=${images?.length ?? 0}');
+    widget.onSendMessage(prompt);
     _textController.value = TextEditingValue.empty;
     _focusNode.unfocus();
     setState(() {
@@ -77,23 +93,33 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    final picked = await _imagePicker.pickImage(
-      source: source,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      imageQuality: 85,
-    );
-    if (picked == null) return;
+    try {
+      _logger.info('Opening image picker, source=$source');
+      final picked = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      if (picked == null) {
+        _logger.info('Image picker returned null (cancelled)');
+        return;
+      }
 
-    final bytes = await picked.readAsBytes();
-    final ext = picked.path.split('.').last.toLowerCase();
-    final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
-    final dataUri = 'data:$mime;base64,${base64Encode(bytes)}';
+      _logger.info('Image picked: path=${picked.path}');
+      final bytes = await picked.readAsBytes();
+      final ext = picked.path.split('.').last.toLowerCase();
+      final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
+      final dataUri = 'data:$mime;base64,${base64Encode(bytes)}';
 
-    setState(() {
-      _attachedImageBytes = bytes;
-      _attachedImageDataUri = dataUri;
-    });
+      _logger.info('Image encoded: ${bytes.length} bytes, mime=$mime, dataUri length=${dataUri.length}');
+      setState(() {
+        _attachedImageBytes = bytes;
+        _attachedImageDataUri = dataUri;
+      });
+    } catch (e, stack) {
+      _logger.severe('Image picker error: $e', e, stack);
+    }
   }
 
   void _showImageSourceSheet() {
