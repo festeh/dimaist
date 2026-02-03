@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:dimaist/models/project.dart' as project_model;
 import 'package:dimaist/models/task.dart' as task_model;
+import 'package:dimaist/models/sync_response.dart';
 import '../enums/sort_mode.dart';
 
 part 'app_database.g.dart';
@@ -393,6 +394,21 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> upsertTask(task_model.Task task) async {
     await into(tasks).insertOnConflictUpdate(_taskToCompanion(task));
+  }
+
+  Future<void> applySyncResponse(SyncResponse response) async {
+    for (var project in response.projects) {
+      await upsertProject(project);
+    }
+    for (var task in response.tasks) {
+      await upsertTask(task);
+    }
+    for (var projectId in response.deletedProjectIds) {
+      await deleteProject(projectId);
+    }
+    for (var taskId in response.deletedTaskIds) {
+      await deleteTask(taskId);
+    }
   }
 
   Future<void> clearDatabase() async {

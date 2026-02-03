@@ -6,7 +6,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../config/design_tokens.dart';
 import '../models/ai_model.dart';
-import '../repositories/providers.dart';
+import '../providers/service_providers.dart';
 import '../services/logging_service.dart';
 import '../services/ai_websocket_service.dart';
 import '../models/ws_message_type.dart';
