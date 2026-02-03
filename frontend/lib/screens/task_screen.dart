@@ -41,39 +41,44 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
   bool _isAiProcessing = false;
   bool _showCompletedTasks = false;
 
-  void _updateAppBarConfig(String title, SortMode sortMode) {
+  void _updateAppBarConfig(String title, SortMode sortMode, bool hasCompletedTasks) {
     widget.onAppBarConfigChanged?.call(
       AppBarConfig(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(width: 4),
-            ViewOptionsMenu(
-              sortMode: sortMode,
-              isScheduleView: _isScheduleView,
-              showScheduleToggle: widget.customView?.type == BuiltInViewType.today,
-              onSortToggle: () async {
-                final taskNotifier = ref.read(taskProvider.notifier);
-                final newSortMode = sortMode == SortMode.order
-                    ? SortMode.dueDate
-                    : SortMode.order;
-                await taskNotifier.setSortMode(newSortMode);
-              },
-              onScheduleToggle: widget.customView?.type == BuiltInViewType.today
-                  ? () {
-                      LoggingService.logger.fine(
-                        'Toggle button pressed! Current state: $_isScheduleView',
-                      );
-                      setState(() {
-                        _isScheduleView = !_isScheduleView;
-                      });
-                      LoggingService.logger.fine('New state: $_isScheduleView');
-                    }
-                  : null,
-            ),
-          ],
-        ),
+        title: Text(title, style: Theme.of(context).textTheme.headlineSmall),
+        actions: [
+          IconButton(
+            icon: PhosphorIcon(PhosphorIcons.plus(), size: Sizes.iconSm),
+            onPressed: _showAddTaskDialog,
+            tooltip: 'Add Task',
+          ),
+          ViewOptionsMenu(
+            sortMode: sortMode,
+            isScheduleView: _isScheduleView,
+            showScheduleToggle: widget.customView?.type == BuiltInViewType.today,
+            onSortToggle: () async {
+              final taskNotifier = ref.read(taskProvider.notifier);
+              final newSortMode = sortMode == SortMode.order
+                  ? SortMode.dueDate
+                  : SortMode.order;
+              await taskNotifier.setSortMode(newSortMode);
+            },
+            onScheduleToggle: widget.customView?.type == BuiltInViewType.today
+                ? () {
+                    setState(() {
+                      _isScheduleView = !_isScheduleView;
+                    });
+                  }
+                : null,
+            showCompletedTasks: _showCompletedTasks,
+            onShowCompletedToggle: hasCompletedTasks
+                ? () {
+                    setState(() {
+                      _showCompletedTasks = !_showCompletedTasks;
+                    });
+                  }
+                : null,
+          ),
+        ],
         backgroundColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
@@ -281,7 +286,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
       data: (taskData) {
         // Update app bar config with the task data title and sort mode
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _updateAppBarConfig(taskData.title, taskData.sortMode);
+          _updateAppBarConfig(taskData.title, taskData.sortMode, taskData.completedTasks.isNotEmpty);
         });
         return _buildTaskContent(context, taskData, taskNotifier);
       },
@@ -332,45 +337,6 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
 
     return Column(
       children: [
-        // Inline toolbar
-        Padding(
-          padding: const EdgeInsets.only(
-            left: Spacing.xs,
-            right: Spacing.xs,
-            top: Spacing.xs,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              IconButton(
-                icon: PhosphorIcon(PhosphorIcons.plus(), size: Sizes.iconSm),
-                onPressed: _showAddTaskDialog,
-                tooltip: 'Add Task',
-              ),
-              ViewOptionsMenu(
-                sortMode: taskData.sortMode,
-                isScheduleView: _isScheduleView,
-                showScheduleToggle:
-                    widget.customView?.type == BuiltInViewType.today,
-                onSortToggle: () async {
-                  final taskNotifier = ref.read(taskProvider.notifier);
-                  final newSortMode = taskData.sortMode == SortMode.order
-                      ? SortMode.dueDate
-                      : SortMode.order;
-                  await taskNotifier.setSortMode(newSortMode);
-                },
-                onScheduleToggle:
-                    widget.customView?.type == BuiltInViewType.today
-                        ? () {
-                            setState(() {
-                              _isScheduleView = !_isScheduleView;
-                            });
-                          }
-                        : null,
-              ),
-            ],
-          ),
-        ),
         Expanded(
           child:
               (widget.customView?.type == BuiltInViewType.today &&

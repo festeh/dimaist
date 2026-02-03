@@ -9,6 +9,8 @@ class ViewOptionsMenu extends StatelessWidget {
   final bool showScheduleToggle;
   final VoidCallback onSortToggle;
   final VoidCallback? onScheduleToggle;
+  final bool showCompletedTasks;
+  final VoidCallback? onShowCompletedToggle;
 
   const ViewOptionsMenu({
     super.key,
@@ -17,6 +19,8 @@ class ViewOptionsMenu extends StatelessWidget {
     required this.showScheduleToggle,
     required this.onSortToggle,
     this.onScheduleToggle,
+    this.showCompletedTasks = false,
+    this.onShowCompletedToggle,
   });
 
   @override
@@ -31,6 +35,9 @@ class ViewOptionsMenu extends StatelessWidget {
             break;
           case 'schedule':
             onScheduleToggle?.call();
+            break;
+          case 'completed':
+            onShowCompletedToggle?.call();
             break;
         }
       },
@@ -63,6 +70,20 @@ class ViewOptionsMenu extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Text(isScheduleView ? 'List View' : 'Schedule View'),
+              ],
+            ),
+          ),
+        if (onShowCompletedToggle != null)
+          PopupMenuItem<String>(
+            value: 'completed',
+            child: Row(
+              children: [
+                PhosphorIcon(
+                  showCompletedTasks ? PhosphorIcons.eyeSlash() : PhosphorIcons.eye(),
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Text(showCompletedTasks ? 'Hide Completed' : 'Show Completed'),
               ],
             ),
           ),

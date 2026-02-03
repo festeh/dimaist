@@ -66,6 +66,76 @@ run-linux-local verbose="":
     rm -f frontend/.env.local.tmp
     kill $BACKEND_PID 2>/dev/null || true
 
+# Run phone app with local backend (starts backend and emulator automatically)
+# Set EMULATOR_ID in frontend/.env (e.g. EMULATOR_ID=Pixel_8_Pro)
+run-phone-local verbose="":
+    #!/usr/bin/env bash
+    set -e
+
+    # Load EMULATOR_ID from frontend/.env
+    EMULATOR_ID=""
+    if [ -f frontend/.env ]; then
+        EMULATOR_ID=$(grep -E "^EMULATOR_ID=" frontend/.env | cut -d= -f2- | tr -d '[:space:]')
+    fi
+    if [ -z "$EMULATOR_ID" ]; then
+        echo "ERROR: EMULATOR_ID not set in frontend/.env"
+        echo "Add e.g. EMULATOR_ID=Pixel_8_Pro to frontend/.env"
+        exit 1
+    fi
+
+    # Launch emulator if no Android device is connected
+    if ! adb devices | grep -q "emulator"; then
+        echo "No emulator running, launching $EMULATOR_ID..."
+        flutter emulators --launch "$EMULATOR_ID"
+        echo "Waiting for emulator to boot..."
+        adb wait-for-device
+        # Wait for boot to complete
+        while [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" != "1" ]; do
+            sleep 1
+        done
+        echo "Emulator ready."
+    else
+        echo "Emulator already running."
+    fi
+
+    # Find available port in range 9200-9250
+    PORT=""
+    for p in $(seq 9200 9250); do
+        if ! ss -tuln | grep -q ":$p "; then
+            PORT=$p
+            break
+        fi
+    done
+
+    if [ -z "$PORT" ]; then
+        echo "ERROR: No available port in range 9200-9250"
+        exit 1
+    fi
+
+    VERBOSE_FLAG=""
+    if [ "{{verbose}}" = "verbose" ]; then
+        VERBOSE_FLAG="--verbose"
+        echo "Starting backend on port $PORT with verbose logging..."
+    else
+        echo "Starting backend on port $PORT..."
+    fi
+    cd backend && go run . -port=$PORT $VERBOSE_FLAG &
+    BACKEND_PID=$!
+
+    # Wait for backend to start
+    sleep 2
+
+    # 10.0.2.2 is the Android emulator's alias for the host machine's localhost
+    echo "BASE_URL=http://10.0.2.2:$PORT" > frontend/.env.local.tmp
+    grep -v "^BASE_URL=" frontend/.env | grep -v "^EMULATOR_ID=" >> frontend/.env.local.tmp 2>/dev/null || true
+
+    echo "Starting phone app with BASE_URL=http://10.0.2.2:$PORT"
+    cd frontend && flutter run --flavor phone -t lib/main.dart --dart-define-from-file=.env.local.tmp
+
+    # Cleanup
+    rm -f frontend/.env.local.tmp
+    kill $BACKEND_PID 2>/dev/null || true
+
 # Launch Android emulator
 emulator:
     flutter emulators --launch Pixel_8_Pro
