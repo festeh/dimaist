@@ -267,11 +267,10 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   Widget build(BuildContext context) {
     final modelState = ref.watch(aiModelProvider);
     final parallelState = ref.watch(parallelAiProvider);
-    // Get first selected model for display (null if none selected)
     final selectedIds = parallelState.selectedModelIds;
-    final selectedModel = selectedIds.isNotEmpty
-        ? modelState.models.where((m) => m.id == selectedIds.first).firstOrNull
-        : null;
+    final selectedModels = modelState.models
+        .where((m) => selectedIds.contains(m.id))
+        .toList();
     final currentTheme = ref.watch(themeProvider);
     final currentFont = ref.watch(fontProvider);
     final currentLanguage = ref.watch(asrLanguageProvider);
@@ -300,11 +299,17 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                         style: TextStyle(fontWeight: FontWeight.w500),
                       ),
                     ),
-                    Flexible(
-                      child: selectedModel != null
-                          ? ModelDisplay(model: selectedModel)
-                          : const Text('None selected'),
-                    ),
+                    if (selectedModels.isEmpty)
+                      const Text('None selected')
+                    else if (selectedModels.length == 1)
+                      ModelDisplay(model: selectedModels.first)
+                    else
+                      Text(
+                        '${selectedModels.length} models',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
                     const SizedBox(width: Spacing.xs),
                     PhosphorIcon(
                       PhosphorIcons.caretRight(),
