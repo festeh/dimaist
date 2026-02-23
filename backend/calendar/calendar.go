@@ -222,9 +222,9 @@ func buildEvent(task *database.Task) *calendar.Event {
 		event.End = &calendar.EventDateTime{
 			DateTime: task.EndDatetime.Format(time.RFC3339),
 		}
-	} else if task.Due() != nil {
-		due := task.Due()
-		if task.HasTime() {
+	} else if task.DueTime() != nil {
+		due := task.DueTime()
+		if task.HasTime {
 			// Timed event: due datetime with 1 hour duration
 			event.Start = &calendar.EventDateTime{
 				DateTime: due.Format(time.RFC3339),

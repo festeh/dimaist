@@ -48,10 +48,7 @@ var taskListCmd = &cobra.Command{
 				}
 			}
 			endOfDay := dueDate.AddDate(0, 0, 1)
-			query = query.Where(
-				"(due_date < ?) OR (due_datetime < ?)",
-				endOfDay, endOfDay,
-			)
+			query = query.Where("due < ?", endOfDay)
 		}
 
 		var tasks []database.Task
@@ -101,7 +98,7 @@ var taskCreateCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("invalid due date format (use YYYY-MM-DD): %w", err)
 			}
-			task.DueDate = utils.NewFlexibleTime(dueDate)
+			task.Due = utils.NewFlexibleTime(dueDate)
 		}
 
 		if projectID > 0 {
@@ -192,7 +189,7 @@ var taskUpdateCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("invalid due date format (use YYYY-MM-DD): %w", err)
 			}
-			updates["due_date"] = utils.NewFlexibleTime(dueDate)
+			updates["due"] = utils.NewFlexibleTime(dueDate)
 		}
 		if projectID > 0 {
 			pid := uint(projectID)

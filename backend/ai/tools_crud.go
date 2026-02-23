@@ -12,19 +12,18 @@ import (
 	"github.com/lib/pq"
 )
 
-// parseDueDate parses a due_date string, returning (dueDate, dueDatetime, error).
-// If the string is date-only, returns (date, nil, nil).
-// If the string is datetime (AI mistake), returns (nil, datetime, nil).
-func parseDueDate(s string) (*time.Time, *time.Time, error) {
+// parseDue parses a due string, returning (time, hasTime, error).
+// Accepts both date-only (YYYY-MM-DD) and datetime (RFC3339) formats.
+func parseDue(s string) (*time.Time, bool, error) {
 	// Try date-only first
-	if dueDate, err := time.Parse("2006-01-02", s); err == nil {
-		return &dueDate, nil, nil
+	if due, err := time.Parse("2006-01-02", s); err == nil {
+		return &due, false, nil
 	}
-	// Fallback: AI sent datetime to due_date field
-	if dueDatetime, err := utils.ParseDatetime(s); err == nil {
-		return nil, &dueDatetime, nil
+	// Fallback: datetime format
+	if due, err := utils.ParseDatetime(s); err == nil {
+		return &due, true, nil
 	}
-	return nil, nil, fmt.Errorf("invalid due_date format, use YYYY-MM-DD")
+	return nil, false, fmt.Errorf("invalid due format, use YYYY-MM-DD or RFC3339 datetime")
 }
 
 // GetToolDefinitions returns tool definitions without handlers (for API requests)
@@ -83,13 +82,13 @@ func CreateCRUDTools() []Tool {
 								Type:        "number",
 								Description: "Project ID to assign task to",
 							},
-							"due_date": {
+							"due": {
 								Type:        "string",
-								Description: "Due date in YYYY-MM-DD format",
+								Description: "Due date (YYYY-MM-DD) or datetime (RFC3339 format)",
 							},
-							"due_datetime": {
-								Type:        "string",
-								Description: "Due datetime in RFC3339 format",
+							"has_time": {
+								Type:        "boolean",
+								Description: "Whether due has a specific time. Auto-detected from due format if not specified.",
 							},
 							"start_datetime": {
 								Type:        "string",
@@ -143,13 +142,13 @@ func CreateCRUDTools() []Tool {
 								Type:        "number",
 								Description: "New project ID",
 							},
-							"due_date": {
+							"due": {
 								Type:        "string",
-								Description: "New due date in YYYY-MM-DD format",
+								Description: "New due date (YYYY-MM-DD) or datetime (RFC3339 format)",
 							},
-							"due_datetime": {
-								Type:        "string",
-								Description: "New due datetime in RFC3339 format",
+							"has_time": {
+								Type:        "boolean",
+								Description: "Whether due has a specific time. Auto-detected from due format if not specified.",
 							},
 							"start_datetime": {
 								Type:        "string",
@@ -333,23 +332,19 @@ func createTaskCRUDTool(args map[string]any) (string, error) {
 		task.ProjectID = &inboxProject.ID
 	}
 
-	// Optional due date
-	if dueDateStr, ok := args["due_date"].(string); ok {
-		dueDate, dueDatetime, err := parseDueDate(dueDateStr)
+	// Optional due
+	if dueStr, ok := args["due"].(string); ok {
+		due, hasTime, err := parseDue(dueStr)
 		if err != nil {
 			return "", err
 		}
-		task.DueDate = utils.NewFlexibleTimePtr(dueDate)
-		task.DueDatetime = utils.NewFlexibleTimePtr(dueDatetime)
-	}
-
-	// Optional due datetime
-	if dueDatetimeStr, ok := args["due_datetime"].(string); ok {
-		dueDatetime, err := utils.ParseDatetime(dueDatetimeStr)
-		if err != nil {
-			return "", fmt.Errorf("invalid due_datetime format: %w", err)
+		task.Due = utils.NewFlexibleTimePtr(due)
+		// Explicit has_time overrides auto-detection
+		if explicitHasTime, ok := args["has_time"].(bool); ok {
+			task.HasTime = explicitHasTime
+		} else {
+			task.HasTime = hasTime
 		}
-		task.DueDatetime = utils.NewFlexibleTime(dueDatetime)
 	}
 
 	// Optional start datetime
@@ -406,7 +401,7 @@ func createTaskCRUDTool(args map[string]any) (string, error) {
 	}
 
 	// Validate recurrence pattern
-	if err := utils.ValidateTaskRecurrence(task.Recurrence, task.Due()); err != nil {
+	if err := utils.ValidateTaskRecurrence(task.Recurrence, task.DueTime()); err != nil {
 		return "", fmt.Errorf("invalid recurrence pattern: %w", err)
 	}
 
@@ -452,25 +447,17 @@ func updateTaskCRUDTool(args map[string]any) (string, error) {
 		updates["project_id"] = &projectID
 	}
 
-	if dueDateStr, ok := args["due_date"].(string); ok {
-		dueDate, dueDatetime, err := parseDueDate(dueDateStr)
+	if dueStr, ok := args["due"].(string); ok {
+		due, hasTime, err := parseDue(dueStr)
 		if err != nil {
 			return "", err
 		}
-		if dueDate != nil {
-			updates["due_date"] = dueDate
+		updates["due"] = utils.NewFlexibleTimePtr(due)
+		if explicitHasTime, ok := args["has_time"].(bool); ok {
+			updates["has_time"] = explicitHasTime
+		} else {
+			updates["has_time"] = hasTime
 		}
-		if dueDatetime != nil {
-			updates["due_datetime"] = dueDatetime
-		}
-	}
-
-	if dueDatetimeStr, ok := args["due_datetime"].(string); ok {
-		dueDatetime, err := utils.ParseDatetime(dueDatetimeStr)
-		if err != nil {
-			return "", fmt.Errorf("invalid due_datetime format: %w", err)
-		}
-		updates["due_datetime"] = utils.NewFlexibleTime(dueDatetime)
 	}
 
 	if startDatetimeStr, ok := args["start_datetime"].(string); ok {

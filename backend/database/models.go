@@ -49,8 +49,8 @@ type Task struct {
 	Description   *string             `json:"description,omitempty"`
 	ProjectID     *uint               `gorm:"index" json:"project_id,omitempty"`
 	Project       *Project            `gorm:"foreignKey:ProjectID" json:"project,omitempty"`
-	DueDate       *utils.FlexibleTime `json:"due_date,omitempty"`
-	DueDatetime   *utils.FlexibleTime `json:"due_datetime,omitempty"`
+	Due           *utils.FlexibleTime `json:"due,omitempty"`
+	HasTime       bool                `json:"has_time" gorm:"column:has_time;default:false"`
 	StartDatetime *utils.FlexibleTime `json:"start_datetime,omitempty"`
 	EndDatetime   *utils.FlexibleTime `json:"end_datetime,omitempty"`
 	Labels        pq.StringArray      `gorm:"type:text[]" json:"labels,omitempty"`
@@ -64,20 +64,12 @@ type Task struct {
 	GoogleEventID *string             `json:"google_event_id,omitempty"`
 }
 
-// Due returns the effective due date/datetime (DueDatetime takes precedence)
-func (t *Task) Due() *time.Time {
-	if t.DueDatetime != nil {
-		return t.DueDatetime.ToTimePtr()
-	}
-	if t.DueDate != nil {
-		return t.DueDate.ToTimePtr()
+// DueTime returns the effective due date as *time.Time
+func (t *Task) DueTime() *time.Time {
+	if t.Due != nil {
+		return t.Due.ToTimePtr()
 	}
 	return nil
-}
-
-// HasTime returns true if task has a specific time (DueDatetime) vs date-only
-func (t *Task) HasTime() bool {
-	return t.DueDatetime != nil
 }
 
 type Project struct {

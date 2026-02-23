@@ -54,7 +54,7 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := utils.ValidateTaskRecurrence(t.Recurrence, t.Due()); err != nil {
+	if err := utils.ValidateTaskRecurrence(t.Recurrence, t.DueTime()); err != nil {
 		utils.RespondValidationError(w, "recurrence", err.Error())
 		return
 	}
@@ -96,7 +96,7 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := utils.ValidateTaskRecurrence(t.Recurrence, t.Due()); err != nil {
+	if err := utils.ValidateTaskRecurrence(t.Recurrence, t.DueTime()); err != nil {
 		utils.RespondValidationError(w, "recurrence", err.Error())
 		return
 	}

@@ -17,17 +17,17 @@ func CompleteTask(task *Task) (map[string]any, bool, error) {
 	isRecurring := task.Recurrence != ""
 
 	if isRecurring {
-		nextDue, err := utils.CalculateNextDueDate(task.Recurrence, task.Due())
+		nextDue, err := utils.CalculateNextDueDate(task.Recurrence, task.DueTime())
 		if err != nil {
 			return nil, false, err
 		}
 
 		if nextDue != nil {
-			if task.HasTime() {
-				updates["due_datetime"] = nextDue
+			if task.HasTime {
+				updates["due"] = nextDue
 			} else {
 				dateOnly := time.Date(nextDue.Year(), nextDue.Month(), nextDue.Day(), 0, 0, 0, 0, nextDue.Location())
-				updates["due_date"] = &dateOnly
+				updates["due"] = &dateOnly
 			}
 		}
 

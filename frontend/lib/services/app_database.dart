@@ -134,8 +134,8 @@ class Tasks extends Table {
   TextColumn get title => text()();
   TextColumn get description => text().nullable()();
   IntColumn get projectId => integer()();
-  DateTimeColumn get dueDate => dateTime().nullable()();
-  DateTimeColumn get dueDatetime => dateTime().nullable()();
+  DateTimeColumn get due => dateTime().nullable()();
+  BoolColumn get hasTime => boolean().withDefault(const Constant(false))();
   DateTimeColumn get startDatetime => dateTime().nullable()();
   DateTimeColumn get endDatetime => dateTime().nullable()();
   TextColumn get labels =>
@@ -160,7 +160,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   Future<bool> _columnExists(String table, String column) async {
     final result = await customSelect(
@@ -205,6 +205,24 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(tasks, tasks.description);
         }
       }
+      if (from < 9) {
+        // Migration to 9: Unify due_date/due_datetime into due + has_time
+        if (!await _columnExists('tasks', 'due')) {
+          await m.addColumn(tasks, tasks.due);
+        }
+        if (!await _columnExists('tasks', 'has_time')) {
+          await m.addColumn(tasks, tasks.hasTime);
+        }
+        // Migrate data from old columns
+        if (await _columnExists('tasks', 'due_date')) {
+          await customStatement(
+            'UPDATE tasks SET due = COALESCE(due_datetime, due_date), '
+            'has_time = (due_datetime IS NOT NULL)',
+          );
+          await customStatement('ALTER TABLE tasks DROP COLUMN due_date');
+          await customStatement('ALTER TABLE tasks DROP COLUMN due_datetime');
+        }
+      }
     },
   );
 
@@ -244,8 +262,7 @@ class AppDatabase extends _$AppDatabase {
 
     if (sortMode == SortMode.dueDate) {
       query.orderBy([
-        (t) => OrderingTerm(expression: t.dueDate, nulls: NullsOrder.last),
-        (t) => OrderingTerm(expression: t.dueDatetime, nulls: NullsOrder.last),
+        (t) => OrderingTerm(expression: t.due, nulls: NullsOrder.last),
         (t) => OrderingTerm(expression: t.order),
       ]);
     } else {
@@ -264,14 +281,13 @@ class AppDatabase extends _$AppDatabase {
       ..where(
         (t) =>
             t.completedAt.isNull() &
-            ((t.dueDate.isNotNull() & t.dueDate.isSmallerThan(Variable(todayEnd))) |
-             (t.dueDatetime.isNotNull() & t.dueDatetime.isSmallerThan(Variable(todayEnd)))),
+            t.due.isNotNull() &
+            t.due.isSmallerThan(Variable(todayEnd)),
       );
 
     if (sortMode == SortMode.dueDate) {
       query.orderBy([
-        (t) => OrderingTerm(expression: t.dueDate, nulls: NullsOrder.last),
-        (t) => OrderingTerm(expression: t.dueDatetime, nulls: NullsOrder.last),
+        (t) => OrderingTerm(expression: t.due, nulls: NullsOrder.last),
         (t) => OrderingTerm(expression: t.order),
       ]);
     } else {
@@ -289,19 +305,14 @@ class AppDatabase extends _$AppDatabase {
 
     final query = select(tasks)
       ..where((t) {
-        final dueDateClause =
-            t.dueDate.isNotNull() &
-            t.dueDate.isBetweenValues(tomorrow, sevenDaysFromNow);
-        final dueDatetimeClause =
-            t.dueDatetime.isNotNull() &
-            t.dueDatetime.isBetweenValues(tomorrow, sevenDaysFromNow);
-        return t.completedAt.isNull() & (dueDateClause | dueDatetimeClause);
+        return t.completedAt.isNull() &
+            t.due.isNotNull() &
+            t.due.isBetweenValues(tomorrow, sevenDaysFromNow);
       });
 
     if (sortMode == SortMode.dueDate) {
       query.orderBy([
-        (t) => OrderingTerm(expression: t.dueDate, nulls: NullsOrder.last),
-        (t) => OrderingTerm(expression: t.dueDatetime, nulls: NullsOrder.last),
+        (t) => OrderingTerm(expression: t.due, nulls: NullsOrder.last),
         (t) => OrderingTerm(expression: t.order),
       ]);
     } else {
@@ -317,8 +328,7 @@ class AppDatabase extends _$AppDatabase {
 
     if (sortMode == SortMode.dueDate) {
       query.orderBy([
-        (t) => OrderingTerm(expression: t.dueDate, nulls: NullsOrder.last),
-        (t) => OrderingTerm(expression: t.dueDatetime, nulls: NullsOrder.last),
+        (t) => OrderingTerm(expression: t.due, nulls: NullsOrder.last),
         (t) => OrderingTerm(expression: t.order),
       ]);
     } else {
@@ -334,8 +344,7 @@ class AppDatabase extends _$AppDatabase {
 
     if (sortMode == SortMode.dueDate) {
       query.orderBy([
-        (t) => OrderingTerm(expression: t.dueDate, nulls: NullsOrder.last),
-        (t) => OrderingTerm(expression: t.dueDatetime, nulls: NullsOrder.last),
+        (t) => OrderingTerm(expression: t.due, nulls: NullsOrder.last),
         (t) => OrderingTerm(expression: t.order),
       ]);
     } else {
@@ -353,24 +362,13 @@ class AppDatabase extends _$AppDatabase {
       (select(tasks)..where((t) => t.id.equals(id))).getSingleOrNull();
 
   TasksCompanion _taskToCompanion(task_model.Task task) {
-    // Derive dueDate/dueDatetime from unified getters
-    DateTime? dueDate;
-    DateTime? dueDatetime;
-    if (task.due != null) {
-      if (task.hasTime) {
-        dueDatetime = task.due;
-      } else {
-        dueDate = task.due;
-      }
-    }
-
     return TasksCompanion(
       id: task.id != null ? Value(task.id!) : const Value.absent(),
       title: Value(task.title),
       description: Value(task.description),
       projectId: Value(task.projectId),
-      dueDate: Value(dueDate),
-      dueDatetime: Value(dueDatetime),
+      due: Value(task.due),
+      hasTime: Value(task.hasTime),
       startDatetime: Value(task.startDatetime),
       endDatetime: Value(task.endDatetime),
       labels: Value(task.labels),

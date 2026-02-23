@@ -6,10 +6,10 @@ class Task {
   final String title;
   final String? description;
   final int projectId;
-  final DateTime? _dueDate;       // Private - use due/hasTime getters
-  final DateTime? _dueDatetime;   // Private - use due/hasTime getters
-  final DateTime? _startDatetime; // Private - use getter
-  final DateTime? _endDatetime;   // Private - use getter
+  final DateTime? due;
+  final bool hasTime;
+  final DateTime? _startDatetime;
+  final DateTime? _endDatetime;
   final List<String>? _labels;
   final int order;
   final DateTime? completedAt;
@@ -22,8 +22,8 @@ class Task {
     required this.title,
     this.description,
     required this.projectId,
-    DateTime? dueDate,
-    DateTime? dueDatetime,
+    this.due,
+    this.hasTime = false,
     DateTime? startDatetime,
     DateTime? endDatetime,
     List<String>? labels,
@@ -32,16 +32,11 @@ class Task {
     List<DateTime>? reminders,
     this.recurrence,
     this.createdAt,
-  }) : _dueDate = dueDate,
-       _dueDatetime = dueDatetime,
-       _startDatetime = startDatetime,
+  }) : _startDatetime = startDatetime,
        _endDatetime = endDatetime,
        _labels = labels,
        _reminders = reminders;
 
-  // Unified getters - THE ONLY PUBLIC INTERFACE for dates
-  DateTime? get due => _dueDatetime ?? _dueDate;
-  bool get hasTime => _dueDatetime != null;
   DateTime? get startDatetime => _startDatetime;
   DateTime? get endDatetime => _endDatetime;
 
@@ -118,8 +113,8 @@ class Task {
         title: json['title'],
         description: json['description'],
         projectId: json['project_id'],
-        dueDate: _parseDate(json['due_date']),
-        dueDatetime: _parseDate(json['due_datetime']),
+        due: _parseDate(json['due']),
+        hasTime: json['has_time'] ?? false,
         startDatetime: _parseDate(json['start_datetime']),
         endDatetime: _parseDate(json['end_datetime']),
         labels: json['labels'] != null ? List<String>.from(json['labels']) : [],
@@ -149,8 +144,8 @@ class Task {
       'title': title,
       'description': description,
       'project_id': projectId,
-      'due_date': _dueDate?.toIso8601String(),
-      'due_datetime': _dueDatetime?.toIso8601String(),
+      'due': due?.toIso8601String(),
+      'has_time': hasTime,
       'start_datetime': _startDatetime?.toIso8601String(),
       'end_datetime': _endDatetime?.toIso8601String(),
       'labels': labels,
@@ -167,8 +162,8 @@ class Task {
     String? title,
     ValueWrapper<String?>? description,
     int? projectId,
-    ValueWrapper<DateTime?>? due,  // Unified due parameter
-    bool? hasTime,                  // Whether due has specific time
+    ValueWrapper<DateTime?>? due,
+    bool? hasTime,
     ValueWrapper<DateTime?>? startDatetime,
     ValueWrapper<DateTime?>? endDatetime,
     List<String>? labels,
@@ -178,32 +173,13 @@ class Task {
     String? recurrence,
     DateTime? createdAt,
   }) {
-    // Determine new due date/datetime values
-    DateTime? newDueDate;
-    DateTime? newDueDatetime;
-
-    if (due != null) {
-      // due parameter provided - use hasTime to determine which field
-      final newHasTime = hasTime ?? this.hasTime;
-      if (due.value != null && newHasTime) {
-        newDueDatetime = due.value;
-      } else if (due.value != null) {
-        newDueDate = due.value;
-      }
-      // If due.value is null, both stay null (clearing due date)
-    } else {
-      // No due parameter - preserve existing values
-      newDueDate = _dueDate;
-      newDueDatetime = _dueDatetime;
-    }
-
     return Task(
       id: id ?? this.id,
       title: title ?? this.title,
       description: description != null ? description.value : this.description,
       projectId: projectId ?? this.projectId,
-      dueDate: newDueDate,
-      dueDatetime: newDueDatetime,
+      due: due != null ? due.value : this.due,
+      hasTime: hasTime ?? this.hasTime,
       startDatetime: startDatetime != null
           ? startDatetime.value
           : _startDatetime,

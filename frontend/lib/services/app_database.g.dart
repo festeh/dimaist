@@ -278,27 +278,29 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _dueDateMeta = const VerificationMeta(
-    'dueDate',
-  );
+  static const VerificationMeta _dueMeta = const VerificationMeta('due');
   @override
-  late final GeneratedColumn<DateTime> dueDate = GeneratedColumn<DateTime>(
-    'due_date',
+  late final GeneratedColumn<DateTime> due = GeneratedColumn<DateTime>(
+    'due',
     aliasedName,
     true,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _dueDatetimeMeta = const VerificationMeta(
-    'dueDatetime',
+  static const VerificationMeta _hasTimeMeta = const VerificationMeta(
+    'hasTime',
   );
   @override
-  late final GeneratedColumn<DateTime> dueDatetime = GeneratedColumn<DateTime>(
-    'due_datetime',
+  late final GeneratedColumn<bool> hasTime = GeneratedColumn<bool>(
+    'has_time',
     aliasedName,
-    true,
-    type: DriftSqlType.dateTime,
+    false,
+    type: DriftSqlType.bool,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("has_time" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
   );
   static const VerificationMeta _startDatetimeMeta = const VerificationMeta(
     'startDatetime',
@@ -389,8 +391,8 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
     title,
     description,
     projectId,
-    dueDate,
-    dueDatetime,
+    due,
+    hasTime,
     startDatetime,
     endDatetime,
     labels,
@@ -440,19 +442,16 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
     } else if (isInserting) {
       context.missing(_projectIdMeta);
     }
-    if (data.containsKey('due_date')) {
+    if (data.containsKey('due')) {
       context.handle(
-        _dueDateMeta,
-        dueDate.isAcceptableOrUnknown(data['due_date']!, _dueDateMeta),
+        _dueMeta,
+        due.isAcceptableOrUnknown(data['due']!, _dueMeta),
       );
     }
-    if (data.containsKey('due_datetime')) {
+    if (data.containsKey('has_time')) {
       context.handle(
-        _dueDatetimeMeta,
-        dueDatetime.isAcceptableOrUnknown(
-          data['due_datetime']!,
-          _dueDatetimeMeta,
-        ),
+        _hasTimeMeta,
+        hasTime.isAcceptableOrUnknown(data['has_time']!, _hasTimeMeta),
       );
     }
     if (data.containsKey('start_datetime')) {
@@ -527,14 +526,14 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, task_model.Task> {
         DriftSqlType.int,
         data['${effectivePrefix}project_id'],
       )!,
-      dueDate: attachedDatabase.typeMapping.read(
+      due: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
-        data['${effectivePrefix}due_date'],
+        data['${effectivePrefix}due'],
       ),
-      dueDatetime: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}due_datetime'],
-      ),
+      hasTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}has_time'],
+      )!,
       startDatetime: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}start_datetime'],
@@ -590,8 +589,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
   final Value<String> title;
   final Value<String?> description;
   final Value<int> projectId;
-  final Value<DateTime?> dueDate;
-  final Value<DateTime?> dueDatetime;
+  final Value<DateTime?> due;
+  final Value<bool> hasTime;
   final Value<DateTime?> startDatetime;
   final Value<DateTime?> endDatetime;
   final Value<List<String>?> labels;
@@ -605,8 +604,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     this.title = const Value.absent(),
     this.description = const Value.absent(),
     this.projectId = const Value.absent(),
-    this.dueDate = const Value.absent(),
-    this.dueDatetime = const Value.absent(),
+    this.due = const Value.absent(),
+    this.hasTime = const Value.absent(),
     this.startDatetime = const Value.absent(),
     this.endDatetime = const Value.absent(),
     this.labels = const Value.absent(),
@@ -621,8 +620,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     required String title,
     this.description = const Value.absent(),
     required int projectId,
-    this.dueDate = const Value.absent(),
-    this.dueDatetime = const Value.absent(),
+    this.due = const Value.absent(),
+    this.hasTime = const Value.absent(),
     this.startDatetime = const Value.absent(),
     this.endDatetime = const Value.absent(),
     this.labels = const Value.absent(),
@@ -639,8 +638,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     Expression<String>? title,
     Expression<String>? description,
     Expression<int>? projectId,
-    Expression<DateTime>? dueDate,
-    Expression<DateTime>? dueDatetime,
+    Expression<DateTime>? due,
+    Expression<bool>? hasTime,
     Expression<DateTime>? startDatetime,
     Expression<DateTime>? endDatetime,
     Expression<String>? labels,
@@ -655,8 +654,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
       if (title != null) 'title': title,
       if (description != null) 'description': description,
       if (projectId != null) 'project_id': projectId,
-      if (dueDate != null) 'due_date': dueDate,
-      if (dueDatetime != null) 'due_datetime': dueDatetime,
+      if (due != null) 'due': due,
+      if (hasTime != null) 'has_time': hasTime,
       if (startDatetime != null) 'start_datetime': startDatetime,
       if (endDatetime != null) 'end_datetime': endDatetime,
       if (labels != null) 'labels': labels,
@@ -673,8 +672,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     Value<String>? title,
     Value<String?>? description,
     Value<int>? projectId,
-    Value<DateTime?>? dueDate,
-    Value<DateTime?>? dueDatetime,
+    Value<DateTime?>? due,
+    Value<bool>? hasTime,
     Value<DateTime?>? startDatetime,
     Value<DateTime?>? endDatetime,
     Value<List<String>?>? labels,
@@ -689,8 +688,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
       title: title ?? this.title,
       description: description ?? this.description,
       projectId: projectId ?? this.projectId,
-      dueDate: dueDate ?? this.dueDate,
-      dueDatetime: dueDatetime ?? this.dueDatetime,
+      due: due ?? this.due,
+      hasTime: hasTime ?? this.hasTime,
       startDatetime: startDatetime ?? this.startDatetime,
       endDatetime: endDatetime ?? this.endDatetime,
       labels: labels ?? this.labels,
@@ -717,11 +716,11 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
     if (projectId.present) {
       map['project_id'] = Variable<int>(projectId.value);
     }
-    if (dueDate.present) {
-      map['due_date'] = Variable<DateTime>(dueDate.value);
+    if (due.present) {
+      map['due'] = Variable<DateTime>(due.value);
     }
-    if (dueDatetime.present) {
-      map['due_datetime'] = Variable<DateTime>(dueDatetime.value);
+    if (hasTime.present) {
+      map['has_time'] = Variable<bool>(hasTime.value);
     }
     if (startDatetime.present) {
       map['start_datetime'] = Variable<DateTime>(startDatetime.value);
@@ -761,8 +760,8 @@ class TasksCompanion extends UpdateCompanion<task_model.Task> {
           ..write('title: $title, ')
           ..write('description: $description, ')
           ..write('projectId: $projectId, ')
-          ..write('dueDate: $dueDate, ')
-          ..write('dueDatetime: $dueDatetime, ')
+          ..write('due: $due, ')
+          ..write('hasTime: $hasTime, ')
           ..write('startDatetime: $startDatetime, ')
           ..write('endDatetime: $endDatetime, ')
           ..write('labels: $labels, ')
@@ -992,8 +991,8 @@ typedef $$TasksTableCreateCompanionBuilder =
       required String title,
       Value<String?> description,
       required int projectId,
-      Value<DateTime?> dueDate,
-      Value<DateTime?> dueDatetime,
+      Value<DateTime?> due,
+      Value<bool> hasTime,
       Value<DateTime?> startDatetime,
       Value<DateTime?> endDatetime,
       Value<List<String>?> labels,
@@ -1009,8 +1008,8 @@ typedef $$TasksTableUpdateCompanionBuilder =
       Value<String> title,
       Value<String?> description,
       Value<int> projectId,
-      Value<DateTime?> dueDate,
-      Value<DateTime?> dueDatetime,
+      Value<DateTime?> due,
+      Value<bool> hasTime,
       Value<DateTime?> startDatetime,
       Value<DateTime?> endDatetime,
       Value<List<String>?> labels,
@@ -1049,13 +1048,13 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<DateTime> get dueDate => $composableBuilder(
-    column: $table.dueDate,
+  ColumnFilters<DateTime> get due => $composableBuilder(
+    column: $table.due,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<DateTime> get dueDatetime => $composableBuilder(
-    column: $table.dueDatetime,
+  ColumnFilters<bool> get hasTime => $composableBuilder(
+    column: $table.hasTime,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1131,13 +1130,13 @@ class $$TasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<DateTime> get dueDate => $composableBuilder(
-    column: $table.dueDate,
+  ColumnOrderings<DateTime> get due => $composableBuilder(
+    column: $table.due,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<DateTime> get dueDatetime => $composableBuilder(
-    column: $table.dueDatetime,
+  ColumnOrderings<bool> get hasTime => $composableBuilder(
+    column: $table.hasTime,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -1205,13 +1204,11 @@ class $$TasksTableAnnotationComposer
   GeneratedColumn<int> get projectId =>
       $composableBuilder(column: $table.projectId, builder: (column) => column);
 
-  GeneratedColumn<DateTime> get dueDate =>
-      $composableBuilder(column: $table.dueDate, builder: (column) => column);
+  GeneratedColumn<DateTime> get due =>
+      $composableBuilder(column: $table.due, builder: (column) => column);
 
-  GeneratedColumn<DateTime> get dueDatetime => $composableBuilder(
-    column: $table.dueDatetime,
-    builder: (column) => column,
-  );
+  GeneratedColumn<bool> get hasTime =>
+      $composableBuilder(column: $table.hasTime, builder: (column) => column);
 
   GeneratedColumn<DateTime> get startDatetime => $composableBuilder(
     column: $table.startDatetime,
@@ -1281,8 +1278,8 @@ class $$TasksTableTableManager
                 Value<String> title = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<int> projectId = const Value.absent(),
-                Value<DateTime?> dueDate = const Value.absent(),
-                Value<DateTime?> dueDatetime = const Value.absent(),
+                Value<DateTime?> due = const Value.absent(),
+                Value<bool> hasTime = const Value.absent(),
                 Value<DateTime?> startDatetime = const Value.absent(),
                 Value<DateTime?> endDatetime = const Value.absent(),
                 Value<List<String>?> labels = const Value.absent(),
@@ -1296,8 +1293,8 @@ class $$TasksTableTableManager
                 title: title,
                 description: description,
                 projectId: projectId,
-                dueDate: dueDate,
-                dueDatetime: dueDatetime,
+                due: due,
+                hasTime: hasTime,
                 startDatetime: startDatetime,
                 endDatetime: endDatetime,
                 labels: labels,
@@ -1313,8 +1310,8 @@ class $$TasksTableTableManager
                 required String title,
                 Value<String?> description = const Value.absent(),
                 required int projectId,
-                Value<DateTime?> dueDate = const Value.absent(),
-                Value<DateTime?> dueDatetime = const Value.absent(),
+                Value<DateTime?> due = const Value.absent(),
+                Value<bool> hasTime = const Value.absent(),
                 Value<DateTime?> startDatetime = const Value.absent(),
                 Value<DateTime?> endDatetime = const Value.absent(),
                 Value<List<String>?> labels = const Value.absent(),
@@ -1328,8 +1325,8 @@ class $$TasksTableTableManager
                 title: title,
                 description: description,
                 projectId: projectId,
-                dueDate: dueDate,
-                dueDatetime: dueDatetime,
+                due: due,
+                hasTime: hasTime,
                 startDatetime: startDatetime,
                 endDatetime: endDatetime,
                 labels: labels,

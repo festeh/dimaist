@@ -614,19 +614,20 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
       final scaffoldMessenger = ScaffoldMessenger.of(context);
       final errorColor = Theme.of(context).colorScheme.error;
       try {
-        DateTime? dueDate;
-        DateTime? dueDatetime;
+        DateTime? due;
+        bool hasTime = false;
         if (_selectedDate != null) {
           if (_selectedTime != null) {
-            dueDatetime = DateTime(
+            due = DateTime(
               _selectedDate!.year,
               _selectedDate!.month,
               _selectedDate!.day,
               _selectedTime!.hour,
               _selectedTime!.minute,
             );
+            hasTime = true;
           } else {
-            dueDate = DateTime(
+            due = DateTime(
               _selectedDate!.year,
               _selectedDate!.month,
               _selectedDate!.day,
@@ -669,16 +670,10 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
             1;
 
         List<DateTime> reminders = [];
-        if (dueDatetime != null) {
+        if (due != null) {
           for (final reminderString in _selectedReminders) {
             reminders.add(
-              dueDatetime.subtract(reminderStringToDuration(reminderString)),
-            );
-          }
-        } else if (dueDate != null) {
-          for (final reminderString in _selectedReminders) {
-            reminders.add(
-              dueDate.subtract(reminderStringToDuration(reminderString)),
+              due.subtract(reminderStringToDuration(reminderString)),
             );
           }
         }
@@ -689,8 +684,8 @@ class TaskFormDialogState extends ConsumerState<TaskFormDialog> {
           title: _titleController.text,
           description: descriptionText.isEmpty ? null : descriptionText,
           projectId: _selectedProjectId!,
-          dueDate: dueDate,
-          dueDatetime: dueDatetime,
+          due: due,
+          hasTime: hasTime,
           startDatetime: startDatetime,
           endDatetime: endDatetime,
           labels: _selectedLabels,

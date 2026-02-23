@@ -63,6 +63,12 @@ func InitDB(databaseURL string) error {
 		logger.Info("Cleared cached database plans").Send()
 	}
 
+	// Migrate due_date/due_datetime to unified due + has_time columns
+	if err := migrateDueFields(); err != nil {
+		logger.Error("Failed to migrate due fields").Err(err).Send()
+		return err
+	}
+
 	// Auto-migrate the schema
 	logger.Info("Running database migrations").Send()
 	err = DB.AutoMigrate(&Project{}, &Task{})

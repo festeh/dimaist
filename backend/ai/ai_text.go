@@ -26,8 +26,8 @@ type taskForAI struct {
 	Title       string             `json:"title"`
 	Description *string            `json:"description,omitempty"`
 	ProjectID   *uint              `json:"project_id,omitempty"`
-	DueDate     *timeMinutes       `json:"due_date,omitempty"`
-	DueDatetime *timeMinutes       `json:"due_datetime,omitempty"`
+	Due         *timeMinutes       `json:"due,omitempty"`
+	HasTime     bool               `json:"has_time"`
 	Labels      pq.StringArray     `json:"labels,omitempty"`
 	Reminders   database.TimeArray `json:"reminders,omitempty"`
 	Recurrence  string             `json:"recurrence,omitempty"`
@@ -107,8 +107,8 @@ func BuildSystemPrompt(tasks []database.Task, projects []database.Project, curre
 			Title:       t.Title,
 			Description: t.Description,
 			ProjectID:   t.ProjectID,
-			DueDate:     toTimeMinutes(t.DueDate),
-			DueDatetime: toTimeMinutes(t.DueDatetime),
+			Due:         toTimeMinutes(t.Due),
+			HasTime:     t.HasTime,
 			Labels:      t.Labels,
 			Reminders:   t.Reminders,
 			Recurrence:  t.Recurrence,
