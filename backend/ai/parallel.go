@@ -315,8 +315,7 @@ func handleToolConfirm(s *Session, results map[string]*ParallelResult, messagesW
 		return
 	}
 
-	provider, model := parseTargetID(targetID)
-	agent := createAIAgent(provider, model)
+	agent := createAIAgent(targetID)
 
 	// Add assistant message with tool calls
 	messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
@@ -462,11 +461,12 @@ func streamRequests(targets []TargetSpec, messages []ChatCompletionMessage) <-ch
 		}
 	}
 
-	// Build targets
+	// Build targets - all use the single proxy provider
+	provider := general.Provider{Endpoint: appEnv.AIEndpoint, APIKey: appEnv.AIToken}
 	generalTargets := make([]general.Target, len(targets))
 	for i, t := range targets {
 		generalTargets[i] = general.Target{
-			Provider: getProvider(t.Provider),
+			Provider: provider,
 			Model:    t.Model,
 		}
 	}
@@ -560,27 +560,6 @@ func findTargetIndex(targets []general.Target, target general.Target) int {
 	return 0
 }
 
-func getProvider(name string) general.Provider {
-	switch name {
-	case "kimi":
-		return general.Provider{Endpoint: appEnv.KimiEndpoint, APIKey: appEnv.KimiToken, Headers: map[string]string{"User-Agent": "KimiCLI/1.3"}}
-	case "google":
-		return general.Provider{Endpoint: appEnv.GoogleAIEndpoint, APIKey: appEnv.GoogleAIToken}
-	case "groq":
-		return general.Provider{Endpoint: appEnv.GroqEndpoint, APIKey: appEnv.GroqToken}
-	default:
-		return general.Provider{Endpoint: appEnv.OpenrouterEndpoint, APIKey: appEnv.OpenrouterToken}
-	}
-}
-
-func parseTargetID(targetID string) (provider, model string) {
-	for i := 0; i < len(targetID); i++ {
-		if targetID[i] == ':' {
-			return targetID[:i], targetID[i+1:]
-		}
-	}
-	return "", targetID
-}
 
 func convertToToolCalls(pending []PendingToolCall, response *general.ChatCompletionResponse) []general.ToolCall {
 	if response != nil && len(response.Choices) > 0 {

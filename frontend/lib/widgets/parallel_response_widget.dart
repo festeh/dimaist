@@ -370,16 +370,10 @@ class _ParallelResponseWidgetState
   }
 
   String _getModelDisplayName(String targetId) {
-    // Parse "provider:model" format and extract short name
-    final colonIndex = targetId.indexOf(':');
-    if (colonIndex >= 0 && colonIndex < targetId.length - 1) {
-      final modelPart = targetId.substring(colonIndex + 1);
-      // Get last part after slash if present
-      final slashIndex = modelPart.lastIndexOf('/');
-      if (slashIndex >= 0 && slashIndex < modelPart.length - 1) {
-        return modelPart.substring(slashIndex + 1);
-      }
-      return modelPart;
+    // Extract short name from model ID (part after last /)
+    final slashIndex = targetId.lastIndexOf('/');
+    if (slashIndex >= 0 && slashIndex < targetId.length - 1) {
+      return targetId.substring(slashIndex + 1);
     }
     return targetId;
   }

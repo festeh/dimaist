@@ -167,32 +167,14 @@ Projects: %s
 		tz, currentProjectRule, time.Now().Format("2006-01-02T15:04"), tasksJSON, projectsJSON), nil
 }
 
-func createAIAgent(provider, model string) *Agent {
+func createAIAgent(model string) *Agent {
 	tools := CreateCRUDTools()
 
-	// Select endpoint and token based on provider
-	var apiKey, endpoint string
-	switch provider {
-	case "kimi":
-		apiKey = appEnv.KimiToken
-		endpoint = appEnv.KimiEndpoint
-	case "google":
-		apiKey = appEnv.GoogleAIToken
-		endpoint = appEnv.GoogleAIEndpoint
-	case "groq":
-		apiKey = appEnv.GroqToken
-		endpoint = appEnv.GroqEndpoint
-	default: // openrouter
-		apiKey = appEnv.OpenrouterToken
-		endpoint = appEnv.OpenrouterEndpoint
-	}
-
-	// Create agent using environment configuration
 	agent := NewAgent(
-		apiKey,   // API key
-		endpoint, // Custom AI endpoint
+		appEnv.AIToken,
+		appEnv.AIEndpoint,
 		tools,
-		model, // model (full name including provider prefix like "zhipu/GLM-4.6")
+		model,
 	)
 
 	return agent

@@ -20,15 +20,14 @@ type PendingToolCall struct {
 	Arguments  map[string]any `json:"arguments"`
 }
 
-// TargetSpec represents a provider+model combination for requests
+// TargetSpec represents a model for requests
 type TargetSpec struct {
-	Provider string `json:"provider"`
-	Model    string `json:"model"`
+	Model string `json:"model"`
 }
 
 // ID returns a unique identifier for this target
 func (t TargetSpec) ID() string {
-	return t.Provider + ":" + t.Model
+	return t.Model
 }
 
 // Session holds all context for an AI conversation
@@ -36,7 +35,7 @@ type Session struct {
 	WS               *WSWriter
 	Messages         []ChatCompletionMessage
 	Targets          []TargetSpec
-	SelectedModel    string // "provider:model" format, empty = not yet selected
+	SelectedModel    string // model name, empty = not yet selected
 	IncludeCompleted bool
 	CurrentProjectID *uint // Project user is currently viewing (nil = Inbox/all tasks)
 	TurnID           int   // Increments each turn, used to filter stale responses

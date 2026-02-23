@@ -289,8 +289,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     }
 
     final targets = validIds.map((id) {
-      final model = modelState.models.firstWhere((m) => m.id == id);
-      return TargetSpec(provider: model.provider.name, model: model.modelName);
+      return TargetSpec(model: id);
     }).toList();
 
     setState(() {
@@ -812,7 +811,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 if (selectedModels.isEmpty)
                   Text('Select Model', style: theme.textTheme.titleMedium)
                 else if (selectedModels.length == 1)
-                  ModelDisplay(model: selectedModels.first, iconSize: 20)
+                  ModelDisplay(model: selectedModels.first)
                 else
                   Row(
                     mainAxisSize: MainAxisSize.min,

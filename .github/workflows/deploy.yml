@@ -14,53 +14,49 @@ env:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
         go-version: '1.24.0'
         cache-dependency-path: backend/go.sum
-    
+
     - name: Build Go backend
       run: |
         cd backend
         CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ${{ env.APP_NAME }} .
-    
+
     - name: Setup SSH
       run: |
         mkdir -p ~/.ssh
         echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
-    
+
     - name: Create deployment directory
       run: |
         ssh root@${{ secrets.HOST }} "mkdir -p ${{ env.DEPLOY_PATH }}"
-    
+
     - name: Stop existing service
       run: |
         ssh root@${{ secrets.HOST }} "systemctl stop ${{ env.APP_NAME }} || true"
-    
+
     - name: Deploy binary to remote host
       run: |
         scp backend/${{ env.APP_NAME }} root@${{ secrets.HOST }}:${{ env.DEPLOY_PATH }}/${{ env.APP_NAME }}.new
         ssh root@${{ secrets.HOST }} "mv ${{ env.DEPLOY_PATH }}/${{ env.APP_NAME }}.new ${{ env.DEPLOY_PATH }}/${{ env.APP_NAME }}"
-    
+
     - name: Deploy systemd service file
       run: |
         scp backend/systemd/${{ env.APP_NAME }}.service root@${{ secrets.HOST }}:/etc/systemd/system/
-    
+
     - name: Deploy environment variables
       env:
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        KIMI_API_KEY: ${{ secrets.KIMI_API_KEY }}
-        OPENROUTER_ENDPOINT: https://openrouter.ai/api/v1/chat/completions
-        OPENROUTER_TOKEN: ${{ secrets.OPENROUTER_TOKEN }}
-        GOOGLE_AI_TOKEN: ${{ secrets.GOOGLE_AI_TOKEN }}
-        GROQ_TOKEN: ${{ secrets.GROQ_TOKEN }}
+        AI_TOKEN: ${{ secrets.AI_TOKEN }}
         GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
         GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
@@ -68,10 +64,7 @@ jobs:
         # Validate required secrets
         missing=""
         [ -z "$DATABASE_URL" ] && missing="$missing DATABASE_URL"
-        [ -z "$KIMI_API_KEY" ] && missing="$missing KIMI_API_KEY"
-        [ -z "$OPENROUTER_TOKEN" ] && missing="$missing OPENROUTER_TOKEN"
-        [ -z "$GOOGLE_AI_TOKEN" ] && missing="$missing GOOGLE_AI_TOKEN"
-        [ -z "$GROQ_TOKEN" ] && missing="$missing GROQ_TOKEN"
+        [ -z "$AI_TOKEN" ] && missing="$missing AI_TOKEN"
         [ -z "$GOOGLE_CLIENT_ID" ] && missing="$missing GOOGLE_CLIENT_ID"
         [ -z "$GOOGLE_CLIENT_SECRET" ] && missing="$missing GOOGLE_CLIENT_SECRET"
         [ -z "$GOOGLE_REFRESH_TOKEN" ] && missing="$missing GOOGLE_REFRESH_TOKEN"
@@ -82,18 +75,14 @@ jobs:
 
         cat > .env << EOF
         DATABASE_URL=$DATABASE_URL
-        KIMI_API_KEY=$KIMI_API_KEY
-        OPENROUTER_ENDPOINT=$OPENROUTER_ENDPOINT
-        OPENROUTER_TOKEN=$OPENROUTER_TOKEN
-        GOOGLE_AI_TOKEN=$GOOGLE_AI_TOKEN
-        GROQ_TOKEN=$GROQ_TOKEN
+        AI_TOKEN=$AI_TOKEN
         GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
         GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
         GOOGLE_REFRESH_TOKEN=$GOOGLE_REFRESH_TOKEN
         EOF
         scp .env root@${{ secrets.HOST }}:${{ env.DEPLOY_PATH }}/.env
         rm .env
-    
+
     - name: Enable and start systemd service
       run: |
         ssh root@${{ secrets.HOST }} "systemctl daemon-reload && systemctl enable ${{ env.APP_NAME }} && systemctl start ${{ env.APP_NAME }}"

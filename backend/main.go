@@ -87,6 +87,7 @@ func main() {
 
 	r.Put("/projects-reorder", reorderProjects)
 	r.Get("/ai", ai.HandleWebSocket)
+	r.Get("/ai/models", ai.HandleModels)
 	r.Get("/sync", syncData)
 	r.Get("/find", findItems)
 

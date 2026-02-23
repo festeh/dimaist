@@ -9,16 +9,14 @@ typedef WSMessageCallback = void Function(WSMessageType type, Map<String, dynami
 
 /// Target specification for parallel requests
 class TargetSpec {
-  final String provider;
   final String model;
 
-  const TargetSpec({required this.provider, required this.model});
+  const TargetSpec({required this.model});
 
   /// Unique identifier for this target
-  String get id => '$provider:$model';
+  String get id => model;
 
   Map<String, dynamic> toJson() => {
-        'provider': provider,
         'model': model,
       };
 }

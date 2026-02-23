@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/ws_message_type.dart';
-import 'ai_model_provider.dart';
 
 /// Response status for parallel mode
 enum ResponseStatus {
@@ -116,11 +115,13 @@ class ParallelAiNotifier extends StateNotifier<ParallelAiState> {
   static ParallelAiState _loadInitialState() {
     final savedIds = _prefs?.getStringList(_selectedKey);
     if (savedIds != null && savedIds.isNotEmpty) {
-      final validIds = AiModelNotifier.defaultModels.map((m) => m.id).toSet();
-      final filtered = savedIds.where((id) => validIds.contains(id)).toSet();
-      if (filtered.isNotEmpty) {
-        return ParallelAiState(selectedModelIds: filtered);
+      // Clear old-format IDs (provider:model) from previous version
+      final hasOldFormat = savedIds.any((id) => id.contains(':'));
+      if (hasOldFormat) {
+        _prefs?.remove(_selectedKey);
+        return const ParallelAiState();
       }
+      return ParallelAiState(selectedModelIds: savedIds.toSet());
     }
     return const ParallelAiState();
   }

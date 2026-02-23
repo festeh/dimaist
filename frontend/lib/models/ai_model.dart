@@ -1,82 +1,41 @@
-enum AiProvider {
-  kimi,
-  openrouter,
-  google,
-  groq;
-
-  String get displayName {
-    switch (this) {
-      case AiProvider.kimi:
-        return 'Kimi';
-      case AiProvider.openrouter:
-        return 'OpenRouter';
-      case AiProvider.google:
-        return 'Google';
-      case AiProvider.groq:
-        return 'Groq';
-    }
-  }
-
-  String get iconPath {
-    switch (this) {
-      case AiProvider.kimi:
-        return 'assets/icons/kimi.png';
-      case AiProvider.openrouter:
-        return 'assets/icons/openrouter.png';
-      case AiProvider.google:
-        return 'assets/icons/google.png';
-      case AiProvider.groq:
-        return 'assets/icons/groq.png';
-    }
-  }
-}
-
 class AiModel {
-  final String modelName;
-  final AiProvider provider;
+  final String id;
+  final String ownedBy;
 
   const AiModel({
-    required this.modelName,
-    required this.provider,
+    required this.id,
+    this.ownedBy = '',
   });
 
-  /// Stable ID derived from provider and model name
-  String get id => '${provider.name}:$modelName';
+  /// Short display name (part after last /)
+  String get displayName {
+    final slashIndex = id.lastIndexOf('/');
+    if (slashIndex >= 0 && slashIndex < id.length - 1) {
+      return id.substring(slashIndex + 1);
+    }
+    return id;
+  }
 
-  /// Display name shown in UI (provider: model)
-  String get displayName => '${provider.displayName}: $modelName';
-
-  /// Short model name (part after last /)
-  String get shortModelName => modelName.split('/').last;
-
-  /// API identifier sent to backend
-  String get apiId => modelName;
+  /// Parse from /v1/models response item
+  factory AiModel.fromModelsResponse(Map<String, dynamic> json) {
+    return AiModel(
+      id: json['id'] as String,
+      ownedBy: json['owned_by'] as String? ?? '',
+    );
+  }
 
   factory AiModel.fromJson(Map<String, dynamic> json) {
     return AiModel(
-      modelName: json['modelName'] as String,
-      provider: AiProvider.values.firstWhere(
-        (p) => p.name == json['provider'],
-        orElse: () => AiProvider.kimi,
-      ),
+      id: json['id'] as String,
+      ownedBy: json['ownedBy'] as String? ?? '',
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'modelName': modelName,
-      'provider': provider.name,
+      'id': id,
+      'ownedBy': ownedBy,
     };
-  }
-
-  AiModel copyWith({
-    String? modelName,
-    AiProvider? provider,
-  }) {
-    return AiModel(
-      modelName: modelName ?? this.modelName,
-      provider: provider ?? this.provider,
-    );
   }
 
   @override
@@ -88,5 +47,5 @@ class AiModel {
   int get hashCode => id.hashCode;
 
   @override
-  String toString() => 'AiModel(id: $id, displayName: $displayName, apiId: $apiId)';
+  String toString() => 'AiModel(id: $id, ownedBy: $ownedBy)';
 }

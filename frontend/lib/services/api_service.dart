@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../models/ai_model.dart';
 import '../models/project.dart';
 import '../models/task.dart';
 import '../models/sync_response.dart';
@@ -313,6 +314,27 @@ class ApiService {
       }
     } catch (e) {
       _logger.severe('Error during search: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<AiModel>> fetchAiModels() async {
+    _logger.info('Fetching AI models...');
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/ai/models'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final models = (data['data'] as List)
+            .map((e) => AiModel.fromModelsResponse(e as Map<String, dynamic>))
+            .toList();
+        _logger.info('Fetched ${models.length} AI models');
+        return models;
+      } else {
+        _logger.warning('Failed to fetch AI models: ${response.statusCode}');
+        throw Exception('Failed to fetch AI models');
+      }
+    } catch (e) {
+      _logger.severe('Error fetching AI models: $e');
       rethrow;
     }
   }
