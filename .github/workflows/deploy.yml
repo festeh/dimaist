@@ -28,6 +28,7 @@ jobs:
       run: |
         cd backend
         CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ${{ env.APP_NAME }} .
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ${{ env.APP_NAME }}-cli ./cmd/dimaist-cli
 
     - name: Setup SSH
       run: |
@@ -44,10 +45,11 @@ jobs:
       run: |
         ssh root@${{ secrets.HOST }} "systemctl stop ${{ env.APP_NAME }} || true"
 
-    - name: Deploy binary to remote host
+    - name: Deploy binaries to remote host
       run: |
         scp backend/${{ env.APP_NAME }} root@${{ secrets.HOST }}:${{ env.DEPLOY_PATH }}/${{ env.APP_NAME }}.new
-        ssh root@${{ secrets.HOST }} "mv ${{ env.DEPLOY_PATH }}/${{ env.APP_NAME }}.new ${{ env.DEPLOY_PATH }}/${{ env.APP_NAME }}"
+        scp backend/${{ env.APP_NAME }}-cli root@${{ secrets.HOST }}:${{ env.DEPLOY_PATH }}/${{ env.APP_NAME }}-cli.new
+        ssh root@${{ secrets.HOST }} "mv ${{ env.DEPLOY_PATH }}/${{ env.APP_NAME }}.new ${{ env.DEPLOY_PATH }}/${{ env.APP_NAME }} && mv ${{ env.DEPLOY_PATH }}/${{ env.APP_NAME }}-cli.new ${{ env.DEPLOY_PATH }}/${{ env.APP_NAME }}-cli"
 
     - name: Deploy systemd service file
       run: |
