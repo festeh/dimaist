@@ -20,13 +20,6 @@ const (
 	WSMsgAllComplete   WSMessageType = "all_complete"   // All models finished
 )
 
-// ToolStatus represents the user's decision on a single tool in a batch
-type ToolStatus struct {
-	ToolCallID string         `json:"tool_call_id"`
-	Status     string         `json:"status"` // "confirmed", "rejected"
-	Arguments  map[string]any `json:"arguments,omitempty"`
-}
-
 // ConfirmationRequiredTools lists tools that require user confirmation before execution
 var ConfirmationRequiredTools = map[string]bool{
 	"create_task":    true,

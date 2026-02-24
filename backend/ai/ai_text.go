@@ -167,15 +167,3 @@ Projects: %s
 		tz, currentProjectRule, time.Now().Format("2006-01-02T15:04"), tasksJSON, projectsJSON), nil
 }
 
-func createAIAgent(model string) *Agent {
-	tools := CreateCRUDTools()
-
-	agent := NewAgent(
-		appEnv.AIToken,
-		appEnv.AIEndpoint,
-		tools,
-		model,
-	)
-
-	return agent
-}

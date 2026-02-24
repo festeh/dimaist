@@ -136,8 +136,8 @@ func HandleAI(s *Session) error {
 
 			switch msg.Type {
 			case WSMsgContinue:
-				// User wants to continue - handle immediately without waiting for all models
-				handleContinueDuringResponses(s, responsesByTarget, msg)
+				logger.Info("Continue during responses").Str("newMessage", msg.NewMessage).Int("responsesReceived", len(responsesByTarget)).Send()
+				addModelResponseToSession(s, responsesByTarget, msg)
 				return nil
 
 			case WSMsgToolConfirm:
@@ -172,10 +172,9 @@ func HandleAI(s *Session) error {
 	return nil
 }
 
-// handleContinueDuringResponses handles when user sends continue before all models finish
-func handleContinueDuringResponses(s *Session, results map[string]*ParallelResult, msg *WSMessage) {
-	logger.Info("Continue during responses").Str("newMessage", msg.NewMessage).Int("responsesReceived", len(results)).Send()
-
+// addModelResponseToSession picks a model if none selected, adds its response to session messages,
+// and optionally appends a user message. Tool calls are added as rejected.
+func addModelResponseToSession(s *Session, results map[string]*ParallelResult, msg *WSMessage) {
 	// Pick first successful model if none selected
 	if s.SelectedModel == "" {
 		for id, r := range results {
@@ -186,13 +185,12 @@ func handleContinueDuringResponses(s *Session, results map[string]*ParallelResul
 		}
 	}
 
-	// Add selected model's response to session (if we have one)
+	// Add selected model's response to session
 	if result, ok := results[s.SelectedModel]; ok {
 		if len(result.ToolCalls) > 0 {
-			// Model had tool calls - add assistant message with tools + rejections
 			s.Messages = append(s.Messages, ChatCompletionMessage{
 				Role:      "assistant",
-				ToolCalls: convertToToolCalls(result.ToolCalls, result.Response),
+				ToolCalls: getToolCalls(result.Response),
 			})
 			for _, tc := range result.ToolCalls {
 				s.Messages = append(s.Messages, ChatCompletionMessage{
@@ -202,7 +200,6 @@ func handleContinueDuringResponses(s *Session, results map[string]*ParallelResul
 				})
 			}
 		} else if result.Response != nil && len(result.Response.Choices) > 0 {
-			// Model had text response
 			text := result.Response.Choices[0].Message.Content.String()
 			if text != "" {
 				s.Messages = append(s.Messages, ChatCompletionMessage{
@@ -214,7 +211,7 @@ func handleContinueDuringResponses(s *Session, results map[string]*ParallelResul
 	}
 
 	// Add user's new message to session
-	if msg.NewMessage != "" {
+	if msg != nil && msg.NewMessage != "" {
 		s.Messages = append(s.Messages, ChatCompletionMessage{
 			Role:    "user",
 			Content: buildUserContent(msg.NewMessage, msg.Images),
@@ -246,51 +243,7 @@ func handleUserAction(s *Session, results map[string]*ParallelResult, messagesWi
 				return
 
 			case WSMsgContinue:
-				// Continue message ends this turn
-				// Pick first successful model if none selected
-				if s.SelectedModel == "" {
-					for id, r := range results {
-						if r.Error == nil {
-							s.SelectedModel = id
-							break
-						}
-					}
-				}
-
-				// Add selected model's response to session
-				if result, ok := results[s.SelectedModel]; ok {
-					if len(result.ToolCalls) > 0 {
-						// Model had tool calls - add assistant message with tools + rejections
-						s.Messages = append(s.Messages, ChatCompletionMessage{
-							Role:      "assistant",
-							ToolCalls: convertToToolCalls(result.ToolCalls, result.Response),
-						})
-						for _, tc := range result.ToolCalls {
-							s.Messages = append(s.Messages, ChatCompletionMessage{
-								Role:       "tool",
-								Content:    general.TextContent("User rejected this action"),
-								ToolCallID: tc.ToolCallID,
-							})
-						}
-					} else if result.Response != nil && len(result.Response.Choices) > 0 {
-						// Model had text response
-						text := result.Response.Choices[0].Message.Content.String()
-						if text != "" {
-							s.Messages = append(s.Messages, ChatCompletionMessage{
-								Role:    "assistant",
-								Content: general.TextContent(text),
-							})
-						}
-					}
-				}
-
-				// Add user's new message to session
-				if msg.NewMessage != "" {
-					s.Messages = append(s.Messages, ChatCompletionMessage{
-						Role:    "user",
-						Content: buildUserContent(msg.NewMessage, msg.Images),
-					})
-				}
+				addModelResponseToSession(s, results, msg)
 				logger.Info("Continue during action wait").Str("selected", s.SelectedModel).Str("newMessage", msg.NewMessage).Send()
 				return
 
@@ -315,12 +268,10 @@ func handleToolConfirm(s *Session, results map[string]*ParallelResult, messagesW
 		return
 	}
 
-	agent := createAIAgent(targetID)
-
 	// Add assistant message with tool calls
 	messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
 		Role:      "assistant",
-		ToolCalls: convertToToolCalls(result.ToolCalls, result.Response),
+		ToolCalls: getToolCalls(result.Response),
 	})
 
 	// Track pending tools
@@ -337,7 +288,7 @@ func handleToolConfirm(s *Session, results map[string]*ParallelResult, messagesW
 		}
 
 		start := time.Now()
-		toolResult, err := agent.executeToolWithArgs(tc.Name, args)
+		toolResult, err := executeTool(tc.Name, args)
 		duration := time.Since(start).Seconds()
 
 		if err != nil {
@@ -377,7 +328,7 @@ func handleToolConfirm(s *Session, results map[string]*ParallelResult, messagesW
 				}
 
 				start := time.Now()
-				toolResult, err := agent.executeToolWithArgs(tc.Name, args)
+				toolResult, err := executeTool(tc.Name, args)
 				duration := time.Since(start).Seconds()
 
 				if err != nil {
@@ -448,19 +399,6 @@ func handleModelSelection(s *Session, results map[string]*ParallelResult, target
 
 // streamRequests sends requests to all targets in parallel
 func streamRequests(targets []TargetSpec, messages []ChatCompletionMessage) <-chan *ParallelResult {
-	// Convert messages
-	generalMsgs := make([]general.ChatCompletionMessage, len(messages))
-	for i, m := range messages {
-		generalMsgs[i] = general.ChatCompletionMessage{
-			Role:       m.Role,
-			Content:    m.Content,
-			ToolCallID: m.ToolCallID,
-		}
-		if len(m.ToolCalls) > 0 {
-			generalMsgs[i].ToolCalls = m.ToolCalls
-		}
-	}
-
 	// Build targets - all use the single proxy provider
 	provider := general.Provider{Endpoint: appEnv.AIEndpoint, APIKey: appEnv.AIToken}
 	generalTargets := make([]general.Target, len(targets))
@@ -477,7 +415,7 @@ func streamRequests(targets []TargetSpec, messages []ChatCompletionMessage) <-ch
 	request := general.ChatCompletionRequest{
 		MaxTokens:   4000,
 		Temperature: 0.1,
-		Messages:    generalMsgs,
+		Messages:    messages,
 		Tools:       tools,
 		ToolChoice:  "auto",
 	}
@@ -505,6 +443,7 @@ func streamRequests(targets []TargetSpec, messages []ChatCompletionMessage) <-ch
 				if len(result.Response.Choices) > 0 {
 					toolCalls := result.Response.Choices[0].Message.ToolCalls
 					if len(toolCalls) > 0 {
+						var respondArgs map[string]any
 						pending := make([]PendingToolCall, 0, len(toolCalls))
 						for _, tc := range toolCalls {
 							var args map[string]any
@@ -512,8 +451,8 @@ func streamRequests(targets []TargetSpec, messages []ChatCompletionMessage) <-ch
 								continue
 							}
 
-							// Skip respond tool
 							if tc.Function.Name == "respond" {
+								respondArgs = args
 								continue
 							}
 
@@ -524,21 +463,12 @@ func streamRequests(targets []TargetSpec, messages []ChatCompletionMessage) <-ch
 							})
 						}
 
-						// Handle respond-only case
-						if len(pending) == 0 && len(toolCalls) > 0 {
-							for _, tc := range toolCalls {
-								if tc.Function.Name == "respond" {
-									var args map[string]any
-									if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil {
-										if text, ok := args["text"].(string); ok {
-											pr.Response.Choices[0].Message.Content = general.TextContent(text)
-										}
-									}
-									break
-								}
-							}
-						} else {
+						if len(pending) > 0 {
 							pr.ToolCalls = pending
+						} else if respondArgs != nil {
+							if text, ok := respondArgs["text"].(string); ok {
+								pr.Response.Choices[0].Message.Content = general.TextContent(text)
+							}
 						}
 					}
 				}
@@ -561,7 +491,7 @@ func findTargetIndex(targets []general.Target, target general.Target) int {
 }
 
 
-func convertToToolCalls(pending []PendingToolCall, response *general.ChatCompletionResponse) []general.ToolCall {
+func getToolCalls(response *general.ChatCompletionResponse) []general.ToolCall {
 	if response != nil && len(response.Choices) > 0 {
 		return response.Choices[0].Message.ToolCalls
 	}

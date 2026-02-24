@@ -9,6 +9,17 @@ import (
 	"github.com/festeh/general"
 )
 
+// executeTool finds and executes a CRUD tool by name
+func executeTool(toolName string, args map[string]any) (string, error) {
+	tools := CreateCRUDTools()
+	for _, tool := range tools {
+		if tool.Function.Name == toolName {
+			return tool.Handler(args)
+		}
+	}
+	return "", fmt.Errorf("tool not found: %s", toolName)
+}
+
 // Tool wraps general.Tool with a local Handler for execution.
 type Tool struct {
 	general.Tool
@@ -19,41 +30,7 @@ type Tool struct {
 type (
 	ChatCompletionMessage  = general.ChatCompletionMessage
 	ChatCompletionResponse = general.ChatCompletionResponse
-	ChatCompletionRequest  = general.ChatCompletionRequest
-	ToolCall               = general.ToolCall
 )
-
-type Agent struct {
-	target general.Target
-	tools  []Tool
-	cmd    *general.Command
-}
-
-func NewAgent(apiKey, endpoint string, tools []Tool, model string) *Agent {
-	provider := general.Provider{
-		Endpoint: endpoint,
-		APIKey:   apiKey,
-	}
-	target := general.Target{
-		Provider: provider,
-		Model:    model,
-	}
-	return &Agent{
-		target: target,
-		tools:  tools,
-		cmd:    general.NewCommand([]general.Target{target}, nil),
-	}
-}
-
-// executeToolWithArgs executes a tool with pre-parsed arguments
-func (a *Agent) executeToolWithArgs(toolName string, args map[string]any) (string, error) {
-	for _, tool := range a.tools {
-		if tool.Function.Name == toolName {
-			return tool.Handler(args)
-		}
-	}
-	return "", fmt.Errorf("tool not found: %s", toolName)
-}
 
 // resolveToolDefaults adds default values to tool arguments for frontend preview
 func resolveToolDefaults(toolName string, args map[string]any) map[string]any {
