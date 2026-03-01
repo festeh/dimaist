@@ -25,12 +25,12 @@ import '../widgets/parallel_response_widget.dart';
 /// A conversation turn: user message + selected AI response
 class ConversationTurn {
   final ChatMessage userMessage;
-  final ModelResponse? response;  // null while waiting, set when finalized
+  final ModelResponse? response; // null while waiting, set when finalized
 
   ConversationTurn({required this.userMessage, this.response});
 
   ConversationTurn withResponse(ModelResponse response) =>
-    ConversationTurn(userMessage: userMessage, response: response);
+      ConversationTurn(userMessage: userMessage, response: response);
 }
 
 class ChatMessage {
@@ -79,7 +79,12 @@ class AiChatScreen extends ConsumerStatefulWidget {
   final AiPrompt? initialPrompt;
   final int? currentProjectId;
 
-  const AiChatScreen({super.key, this.initialAudioBytes, this.initialPrompt, this.currentProjectId});
+  const AiChatScreen({
+    super.key,
+    this.initialAudioBytes,
+    this.initialPrompt,
+    this.currentProjectId,
+  });
 
   @override
   ConsumerState<AiChatScreen> createState() => _AiChatScreenState();
@@ -93,15 +98,15 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   ChatMessage? _currentUserMessage;
   final Map<String, ModelResponse> _currentResponses = {};
   bool _allResponsesComplete = false;
-  String? _selectedParallelModel;  // When set, user committed to this model
-  int _currentTurnId = 0;  // Tracks current turn, used to filter stale responses
+  String? _selectedParallelModel; // When set, user committed to this model
+  int _currentTurnId = 0; // Tracks current turn, used to filter stale responses
 
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final AiWebSocketService _wsService = AiWebSocketService();
   bool _isProcessing = false;
   bool _hasText = false;
-  bool _conversationStarted = false;  // First message sent via sendStart
+  bool _conversationStarted = false; // First message sent via sendStart
 
   @override
   void initState() {
@@ -118,7 +123,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     // If we have initial prompt, process it immediately
     if (widget.initialPrompt != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _processTextMessage(widget.initialPrompt!.text, images: widget.initialPrompt!.images);
+        _processTextMessage(
+          widget.initialPrompt!.text,
+          images: widget.initialPrompt!.images,
+        );
       });
     }
   }
@@ -215,12 +223,20 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     }
   }
 
-  Future<void> _processTextMessage(String message, {List<String>? images}) async {
+  Future<void> _processTextMessage(
+    String message, {
+    List<String>? images,
+  }) async {
     await _sendTextMessage(message, images: images);
   }
 
-  Future<void> _sendTextMessage(String userMessage, {bool addUserMessage = true, List<String>? images}) async {
-    if (userMessage.trim().isEmpty && (images == null || images.isEmpty)) return;
+  Future<void> _sendTextMessage(
+    String userMessage, {
+    bool addUserMessage = true,
+    List<String>? images,
+  }) async {
+    if (userMessage.trim().isEmpty && (images == null || images.isEmpty))
+      return;
     // Note: ChatInputWidget already controls when input is enabled based on response state
 
     final message = userMessage.trim();
@@ -237,7 +253,11 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     }
 
     // All requests use parallel path (unified flow for 1 or N models)
-    await _sendParallelMessage(message, addUserMessage: addUserMessage, images: images);
+    await _sendParallelMessage(
+      message,
+      addUserMessage: addUserMessage,
+      images: images,
+    );
   }
 
   /// Get the currently selected/viewed response (for finalizing turns)
@@ -247,18 +267,23 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     final currentPage = ref.read(parallelAiProvider).currentPageIndex;
 
     // Apply same sorting as ParallelResponseWidget._completedResponses
-    final sortedResponses = _currentResponses.entries
-        .where((e) =>
-            e.value.status != ResponseStatus.pending &&
-            (e.value.status != ResponseStatus.error || _allResponsesComplete))
-        .toList()
-      ..sort((a, b) {
-        final aIsError = a.value.status == ResponseStatus.error;
-        final bIsError = b.value.status == ResponseStatus.error;
-        if (aIsError != bIsError) return aIsError ? 1 : -1;
-        return (a.value.duration ?? double.infinity)
-            .compareTo(b.value.duration ?? double.infinity);
-      });
+    final sortedResponses =
+        _currentResponses.entries
+            .where(
+              (e) =>
+                  e.value.status != ResponseStatus.pending &&
+                  (e.value.status != ResponseStatus.error ||
+                      _allResponsesComplete),
+            )
+            .toList()
+          ..sort((a, b) {
+            final aIsError = a.value.status == ResponseStatus.error;
+            final bIsError = b.value.status == ResponseStatus.error;
+            if (aIsError != bIsError) return aIsError ? 1 : -1;
+            return (a.value.duration ?? double.infinity).compareTo(
+              b.value.duration ?? double.infinity,
+            );
+          });
 
     if (currentPage < sortedResponses.length) {
       return sortedResponses[currentPage].value;
@@ -266,15 +291,19 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     return sortedResponses.isNotEmpty ? sortedResponses.first.value : null;
   }
 
-  Future<void> _sendParallelMessage(String userMessage, {bool addUserMessage = true, List<String>? images}) async {
+  Future<void> _sendParallelMessage(
+    String userMessage, {
+    bool addUserMessage = true,
+    List<String>? images,
+  }) async {
     final message = userMessage.trim();
     final parallelState = ref.read(parallelAiProvider);
     final modelState = ref.read(aiModelProvider);
 
     // Build target list from selected model IDs, filtering invalid ones
-    final validIds = parallelState.selectedModelIds.where(
-      (id) => modelState.models.any((m) => m.id == id),
-    ).toSet();
+    final validIds = parallelState.selectedModelIds
+        .where((id) => modelState.models.any((m) => m.id == id))
+        .toSet();
 
     // If selection became invalid, clear it and close chat
     if (validIds.isEmpty) {
@@ -296,14 +325,16 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       // Finalize previous turn if exists
       if (_currentUserMessage != null && _currentResponses.isNotEmpty) {
         final selectedResponse = _getSelectedResponse();
-        _history.add(ConversationTurn(
-          userMessage: _currentUserMessage!,
-          response: selectedResponse,
-        ));
+        _history.add(
+          ConversationTurn(
+            userMessage: _currentUserMessage!,
+            response: selectedResponse,
+          ),
+        );
       }
 
       // Start new turn
-      _currentTurnId++;  // Increment turn ID to filter stale responses
+      _currentTurnId++; // Increment turn ID to filter stale responses
       if (addUserMessage) {
         _currentUserMessage = ChatMessage(
           text: message,
@@ -337,7 +368,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             // Connection closed (by server or network error)
             setState(() {
               _isProcessing = false;
-              _conversationStarted = false;  // Reset for new connection
+              _conversationStarted = false; // Reset for new connection
             });
             try {
               await ref.read(taskProvider.notifier).syncData();
@@ -379,12 +410,15 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     // Filter stale responses from previous turns
     final turnId = data['turn_id'] as int?;
     if (turnId != null && turnId != _currentTurnId) {
-      LoggingService.logger.fine('Ignoring stale response from turn $turnId (current: $_currentTurnId)');
+      LoggingService.logger.fine(
+        'Ignoring stale response from turn $turnId (current: $_currentTurnId)',
+      );
       return;
     }
 
     // Get target ID - from message or fall back to selected/default
-    final targetId = data['target_id'] as String? ?? _selectedParallelModel ?? 'default';
+    final targetId =
+        data['target_id'] as String? ?? _selectedParallelModel ?? 'default';
 
     switch (type) {
       case WSMessageType.thinking:
@@ -402,14 +436,16 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             status: ResponseStatus.success,
           );
         });
-        ref.read(parallelAiProvider.notifier).addModelResponse(
-          ModelResponse(
-            targetId: targetId,
-            content: response,
-            duration: duration,
-            status: ResponseStatus.success,
-          ),
-        );
+        ref
+            .read(parallelAiProvider.notifier)
+            .addModelResponse(
+              ModelResponse(
+                targetId: targetId,
+                content: response,
+                duration: duration,
+                status: ResponseStatus.success,
+              ),
+            );
         break;
 
       case WSMessageType.modelError:
@@ -424,14 +460,16 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             status: ResponseStatus.error,
           );
         });
-        ref.read(parallelAiProvider.notifier).addModelResponse(
-          ModelResponse(
-            targetId: targetId,
-            error: error,
-            duration: duration,
-            status: ResponseStatus.error,
-          ),
-        );
+        ref
+            .read(parallelAiProvider.notifier)
+            .addModelResponse(
+              ModelResponse(
+                targetId: targetId,
+                error: error,
+                duration: duration,
+                status: ResponseStatus.error,
+              ),
+            );
         break;
 
       case WSMessageType.toolsPending:
@@ -454,14 +492,16 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             status: ResponseStatus.toolsPending,
           );
         });
-        ref.read(parallelAiProvider.notifier).addModelResponse(
-          ModelResponse(
-            targetId: targetId,
-            toolCalls: toolCalls,
-            duration: duration,
-            status: ResponseStatus.toolsPending,
-          ),
-        );
+        ref
+            .read(parallelAiProvider.notifier)
+            .addModelResponse(
+              ModelResponse(
+                targetId: targetId,
+                toolCalls: toolCalls,
+                duration: duration,
+                status: ResponseStatus.toolsPending,
+              ),
+            );
         _scrollToBottom();
         break;
 
@@ -520,7 +560,11 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     _wsService.selectModel(targetId);
   }
 
-  void _handleToolConfirmSingle(String targetId, String toolCallId, Map<String, dynamic> args) {
+  void _handleToolConfirmSingle(
+    String targetId,
+    String toolCallId,
+    Map<String, dynamic> args,
+  ) {
     // User confirmed a single tool from this model
     ref.read(parallelAiProvider.notifier).selectWinningModel(targetId);
 
@@ -536,7 +580,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     final colors = Theme.of(context).colorScheme;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
+      margin: const EdgeInsets.symmetric(
+        horizontal: Spacing.lg,
+        vertical: Spacing.xs,
+      ),
       padding: const EdgeInsets.all(Spacing.lg),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest,
@@ -619,14 +666,20 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     final colors = theme.colorScheme;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
+      margin: const EdgeInsets.symmetric(
+        horizontal: Spacing.lg,
+        vertical: Spacing.xs,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Flexible(
             child: Container(
               constraints: const BoxConstraints(maxWidth: 320),
-              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.md),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.lg,
+                vertical: Spacing.md,
+              ),
               decoration: BoxDecoration(
                 color: colors.primary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(Radii.lg),
@@ -670,7 +723,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   }
 
   /// Build a history response (finalized, no arrows)
-  Widget _buildHistoryResponse(ModelResponse? response, List<dynamic> projects) {
+  Widget _buildHistoryResponse(
+    ModelResponse? response,
+    List<dynamic> projects,
+  ) {
     if (response == null) {
       return const SizedBox.shrink();
     }
@@ -679,9 +735,13 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     final colors = theme.colorScheme;
 
     // For tool calls, show the BatchToolPreviewWidget in completed state
-    if (response.status == ResponseStatus.toolsPending && response.toolCalls != null) {
+    if (response.status == ResponseStatus.toolsPending &&
+        response.toolCalls != null) {
       return Container(
-        margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
+        margin: const EdgeInsets.symmetric(
+          horizontal: Spacing.lg,
+          vertical: Spacing.xs,
+        ),
         padding: const EdgeInsets.all(Spacing.md),
         decoration: BoxDecoration(
           color: colors.surfaceContainerHighest,
@@ -707,7 +767,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     // For text responses
     if (response.status == ResponseStatus.success && response.content != null) {
       return Container(
-        margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
+        margin: const EdgeInsets.symmetric(
+          horizontal: Spacing.lg,
+          vertical: Spacing.xs,
+        ),
         padding: const EdgeInsets.all(Spacing.lg),
         decoration: BoxDecoration(
           color: colors.surfaceContainerHighest,
@@ -720,10 +783,18 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
               data: response.content!,
               selectable: true,
               styleSheet: MarkdownStyleSheet(
-                p: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurface),
-                h1: theme.textTheme.titleLarge?.copyWith(color: colors.onSurface),
-                h2: theme.textTheme.titleMedium?.copyWith(color: colors.onSurface),
-                h3: theme.textTheme.titleSmall?.copyWith(color: colors.onSurface),
+                p: theme.textTheme.bodyMedium?.copyWith(
+                  color: colors.onSurface,
+                ),
+                h1: theme.textTheme.titleLarge?.copyWith(
+                  color: colors.onSurface,
+                ),
+                h2: theme.textTheme.titleMedium?.copyWith(
+                  color: colors.onSurface,
+                ),
+                h3: theme.textTheme.titleSmall?.copyWith(
+                  color: colors.onSurface,
+                ),
                 code: theme.textTheme.bodySmall?.copyWith(
                   color: colors.onSurfaceVariant,
                   fontFamily: 'monospace',
@@ -740,7 +811,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 padding: const EdgeInsets.only(top: Spacing.sm),
                 child: Text(
                   _formatDuration(response.duration!),
-                  style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
                 ),
               ),
           ],
@@ -751,7 +824,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     // For errors
     if (response.status == ResponseStatus.error) {
       return Container(
-        margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
+        margin: const EdgeInsets.symmetric(
+          horizontal: Spacing.lg,
+          vertical: Spacing.xs,
+        ),
         padding: const EdgeInsets.all(Spacing.lg),
         decoration: BoxDecoration(
           color: colors.errorContainer,
@@ -759,7 +835,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         ),
         child: Text(
           'Error: ${response.error ?? "Unknown error"}',
-          style: theme.textTheme.bodyMedium?.copyWith(color: colors.onErrorContainer),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colors.onErrorContainer,
+          ),
         ),
       );
     }
@@ -784,7 +862,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     final modelState = ref.watch(aiModelProvider);
     final parallelState = ref.watch(parallelAiProvider);
     final projectsAsync = ref.watch(projectProvider);
-    final projects = projectsAsync.valueOrNull ?? [];
+    final projects = projectsAsync.value ?? [];
     final colors = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
 
@@ -804,7 +882,10 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           ),
           borderRadius: BorderRadius.circular(Radii.sm),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.sm,
+              vertical: Spacing.xs,
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -853,10 +934,15 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             ),
           ),
           ChatInputWidget(
-            onSendMessage: (prompt) => _sendTextMessage(prompt.text, images: prompt.images),
+            onSendMessage: (prompt) =>
+                _sendTextMessage(prompt.text, images: prompt.images),
             onAudioRecorded: _processAudioMessage,
             // Enable input once first response arrives (even if still waiting for others)
-            isProcessing: _isProcessing && !_currentResponses.values.any((r) => r.status != ResponseStatus.pending),
+            isProcessing:
+                _isProcessing &&
+                !_currentResponses.values.any(
+                  (r) => r.status != ResponseStatus.pending,
+                ),
           ),
         ],
       ),
@@ -874,7 +960,8 @@ class _TypingDots extends StatefulWidget {
   State<_TypingDots> createState() => _TypingDotsState();
 }
 
-class _TypingDotsState extends State<_TypingDots> with TickerProviderStateMixin {
+class _TypingDotsState extends State<_TypingDots>
+    with TickerProviderStateMixin {
   late final List<AnimationController> _controllers;
   late final List<Animation<double>> _animations;
 
@@ -889,9 +976,10 @@ class _TypingDotsState extends State<_TypingDots> with TickerProviderStateMixin 
     });
 
     _animations = _controllers.map((controller) {
-      return Tween<double>(begin: 0, end: 1).animate(
-        CurvedAnimation(parent: controller, curve: Curves.easeInOut),
-      );
+      return Tween<double>(
+        begin: 0,
+        end: 1,
+      ).animate(CurvedAnimation(parent: controller, curve: Curves.easeInOut));
     }).toList();
 
     // Start animations with staggered delay

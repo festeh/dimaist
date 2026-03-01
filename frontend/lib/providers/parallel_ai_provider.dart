@@ -3,12 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/ws_message_type.dart';
 
 /// Response status for parallel mode
-enum ResponseStatus {
-  pending,
-  success,
-  error,
-  toolsPending,
-}
+enum ResponseStatus { pending, success, error, toolsPending }
 
 /// Represents a single model's response in parallel mode
 class ModelResponse {
@@ -93,7 +88,9 @@ class ParallelAiState {
       selectedModelIds: selectedModelIds ?? this.selectedModelIds,
       responses: responses ?? this.responses,
       currentPageIndex: currentPageIndex ?? this.currentPageIndex,
-      activeModelId: clearActiveModel ? null : (activeModelId ?? this.activeModelId),
+      activeModelId: clearActiveModel
+          ? null
+          : (activeModelId ?? this.activeModelId),
       isParallelMode: isParallelMode ?? this.isParallelMode,
       allComplete: allComplete ?? this.allComplete,
     );
@@ -101,7 +98,7 @@ class ParallelAiState {
 }
 
 /// Notifier for parallel AI state management
-class ParallelAiNotifier extends StateNotifier<ParallelAiState> {
+class ParallelAiNotifier extends Notifier<ParallelAiState> {
   static const String _selectedKey = 'selected_model_ids';
   static SharedPreferences? _prefs;
 
@@ -110,7 +107,8 @@ class ParallelAiNotifier extends StateNotifier<ParallelAiState> {
     _prefs = await SharedPreferences.getInstance();
   }
 
-  ParallelAiNotifier() : super(_loadInitialState());
+  @override
+  ParallelAiState build() => _loadInitialState();
 
   static ParallelAiState _loadInitialState() {
     final savedIds = _prefs?.getStringList(_selectedKey);
@@ -181,10 +179,7 @@ class ParallelAiNotifier extends StateNotifier<ParallelAiState> {
 
   /// Select a winning model (user engaged with its tools)
   void selectWinningModel(String targetId) {
-    state = state.copyWith(
-      activeModelId: targetId,
-      isParallelMode: false,
-    );
+    state = state.copyWith(activeModelId: targetId, isParallelMode: false);
   }
 
   /// Set the current page index (for swipe navigation)
@@ -212,6 +207,6 @@ class ParallelAiNotifier extends StateNotifier<ParallelAiState> {
 
 /// Provider for parallel AI state
 final parallelAiProvider =
-    StateNotifierProvider<ParallelAiNotifier, ParallelAiState>((ref) {
-  return ParallelAiNotifier();
-});
+    NotifierProvider<ParallelAiNotifier, ParallelAiState>(
+      ParallelAiNotifier.new,
+    );

@@ -32,10 +32,7 @@ class SearchResultsScreen extends ConsumerWidget {
               color: theme.colorScheme.error,
             ),
             const SizedBox(height: Spacing.lg),
-            Text(
-              'Search failed',
-              style: theme.textTheme.titleMedium,
-            ),
+            Text('Search failed', style: theme.textTheme.titleMedium),
             const SizedBox(height: Spacing.sm),
             Text(
               searchState.error!,
@@ -72,7 +69,9 @@ class SearchResultsScreen extends ConsumerWidget {
               Text(
                 'for "${searchState.query}"',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.7,
+                  ),
                 ),
               ),
             ],
@@ -137,7 +136,7 @@ class _SearchResultTile extends ConsumerWidget {
     final searchNotifier = ref.read(searchProvider.notifier);
     final viewNotifier = ref.read(viewProvider.notifier);
     final projectsAsync = ref.read(projectProvider);
-    final projects = projectsAsync.valueOrNull ?? [];
+    final projects = projectsAsync.value ?? [];
 
     try {
       if (result.isProject) {
@@ -153,7 +152,9 @@ class _SearchResultTile extends ConsumerWidget {
         final apiService = ApiService();
         final task = await apiService.getTask(result.id);
 
-        final project = projects.where((p) => p.id == task.projectId).firstOrNull;
+        final project = projects
+            .where((p) => p.id == task.projectId)
+            .firstOrNull;
 
         if (project != null) {
           viewNotifier.selectProject(project);
@@ -166,9 +167,9 @@ class _SearchResultTile extends ConsumerWidget {
     } catch (e) {
       logger.severe('Error navigating to result: $e');
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error opening result: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error opening result: $e')));
       }
     }
   }

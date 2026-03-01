@@ -2,8 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/design_tokens.dart';
 import '../services/settings_service.dart';
 
-class ThemeNotifier extends StateNotifier<AppThemeMode> {
-  ThemeNotifier() : super(SettingsService.instance.themeMode);
+class ThemeNotifier extends Notifier<AppThemeMode> {
+  @override
+  AppThemeMode build() => SettingsService.instance.themeMode;
 
   Future<void> setTheme(AppThemeMode mode) async {
     state = mode;
@@ -11,6 +12,6 @@ class ThemeNotifier extends StateNotifier<AppThemeMode> {
   }
 }
 
-final themeProvider = StateNotifierProvider<ThemeNotifier, AppThemeMode>((ref) {
-  return ThemeNotifier();
-});
+final themeProvider = NotifierProvider<ThemeNotifier, AppThemeMode>(
+  ThemeNotifier.new,
+);

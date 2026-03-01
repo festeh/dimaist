@@ -5,7 +5,8 @@ import '../models/ws_message_type.dart';
 import 'logging_service.dart';
 
 /// Callback for handling WebSocket messages
-typedef WSMessageCallback = void Function(WSMessageType type, Map<String, dynamic> data);
+typedef WSMessageCallback =
+    void Function(WSMessageType type, Map<String, dynamic> data);
 
 /// Target specification for parallel requests
 class TargetSpec {
@@ -16,9 +17,7 @@ class TargetSpec {
   /// Unique identifier for this target
   String get id => model;
 
-  Map<String, dynamic> toJson() => {
-        'model': model,
-      };
+  Map<String, dynamic> toJson() => {'model': model};
 }
 
 /// Service for AI chat communication via WebSocket
@@ -57,7 +56,9 @@ class AiWebSocketService {
     _onError = onError;
     _waitingForResponse = false;
 
-    final wsUrl = baseUrl.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
+    final wsUrl = baseUrl
+        .replaceFirst('http://', 'ws://')
+        .replaceFirst('https://', 'wss://');
     final uri = Uri.parse('$wsUrl/ai');
     _logger.info('Connecting to WebSocket: $uri');
     _channel = WebSocketChannel.connect(uri);
@@ -105,7 +106,9 @@ class AiWebSocketService {
     _waitingForResponse = true;
     _responseTimeoutTimer = Timer(_responseTimeout, () {
       if (_waitingForResponse && _channel != null) {
-        _logger.warning('Response timeout (${_responseTimeout.inSeconds}s), connection appears dead');
+        _logger.warning(
+          'Response timeout (${_responseTimeout.inSeconds}s), connection appears dead',
+        );
         _handleDisconnect();
       }
     });
@@ -142,16 +145,20 @@ class AiWebSocketService {
       return;
     }
 
-    _logger.info('Sending start message with ${targets.length} targets, project: $currentProjectId, images: ${images?.length ?? 0}');
+    _logger.info(
+      'Sending start message with ${targets.length} targets, project: $currentProjectId, images: ${images?.length ?? 0}',
+    );
 
     final content = _buildContent(message, images);
     final startMessage = {
       'type': WSMessageType.start.toJson(),
-      'messages': [{'role': 'user', 'content': content}],
+      'messages': [
+        {'role': 'user', 'content': content},
+      ],
       'targets': targets.map((t) => t.toJson()).toList(),
       'include_completed': includeCompleted,
-      if (currentProjectId != null) 'current_project_id': currentProjectId,
-      if (images != null && images.isNotEmpty) 'images': images,
+      'current_project_id': ?currentProjectId,
+      'images': ?images,
     };
     _channel!.sink.add(jsonEncode(startMessage));
     _startResponseTimeout();
@@ -180,7 +187,10 @@ class AiWebSocketService {
     if (images == null || images.isEmpty) return text;
     final parts = <Map<String, dynamic>>[];
     for (final img in images) {
-      parts.add({'type': 'image_url', 'image_url': {'url': img}});
+      parts.add({
+        'type': 'image_url',
+        'image_url': {'url': img},
+      });
     }
     if (text.isNotEmpty) {
       parts.add({'type': 'text', 'text': text});
@@ -189,7 +199,11 @@ class AiWebSocketService {
   }
 
   /// Confirm a single tool for execution
-  void confirmTool(String targetId, String toolCallId, Map<String, dynamic>? arguments) {
+  void confirmTool(
+    String targetId,
+    String toolCallId,
+    Map<String, dynamic>? arguments,
+  ) {
     if (_channel == null) {
       _logger.warning('Cannot confirm tool: WebSocket not connected');
       return;

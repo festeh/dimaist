@@ -41,7 +41,11 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
   bool _isAiProcessing = false;
   bool _showCompletedTasks = false;
 
-  void _updateAppBarConfig(String title, SortMode sortMode, bool hasCompletedTasks) {
+  void _updateAppBarConfig(
+    String title,
+    SortMode sortMode,
+    bool hasCompletedTasks,
+  ) {
     widget.onAppBarConfigChanged?.call(
       AppBarConfig(
         title: Text(title, style: Theme.of(context).textTheme.headlineSmall),
@@ -54,7 +58,8 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
           ViewOptionsMenu(
             sortMode: sortMode,
             isScheduleView: _isScheduleView,
-            showScheduleToggle: widget.customView?.type == BuiltInViewType.today,
+            showScheduleToggle:
+                widget.customView?.type == BuiltInViewType.today,
             onSortToggle: () async {
               final taskNotifier = ref.read(taskProvider.notifier);
               final newSortMode = sortMode == SortMode.order
@@ -154,7 +159,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
     final taskNotifier = ref.read(taskProvider.notifier);
     final projectAsyncValue = ref.read(projectProvider);
 
-    final projects = projectAsyncValue.valueOrNull ?? <Project>[];
+    final projects = projectAsyncValue.value ?? <Project>[];
     Project? selectedProject = widget.project;
     DateTime? defaultDueDate;
 
@@ -188,7 +193,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
     final taskNotifier = ref.read(taskProvider.notifier);
     final projectAsyncValue = ref.read(projectProvider);
 
-    final projects = projectAsyncValue.valueOrNull ?? <Project>[];
+    final projects = projectAsyncValue.value ?? <Project>[];
 
     showDialog(
       context: context,
@@ -286,7 +291,11 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
       data: (taskData) {
         // Update app bar config with the task data title and sort mode
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _updateAppBarConfig(taskData.title, taskData.sortMode, taskData.completedTasks.isNotEmpty);
+          _updateAppBarConfig(
+            taskData.title,
+            taskData.sortMode,
+            taskData.completedTasks.isNotEmpty,
+          );
         });
         return _buildTaskContent(context, taskData, taskNotifier);
       },
@@ -322,7 +331,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
 
     // Get projects for lookup (only needed in custom views)
     final projects = widget.customView != null
-        ? (ref.read(projectProvider).valueOrNull ?? <Project>[])
+        ? (ref.read(projectProvider).value ?? <Project>[])
         : <Project>[];
 
     Project? findProject(Task task) {
@@ -331,7 +340,8 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
     }
 
     // Filter out tasks with deleted projects for All view
-    final filteredNonCompletedTasks = widget.customView?.type == BuiltInViewType.all
+    final filteredNonCompletedTasks =
+        widget.customView?.type == BuiltInViewType.all
         ? nonCompletedTasks.where((task) => findProject(task) != null).toList()
         : nonCompletedTasks;
 
@@ -375,17 +385,22 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                 )
               : (() {
                   // Disable reordering for All view (tasks span multiple projects)
-                  final canReorder = taskData.sortMode == SortMode.order &&
+                  final canReorder =
+                      taskData.sortMode == SortMode.order &&
                       widget.customView?.type != BuiltInViewType.all;
 
                   if (canReorder) {
                     return ReorderableListView.builder(
                       buildDefaultDragHandles: false,
-                      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Spacing.sm,
+                      ),
                       itemCount:
                           filteredNonCompletedTasks.length +
                           (completedTasks.isNotEmpty
-                              ? (_showCompletedTasks ? completedTasks.length + 1 : 1)
+                              ? (_showCompletedTasks
+                                    ? completedTasks.length + 1
+                                    : 1)
                               : 0),
                       itemBuilder: (context, index) {
                         if (index < filteredNonCompletedTasks.length) {
@@ -403,7 +418,9 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                             completedTasks.isNotEmpty) {
                           return InkWell(
                             key: const Key('completed_tasks_header'),
-                            onTap: () => setState(() => _showCompletedTasks = !_showCompletedTasks),
+                            onTap: () => setState(
+                              () => _showCompletedTasks = !_showCompletedTasks,
+                            ),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 vertical: Spacing.lg,
@@ -414,11 +431,15 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                                   Expanded(
                                     child: Divider(
                                       thickness: 1,
-                                      color: Theme.of(context).colorScheme.outlineVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.outlineVariant,
                                     ),
                                   ),
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: Spacing.md,
+                                    ),
                                     child: Row(
                                       children: [
                                         PhosphorIcon(
@@ -426,14 +447,21 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                                               ? PhosphorIcons.caretDown()
                                               : PhosphorIcons.caretRight(),
                                           size: Sizes.iconSm,
-                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
                                         ),
                                         const SizedBox(width: Spacing.xs),
                                         Text(
                                           'Completed (${completedTasks.length})',
-                                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                          ),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelSmall
+                                              ?.copyWith(
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
+                                              ),
                                         ),
                                       ],
                                     ),
@@ -441,7 +469,9 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                                   Expanded(
                                     child: Divider(
                                       thickness: 1,
-                                      color: Theme.of(context).colorScheme.outlineVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.outlineVariant,
                                     ),
                                   ),
                                 ],
@@ -473,11 +503,15 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                   } else {
                     // Non-reorderable ListView for date sorting or All view
                     return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Spacing.sm,
+                      ),
                       itemCount:
                           filteredNonCompletedTasks.length +
                           (completedTasks.isNotEmpty
-                              ? (_showCompletedTasks ? completedTasks.length + 1 : 1)
+                              ? (_showCompletedTasks
+                                    ? completedTasks.length + 1
+                                    : 1)
                               : 0),
                       itemBuilder: (context, index) {
                         if (index < filteredNonCompletedTasks.length) {
@@ -494,7 +528,9 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                         } else if (index == filteredNonCompletedTasks.length &&
                             completedTasks.isNotEmpty) {
                           return InkWell(
-                            onTap: () => setState(() => _showCompletedTasks = !_showCompletedTasks),
+                            onTap: () => setState(
+                              () => _showCompletedTasks = !_showCompletedTasks,
+                            ),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 vertical: Spacing.lg,
@@ -505,11 +541,15 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                                   Expanded(
                                     child: Divider(
                                       thickness: 1,
-                                      color: Theme.of(context).colorScheme.outlineVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.outlineVariant,
                                     ),
                                   ),
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: Spacing.md,
+                                    ),
                                     child: Row(
                                       children: [
                                         PhosphorIcon(
@@ -517,14 +557,21 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                                               ? PhosphorIcons.caretDown()
                                               : PhosphorIcons.caretRight(),
                                           size: Sizes.iconSm,
-                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
                                         ),
                                         const SizedBox(width: Spacing.xs),
                                         Text(
                                           'Completed (${completedTasks.length})',
-                                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                          ),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelSmall
+                                              ?.copyWith(
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
+                                              ),
                                         ),
                                       ],
                                     ),
@@ -532,7 +579,9 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
                                   Expanded(
                                     child: Divider(
                                       thickness: 1,
-                                      color: Theme.of(context).colorScheme.outlineVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.outlineVariant,
                                     ),
                                   ),
                                 ],

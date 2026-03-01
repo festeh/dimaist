@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/search_result.dart';
 import '../services/api_service.dart';
 import '../services/logging_service.dart';
+import 'service_providers.dart';
 
 class SearchState {
   final String query;
@@ -35,11 +36,13 @@ class SearchState {
   }
 }
 
-class SearchNotifier extends StateNotifier<SearchState> {
-  final ApiService _apiService;
+class SearchNotifier extends Notifier<SearchState> {
   final _logger = LoggingService.logger;
 
-  SearchNotifier(this._apiService) : super(const SearchState());
+  ApiService get _apiService => ref.read(apiServiceProvider);
+
+  @override
+  SearchState build() => const SearchState();
 
   Future<void> search(String query) async {
     if (query.isEmpty) {
@@ -56,16 +59,10 @@ class SearchNotifier extends StateNotifier<SearchState> {
 
     try {
       final response = await _apiService.search(query);
-      state = state.copyWith(
-        results: response.results,
-        isSearching: false,
-      );
+      state = state.copyWith(results: response.results, isSearching: false);
     } catch (e) {
       _logger.severe('Search error: $e');
-      state = state.copyWith(
-        isSearching: false,
-        error: e.toString(),
-      );
+      state = state.copyWith(isSearching: false, error: e.toString());
     }
   }
 
@@ -78,7 +75,6 @@ class SearchNotifier extends StateNotifier<SearchState> {
   }
 }
 
-final searchProvider = StateNotifierProvider<SearchNotifier, SearchState>((ref) {
-  final apiService = ApiService();
-  return SearchNotifier(apiService);
-});
+final searchProvider = NotifierProvider<SearchNotifier, SearchState>(
+  SearchNotifier.new,
+);

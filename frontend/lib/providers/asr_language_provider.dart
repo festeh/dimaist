@@ -19,9 +19,10 @@ enum AsrLanguage {
   }
 }
 
-class AsrLanguageNotifier extends StateNotifier<AsrLanguage> {
-  AsrLanguageNotifier()
-      : super(AsrLanguage.fromCode(SettingsService.instance.asrLanguage));
+class AsrLanguageNotifier extends Notifier<AsrLanguage> {
+  @override
+  AsrLanguage build() =>
+      AsrLanguage.fromCode(SettingsService.instance.asrLanguage);
 
   Future<void> setLanguage(AsrLanguage language) async {
     state = language;
@@ -29,7 +30,6 @@ class AsrLanguageNotifier extends StateNotifier<AsrLanguage> {
   }
 }
 
-final asrLanguageProvider =
-    StateNotifierProvider<AsrLanguageNotifier, AsrLanguage>((ref) {
-  return AsrLanguageNotifier();
-});
+final asrLanguageProvider = NotifierProvider<AsrLanguageNotifier, AsrLanguage>(
+  AsrLanguageNotifier.new,
+);

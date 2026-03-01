@@ -11,18 +11,20 @@ class AiModelState {
   const AiModelState({required this.models});
 }
 
-class AiModelNotifier extends StateNotifier<AiModelState> {
+class AiModelNotifier extends Notifier<AiModelState> {
   static const String _cacheKey = 'cached_ai_models';
   static SharedPreferences? _prefs;
-
-  final ApiService _apiService;
 
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
   }
 
-  AiModelNotifier(this._apiService) : super(_loadCachedModels()) {
+  ApiService get _apiService => ref.read(apiServiceProvider);
+
+  @override
+  AiModelState build() {
     _fetchModels();
+    return _loadCachedModels();
   }
 
   static AiModelState _loadCachedModels() {
@@ -59,7 +61,6 @@ class AiModelNotifier extends StateNotifier<AiModelState> {
   Future<void> refresh() => _fetchModels();
 }
 
-final aiModelProvider = StateNotifierProvider<AiModelNotifier, AiModelState>((ref) {
-  final apiService = ref.watch(apiServiceProvider);
-  return AiModelNotifier(apiService);
-});
+final aiModelProvider = NotifierProvider<AiModelNotifier, AiModelState>(
+  AiModelNotifier.new,
+);

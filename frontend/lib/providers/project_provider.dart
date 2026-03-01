@@ -45,7 +45,7 @@ class ProjectNotifier extends AsyncNotifier<List<Project>> {
       );
       final createdProject = await _api.createProject(newProject);
       await _db.insertProject(createdProject);
-      final currentProjects = state.valueOrNull ?? [];
+      final currentProjects = state.value ?? [];
       return [...currentProjects, createdProject];
     });
   }
@@ -54,7 +54,7 @@ class ProjectNotifier extends AsyncNotifier<List<Project>> {
     state = await AsyncValue.guard(() async {
       await _api.updateProject(project.id!, project);
       await _db.updateProject(project);
-      final currentProjects = state.valueOrNull ?? [];
+      final currentProjects = state.value ?? [];
       return currentProjects
           .map((p) => p.id == project.id ? project : p)
           .toList();
@@ -65,7 +65,7 @@ class ProjectNotifier extends AsyncNotifier<List<Project>> {
     state = await AsyncValue.guard(() async {
       await _api.deleteProject(id);
       await _db.deleteProject(id);
-      final currentProjects = state.valueOrNull ?? [];
+      final currentProjects = state.value ?? [];
       return currentProjects.where((p) => p.id != id).toList();
     });
   }
@@ -76,7 +76,7 @@ class ProjectNotifier extends AsyncNotifier<List<Project>> {
         newIndex -= 1;
       }
 
-      final currentProjects = state.valueOrNull ?? [];
+      final currentProjects = state.value ?? [];
       final projects = [...currentProjects];
       final project = projects.removeAt(oldIndex);
       projects.insert(newIndex, project);

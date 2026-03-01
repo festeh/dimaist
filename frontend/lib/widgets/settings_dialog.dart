@@ -64,16 +64,26 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   }
 
   Future<void> _copyDataToClipboard() async {
-    final projects = ref.read(projectProvider).valueOrNull ?? [];
+    final projects = ref.read(projectProvider).value ?? [];
     final includeCompleted = ref.read(includeCompletedInAiProvider);
     final db = AppDatabase();
     final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
 
     final buffer = StringBuffer();
     final now = DateTime.now();
-    const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
     final weekday = weekdays[now.weekday - 1];
-    buffer.writeln('Information: Today is $weekday, ${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}\n');
+    buffer.writeln(
+      'Information: Today is $weekday, ${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}\n',
+    );
     buffer.writeln('=== PROJECTS AND TASKS ===\n');
 
     // Build project name lookup
@@ -88,7 +98,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       for (final task in tasks) {
         if (task.completedAt == null) {
           allIncompleteTasks.add((projectId: project.id!, task: task));
-        } else if (includeCompleted && task.completedAt!.isAfter(thirtyDaysAgo)) {
+        } else if (includeCompleted &&
+            task.completedAt!.isAfter(thirtyDaysAgo)) {
           allCompletedTasks.add((projectId: project.id!, task: task));
         }
       }
@@ -108,11 +119,15 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         buffer.writeln('  ○ ${task.title}');
         if (task.createdAt != null) {
           final d = task.createdAt!.toLocal();
-          buffer.writeln('    Created: ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}');
+          buffer.writeln(
+            '    Created: ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
+          );
         }
         if (task.due != null) {
           final d = task.due!.toLocal();
-          buffer.writeln('    Due: ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}');
+          buffer.writeln(
+            '    Due: ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
+          );
         }
         if (task.labels.isNotEmpty) {
           buffer.writeln('    Labels: ${task.labels.join(', ')}');
@@ -130,11 +145,15 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         buffer.writeln('    Project: $projectName');
         if (item.task.createdAt != null) {
           final d = item.task.createdAt!.toLocal();
-          buffer.writeln('    Created: ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}');
+          buffer.writeln(
+            '    Created: ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
+          );
         }
         if (item.task.completedAt != null) {
           final d = item.task.completedAt!.toLocal();
-          buffer.writeln('    Completed: ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}');
+          buffer.writeln(
+            '    Completed: ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
+          );
         }
       }
     }
@@ -143,10 +162,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   }
 
   void _openModelManager() {
-    showDialog(
-      context: context,
-      builder: (context) => const ModelListDialog(),
-    );
+    showDialog(context: context, builder: (context) => const ModelListDialog());
   }
 
   void _openThemeSelector() {
@@ -208,7 +224,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         title: 'Select ASR Language',
         values: AsrLanguage.values,
         currentValue: currentLanguage,
-        onSelect: (lang) => ref.read(asrLanguageProvider.notifier).setLanguage(lang),
+        onSelect: (lang) =>
+            ref.read(asrLanguageProvider.notifier).setLanguage(lang),
         itemBuilder: (lang, isSelected, colors) => Text(
           lang.displayName,
           style: TextStyle(
@@ -221,7 +238,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
 
   void _toggleIncludeCompleted() {
     final current = ref.read(includeCompletedInAiProvider);
-    ref.read(includeCompletedInAiProvider.notifier).setIncludeCompleted(!current);
+    ref
+        .read(includeCompletedInAiProvider.notifier)
+        .setIncludeCompleted(!current);
   }
 
   Widget _buildSettingRow({
@@ -368,7 +387,10 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : PhosphorIcon(PhosphorIcons.arrowsClockwise(), size: Sizes.iconSm),
+                    : PhosphorIcon(
+                        PhosphorIcons.arrowsClockwise(),
+                        size: Sizes.iconSm,
+                      ),
                 label: Text(_isSyncing ? 'Syncing...' : 'Sync Now'),
               ),
             ),
@@ -414,7 +436,8 @@ class _SelectionDialog<T> extends StatelessWidget {
   final List<T> values;
   final T currentValue;
   final void Function(T) onSelect;
-  final Widget Function(T value, bool isSelected, ColorScheme colors) itemBuilder;
+  final Widget Function(T value, bool isSelected, ColorScheme colors)
+  itemBuilder;
 
   const _SelectionDialog({
     required this.title,
@@ -449,7 +472,9 @@ class _SelectionDialog<T> extends StatelessWidget {
                   vertical: Spacing.md,
                 ),
                 decoration: BoxDecoration(
-                  color: isSelected ? colors.primary.withValues(alpha: 0.1) : null,
+                  color: isSelected
+                      ? colors.primary.withValues(alpha: 0.1)
+                      : null,
                   borderRadius: BorderRadius.circular(Radii.sm),
                 ),
                 child: Row(

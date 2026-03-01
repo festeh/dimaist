@@ -1,8 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/settings_service.dart';
 
-class IncludeCompletedNotifier extends StateNotifier<bool> {
-  IncludeCompletedNotifier() : super(SettingsService.instance.includeCompletedInAi);
+class IncludeCompletedNotifier extends Notifier<bool> {
+  @override
+  bool build() => SettingsService.instance.includeCompletedInAi;
 
   Future<void> setIncludeCompleted(bool value) async {
     state = value;
@@ -10,6 +11,7 @@ class IncludeCompletedNotifier extends StateNotifier<bool> {
   }
 }
 
-final includeCompletedInAiProvider = StateNotifierProvider<IncludeCompletedNotifier, bool>((ref) {
-  return IncludeCompletedNotifier();
-});
+final includeCompletedInAiProvider =
+    NotifierProvider<IncludeCompletedNotifier, bool>(
+      IncludeCompletedNotifier.new,
+    );

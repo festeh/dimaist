@@ -131,7 +131,7 @@ class TaskNotifier extends AsyncNotifier<TaskViewData> {
   }
 
   Future<void> reorderTasks(int oldIndex, int newIndex) async {
-    final currentData = state.valueOrNull ?? const TaskViewData();
+    final currentData = state.value ?? const TaskViewData();
     final currentView = currentData.currentView;
     if (currentView is! ProjectViewSelection) return;
 
@@ -197,7 +197,7 @@ class TaskNotifier extends AsyncNotifier<TaskViewData> {
   }
 
   Future<void> setSortMode(SortMode newSortMode) async {
-    final currentData = state.valueOrNull;
+    final currentData = state.value;
     if (currentData == null) return;
 
     final currentView = currentData.currentView;
@@ -238,7 +238,7 @@ class TaskNotifier extends AsyncNotifier<TaskViewData> {
   }
 
   Future<void> _reloadCurrentTasks() async {
-    final currentData = state.valueOrNull;
+    final currentData = state.value;
     if (currentData == null) return;
 
     final currentView = currentData.currentView;

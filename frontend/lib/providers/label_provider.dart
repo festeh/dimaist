@@ -7,15 +7,9 @@ class LabelState {
   final List<Label> labels;
   final bool isLoading;
 
-  const LabelState({
-    required this.labels,
-    this.isLoading = false,
-  });
+  const LabelState({required this.labels, this.isLoading = false});
 
-  LabelState copyWith({
-    List<Label>? labels,
-    bool? isLoading,
-  }) {
+  LabelState copyWith({List<Label>? labels, bool? isLoading}) {
     return LabelState(
       labels: labels ?? this.labels,
       isLoading: isLoading ?? this.isLoading,
@@ -33,18 +27,24 @@ class LabelState {
   }
 }
 
-class LabelNotifier extends StateNotifier<LabelState> {
+class LabelNotifier extends Notifier<LabelState> {
   static const String _labelsKey = 'stored_labels';
 
   static final List<Label> _defaultLabels = [
     const Label(id: 'default_next', name: 'next', color: LabelColors.blue),
-    const Label(id: 'default_calendar', name: 'calendar', color: LabelColors.green),
+    const Label(
+      id: 'default_calendar',
+      name: 'calendar',
+      color: LabelColors.green,
+    ),
   ];
 
   SharedPreferences? _prefs;
 
-  LabelNotifier() : super(const LabelState(labels: [], isLoading: true)) {
+  @override
+  LabelState build() {
     _loadLabels();
+    return const LabelState(labels: [], isLoading: true);
   }
 
   Future<void> _loadLabels() async {
@@ -65,10 +65,7 @@ class LabelNotifier extends StateNotifier<LabelState> {
       labels = List.from(_defaultLabels);
     }
 
-    state = LabelState(
-      labels: labels,
-      isLoading: false,
-    );
+    state = LabelState(labels: labels, isLoading: false);
   }
 
   Future<void> _saveLabels() async {
@@ -97,7 +94,9 @@ class LabelNotifier extends StateNotifier<LabelState> {
     }
 
     final updatedLabel = label.copyWith(name: normalizedName);
-    final newLabels = state.labels.map((l) => l.id == label.id ? updatedLabel : l).toList();
+    final newLabels = state.labels
+        .map((l) => l.id == label.id ? updatedLabel : l)
+        .toList();
     state = state.copyWith(labels: newLabels);
     await _saveLabels();
   }
@@ -109,6 +108,6 @@ class LabelNotifier extends StateNotifier<LabelState> {
   }
 }
 
-final labelProvider = StateNotifierProvider<LabelNotifier, LabelState>((ref) {
-  return LabelNotifier();
-});
+final labelProvider = NotifierProvider<LabelNotifier, LabelState>(
+  LabelNotifier.new,
+);

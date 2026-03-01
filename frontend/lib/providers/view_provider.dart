@@ -59,8 +59,9 @@ class ViewState {
       : null;
 }
 
-class ViewNotifier extends StateNotifier<ViewState> {
-  ViewNotifier() : super(const ViewState());
+class ViewNotifier extends Notifier<ViewState> {
+  @override
+  ViewState build() => const ViewState();
 
   Project? getCurrentProject(List<Project> projects) {
     final project = state.currentProject;
@@ -106,6 +107,6 @@ class ViewNotifier extends StateNotifier<ViewState> {
   }
 }
 
-final viewProvider = StateNotifierProvider<ViewNotifier, ViewState>((ref) {
-  return ViewNotifier();
-});
+final viewProvider = NotifierProvider<ViewNotifier, ViewState>(
+  ViewNotifier.new,
+);
