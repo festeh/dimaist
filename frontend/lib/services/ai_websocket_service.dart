@@ -95,8 +95,7 @@ class AiWebSocketService {
       },
       onDone: () {
         _logger.info('WebSocket connection closed');
-        _cancelResponseTimeout();
-        _onConnectionClosed?.call();
+        _handleDisconnect();
       },
     );
   }
