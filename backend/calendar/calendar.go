@@ -225,12 +225,17 @@ func buildEvent(task *database.Task) *calendar.Event {
 	} else if task.DueTime() != nil {
 		due := task.DueTime()
 		if task.HasTime {
-			// Timed event: due datetime with 1 hour duration
+			// Timed event: use due as start
 			event.Start = &calendar.EventDateTime{
 				DateTime: due.Format(time.RFC3339),
 			}
+			// Use end_datetime if available, otherwise due + 1 hour
+			endTime := due.Add(time.Hour)
+			if task.EndDatetime != nil {
+				endTime = task.EndDatetime.Time
+			}
 			event.End = &calendar.EventDateTime{
-				DateTime: due.Add(time.Hour).Format(time.RFC3339),
+				DateTime: endTime.Format(time.RFC3339),
 			}
 		} else {
 			// All-day event
