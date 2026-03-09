@@ -51,8 +51,8 @@ func (ft FlexibleTime) MarshalJSON() ([]byte, error) {
 	if ft.IsZero() {
 		return []byte("null"), nil
 	}
-	// Minute granularity (no seconds) for cleaner output
-	return json.Marshal(ft.Time.Format("2006-01-02T15:04-07:00"))
+	// Minute granularity, no timezone offset - DB stores wall-clock times as UTC
+	return json.Marshal(ft.Time.UTC().Format("2006-01-02T15:04"))
 }
 
 // Value implements driver.Valuer for GORM
