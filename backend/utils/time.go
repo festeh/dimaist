@@ -8,18 +8,21 @@ import (
 )
 
 // ParseDatetime tries multiple formats to parse datetime strings.
-// For formats without timezone, assumes local timezone.
+// Always returns wall-clock time as UTC, stripping any timezone offset.
+// This ensures "14:00", "14:00+01:00", and "14:00Z" all store as 14:00 UTC
+// in our timezone-naive DB, preserving the intended wall-clock value.
 func ParseDatetime(s string) (time.Time, error) {
-	// Formats with timezone
-	for _, f := range []string{time.RFC3339, time.RFC3339Nano, "2006-01-02T15:04Z07:00", "2006-01-02T15:04:05Z07:00"} {
-		if t, err := time.Parse(f, s); err == nil {
-			return t, nil
-		}
+	formats := []string{
+		time.RFC3339, time.RFC3339Nano,
+		"2006-01-02T15:04Z07:00", "2006-01-02T15:04:05Z07:00",
+		"2006-01-02T15:04:05.000", "2006-01-02T15:04:05", "2006-01-02T15:04",
+		"2006-01-02 15:04:05", "2006-01-02 15:04",
 	}
-	// Formats without timezone - parse in local timezone
-	for _, f := range []string{"2006-01-02T15:04:05.000", "2006-01-02T15:04:05", "2006-01-02T15:04", "2006-01-02 15:04:05", "2006-01-02 15:04"} {
-		if t, err := time.ParseInLocation(f, s, time.Local); err == nil {
-			return t, nil
+	for _, f := range formats {
+		if t, err := time.Parse(f, s); err == nil {
+			// Strip timezone — keep wall-clock value as UTC
+			return time.Date(t.Year(), t.Month(), t.Day(),
+				t.Hour(), t.Minute(), t.Second(), 0, time.UTC), nil
 		}
 	}
 	return time.Time{}, fmt.Errorf("unable to parse datetime: %s", s)
