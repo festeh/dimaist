@@ -34,7 +34,7 @@ func (ta *TimeArray) Scan(value any) error {
 
 	*ta = make(TimeArray, len(timestamps))
 	for i, ts := range timestamps {
-		t, err := time.Parse(time.RFC3339, ts)
+		t, err := utils.ParseDatetime(ts)
 		if err != nil {
 			return err
 		}
