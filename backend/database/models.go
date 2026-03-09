@@ -49,12 +49,12 @@ type Task struct {
 	Description   *string             `json:"description,omitempty"`
 	ProjectID     *uint               `gorm:"index" json:"project_id,omitempty"`
 	Project       *Project            `gorm:"foreignKey:ProjectID" json:"project,omitempty"`
-	Due           *utils.FlexibleTime `json:"due,omitempty"`
+	Due           *utils.FlexibleTime `gorm:"type:timestamptz" json:"due,omitempty"`
 	HasTime       bool                `json:"has_time" gorm:"column:has_time;default:false"`
 	StartDatetime *utils.FlexibleTime `json:"start_datetime,omitempty"`
 	EndDatetime   *utils.FlexibleTime `json:"end_datetime,omitempty"`
 	Labels        pq.StringArray      `gorm:"type:text[]" json:"labels,omitempty"`
-	Reminders     TimeArray           `gorm:"type:timestamp[]" json:"reminders,omitempty"`
+	Reminders     TimeArray           `gorm:"type:timestamptz[]" json:"reminders,omitempty"`
 	Recurrence    string              `json:"recurrence,omitempty"`
 	Order         int                 `gorm:"default:0" json:"order"`
 	CreatedAt     utils.FlexibleTime  `json:"created_at"`

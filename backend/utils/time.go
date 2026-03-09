@@ -7,22 +7,38 @@ import (
 	"time"
 )
 
+// UserLocation is the user's timezone, used when parsing bare datetime strings.
+var UserLocation = func() *time.Location {
+	loc, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		panic("failed to load Europe/Berlin timezone: " + err.Error())
+	}
+	return loc
+}()
+
 // ParseDatetime tries multiple formats to parse datetime strings.
-// Always returns wall-clock time as UTC, stripping any timezone offset.
-// This ensures "14:00", "14:00+01:00", and "14:00Z" all store as 14:00 UTC
-// in our timezone-naive DB, preserving the intended wall-clock value.
+// Strings with timezone info are parsed as-is (proper UTC conversion).
+// Bare strings (no timezone) are assumed to be in the user's timezone.
 func ParseDatetime(s string) (time.Time, error) {
-	formats := []string{
+	// Formats with timezone — parse normally, timezone determines UTC value
+	for _, f := range []string{
 		time.RFC3339, time.RFC3339Nano,
-		"2006-01-02T15:04Z07:00", "2006-01-02T15:04:05Z07:00",
+		"2006-01-02T15:04:05Z07:00", "2006-01-02T15:04Z07:00",
+		"2006-01-02 15:04:05Z07:00",
+		"2006-01-02 15:04:05-07",    // PostgreSQL timestamptz format
+		"2006-01-02 15:04:05.999-07", // PostgreSQL timestamptz with fractional seconds
+	} {
+		if t, err := time.Parse(f, s); err == nil {
+			return t.UTC(), nil
+		}
+	}
+	// Bare strings (no timezone) — assume user's timezone
+	for _, f := range []string{
 		"2006-01-02T15:04:05.000", "2006-01-02T15:04:05", "2006-01-02T15:04",
 		"2006-01-02 15:04:05", "2006-01-02 15:04",
-	}
-	for _, f := range formats {
-		if t, err := time.Parse(f, s); err == nil {
-			// Strip timezone — keep wall-clock value as UTC
-			return time.Date(t.Year(), t.Month(), t.Day(),
-				t.Hour(), t.Minute(), t.Second(), 0, time.UTC), nil
+	} {
+		if t, err := time.ParseInLocation(f, s, UserLocation); err == nil {
+			return t.UTC(), nil
 		}
 	}
 	return time.Time{}, fmt.Errorf("unable to parse datetime: %s", s)
@@ -54,8 +70,8 @@ func (ft FlexibleTime) MarshalJSON() ([]byte, error) {
 	if ft.IsZero() {
 		return []byte("null"), nil
 	}
-	// Minute granularity, no timezone offset - DB stores wall-clock times as UTC
-	return json.Marshal(ft.Time.UTC().Format("2006-01-02T15:04"))
+	// Minute granularity in UTC — frontend converts to local
+	return json.Marshal(ft.Time.UTC().Format("2006-01-02T15:04Z"))
 }
 
 // Value implements driver.Valuer for GORM

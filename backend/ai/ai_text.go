@@ -17,7 +17,7 @@ import (
 type timeMinutes time.Time
 
 func (t timeMinutes) MarshalJSON() ([]byte, error) {
-	return []byte(`"` + time.Time(t).UTC().Format("2006-01-02T15:04") + `"`), nil
+	return []byte(`"` + time.Time(t).In(utils.UserLocation).Format("2006-01-02T15:04") + `"`), nil
 }
 
 // Slim DTOs for AI context (excludes created_at/updated_at/order to reduce token usage)
