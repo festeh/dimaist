@@ -37,7 +37,8 @@ type Session struct {
 	Targets          []TargetSpec
 	SelectedModel    string // model name, empty = not yet selected
 	IncludeCompleted bool
-	CurrentProjectID *uint // Project user is currently viewing (nil = Inbox/all tasks)
+	CurrentProjectID *uint   // Project user is currently viewing (nil = Inbox/all tasks)
+	CurrentView      *string // Built-in view name (e.g. "today", "upcoming")
 	TurnID           int   // Increments each turn, used to filter stale responses
 }
 
@@ -50,6 +51,7 @@ type WSMessage struct {
 	Targets          []TargetSpec            `json:"targets,omitempty"`
 	IncludeCompleted bool                    `json:"include_completed,omitempty"`
 	CurrentProjectID *uint                   `json:"current_project_id,omitempty"`
+	CurrentView      *string                 `json:"current_view,omitempty"`
 
 	// Target identification
 	TargetID string `json:"target_id,omitempty"`
@@ -177,6 +179,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		Targets:          startMsg.Targets,
 		IncludeCompleted: startMsg.IncludeCompleted,
 		CurrentProjectID: startMsg.CurrentProjectID,
+		CurrentView:      startMsg.CurrentView,
 	}
 
 	// Main conversation loop

@@ -52,7 +52,10 @@ func HandleAI(s *Session) error {
 		return err
 	}
 
-	systemPrompt, err := BuildSystemPrompt(tasks, projects, s.CurrentProjectID)
+	systemPrompt, err := BuildSystemPrompt(tasks, projects, &PromptContext{
+		CurrentProjectID: s.CurrentProjectID,
+		CurrentView:      s.CurrentView,
+	})
 	if err != nil {
 		logger.Error("Failed to build system prompt").Err(err).Send()
 		s.WS.SendError("Failed to build system prompt: " + err.Error())

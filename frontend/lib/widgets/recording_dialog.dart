@@ -99,13 +99,16 @@ class _RecordingDialogState extends ConsumerState<RecordingDialog>
         // Use callback if provided (for in-chat recording)
         widget.onAudioRecorded!(bytes);
       } else {
-        // Navigate to new chat screen with current project context
-        final currentProjectId = ref.read(viewProvider).currentProject?.id;
+        // Navigate to new chat screen with current project/view context
+        final viewState = ref.read(viewProvider);
+        final currentProjectId = viewState.currentProject?.id;
+        final currentViewName = viewState.currentCustomView?.type.name;
         navigator.push(
           MaterialPageRoute(
             builder: (context) => AiChatScreen(
               initialAudioBytes: bytes,
               currentProjectId: currentProjectId,
+              currentViewName: currentViewName,
             ),
           ),
         );

@@ -269,6 +269,7 @@ class TaskScreenState extends ConsumerState<TaskScreen> {
           builder: (context) => AiChatScreen(
             initialPrompt: prompt,
             currentProjectId: widget.project?.id,
+            currentViewName: widget.customView?.type.name,
           ),
         ),
       );

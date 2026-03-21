@@ -98,7 +98,14 @@ func toTimeMinutes(t *utils.FlexibleTime) *timeMinutes {
 	return &tm
 }
 
-func BuildSystemPrompt(tasks []database.Task, projects []database.Project, currentProjectID *uint) (string, error) {
+// PromptContext holds context for building the AI system prompt.
+// Used by both the WebSocket session and CLI.
+type PromptContext struct {
+	CurrentProjectID *uint
+	CurrentView      *string
+}
+
+func BuildSystemPrompt(tasks []database.Task, projects []database.Project, ctx *PromptContext) (string, error) {
 	// Convert to slim DTOs to reduce token usage
 	slimTasks := make([]taskForAI, len(tasks))
 	for i, t := range tasks {
@@ -136,14 +143,21 @@ func BuildSystemPrompt(tasks []database.Task, projects []database.Project, curre
 
 	// Build current project context rule if applicable
 	var currentProjectRule string
-	if currentProjectID != nil {
+	if ctx != nil && ctx.CurrentProjectID != nil {
 		// Find project name and check if it's not Inbox
 		for _, p := range projects {
-			if p.ID == *currentProjectID && p.Name != "Inbox" {
+			if p.ID == *ctx.CurrentProjectID && p.Name != "Inbox" {
 				currentProjectRule = fmt.Sprintf("\n8. User is currently viewing project: %s (ID: %d). When creating or editing tasks, use this project unless user specifies otherwise.", p.Name, p.ID)
 				break
 			}
 		}
+	}
+
+	// Build current view context rule if applicable
+	var currentViewRule string
+	if ctx != nil && ctx.CurrentView != nil && *ctx.CurrentView == "today" {
+		today := time.Now().In(utils.UserLocation).Format("2006-01-02")
+		currentViewRule = fmt.Sprintf("\n9. User is currently viewing the Today page. When creating new tasks, set the due date to today (%s) unless the user specifies a different date.", today)
 	}
 
 	tz, _ := time.Now().Zone()
@@ -156,7 +170,7 @@ RULES:
 4. Only complete tasks when user explicitly says they finished something
 5. To sync a task to Google Calendar, add label "calendar"
 6. All datetimes are in %s timezone
-7. When making tool calls, do NOT include any text output - only use tool calls%s
+7. When making tool calls, do NOT include any text output - only use tool calls%s%s
 
 Current time: %s
 
@@ -164,6 +178,6 @@ Tasks: %s
 
 Projects: %s
 `,
-		tz, currentProjectRule, time.Now().Format("2006-01-02T15:04"), tasksJSON, projectsJSON), nil
+		tz, currentProjectRule, currentViewRule, time.Now().Format("2006-01-02T15:04"), tasksJSON, projectsJSON), nil
 }
 

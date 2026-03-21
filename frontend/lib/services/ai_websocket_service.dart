@@ -137,6 +137,7 @@ class AiWebSocketService {
     required List<TargetSpec> targets,
     required bool includeCompleted,
     int? currentProjectId,
+    String? currentViewName,
     List<String>? images,
   }) {
     if (_channel == null) {
@@ -157,6 +158,7 @@ class AiWebSocketService {
       'targets': targets.map((t) => t.toJson()).toList(),
       'include_completed': includeCompleted,
       'current_project_id': ?currentProjectId,
+      'current_view': ?currentViewName,
       'images': ?images,
     };
     _channel!.sink.add(jsonEncode(startMessage));
