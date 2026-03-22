@@ -372,7 +372,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       final includeCompleted = ref.read(includeCompletedInAiProvider);
 
       if (!_wsService.isConnected) {
-        final isReconnect = _history.isNotEmpty || _currentUserMessage != null;
+        final isReconnect = _history.isNotEmpty;
         _wsService.connect(
           baseUrl: baseUrl,
           onMessage: _handleParallelWSMessage,
