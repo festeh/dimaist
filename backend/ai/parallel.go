@@ -110,20 +110,29 @@ func HandleAI(s *Session) error {
 			if result.Error != nil {
 				failedTargets = append(failedTargets, result.TargetID)
 				logger.Info("Model error").Str("target", result.TargetID).Err(result.Error).Send()
-				s.WS.SendModelError(result.TargetID, result.Error.Error(), result.Duration.Seconds(), s.TurnID)
+				if err := s.WS.SendModelError(result.TargetID, result.Error.Error(), result.Duration.Seconds(), s.TurnID); err != nil {
+					logger.Error("Failed to send model error").Str("target", result.TargetID).Err(err).Send()
+					return ErrConnectionClosed
+				}
 			} else {
 				successfulTargets = append(successfulTargets, result.TargetID)
 
 				if len(result.ToolCalls) > 0 {
 					logger.Info("Model tools pending").Str("target", result.TargetID).Int("tools", len(result.ToolCalls)).Send()
-					s.WS.SendToolsPendingForModel(result.TargetID, result.ToolCalls, result.Duration.Seconds(), s.TurnID)
+					if err := s.WS.SendToolsPendingForModel(result.TargetID, result.ToolCalls, result.Duration.Seconds(), s.TurnID); err != nil {
+						logger.Error("Failed to send tools pending").Str("target", result.TargetID).Err(err).Send()
+						return ErrConnectionClosed
+					}
 				} else {
 					responseText := ""
 					if result.Response != nil && len(result.Response.Choices) > 0 {
 						responseText = result.Response.Choices[0].Message.Content.String()
 					}
 					logger.Info("Model response").Str("target", result.TargetID).Send()
-					s.WS.SendModelResponse(result.TargetID, responseText, result.Duration.Seconds(), s.TurnID)
+					if err := s.WS.SendModelResponse(result.TargetID, responseText, result.Duration.Seconds(), s.TurnID); err != nil {
+						logger.Error("Failed to send model response").Str("target", result.TargetID).Err(err).Send()
+						return ErrConnectionClosed
+					}
 				}
 			}
 
@@ -168,7 +177,10 @@ func HandleAI(s *Session) error {
 	}
 
 	logger.Info("All models complete").Int("successful", len(successfulTargets)).Int("failed", len(failedTargets)).Send()
-	s.WS.SendAllComplete(successfulTargets, failedTargets, s.TurnID)
+	if err := s.WS.SendAllComplete(successfulTargets, failedTargets, s.TurnID); err != nil {
+		logger.Error("Failed to send all_complete").Err(err).Send()
+		return ErrConnectionClosed
+	}
 
 	// Wait for user action (all models done, now use channel-based waiting)
 	handleUserAction(s, responsesByTarget, messagesWithSystem)
@@ -267,7 +279,9 @@ func handleToolConfirm(s *Session, results map[string]*ParallelResult, messagesW
 
 	result, ok := results[targetID]
 	if !ok {
-		s.WS.SendError("Unknown target: " + targetID)
+		if err := s.WS.SendError("Unknown target: " + targetID); err != nil {
+			logger.Error("Failed to send error").Err(err).Send()
+		}
 		return
 	}
 
@@ -300,7 +314,11 @@ func handleToolConfirm(s *Session, results map[string]*ParallelResult, messagesW
 				Role: "tool", Content: general.TextContent("Error: " + err.Error()), ToolCallID: toolCallID,
 			})
 		} else {
-			s.WS.SendToolResult(toolResult, duration)
+			if err := s.WS.SendToolResult(toolResult, duration); err != nil {
+				logger.Error("Failed to send tool result").Err(err).Send()
+				s.Messages = messagesWithSystem[1:]
+				return
+			}
 			messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
 				Role: "tool", Content: general.TextContent(toolResult), ToolCallID: toolCallID,
 			})
@@ -339,7 +357,11 @@ func handleToolConfirm(s *Session, results map[string]*ParallelResult, messagesW
 						Role: "tool", Content: general.TextContent("Error: " + err.Error()), ToolCallID: msg.ToolCallID,
 					})
 				} else {
-					s.WS.SendToolResult(toolResult, duration)
+					if err := s.WS.SendToolResult(toolResult, duration); err != nil {
+						logger.Error("Failed to send tool result").Err(err).Send()
+						s.Messages = messagesWithSystem[1:]
+						return
+					}
 					messagesWithSystem = append(messagesWithSystem, ChatCompletionMessage{
 						Role: "tool", Content: general.TextContent(toolResult), ToolCallID: msg.ToolCallID,
 					})
@@ -379,7 +401,9 @@ func handleToolConfirm(s *Session, results map[string]*ParallelResult, messagesW
 func handleModelSelection(s *Session, results map[string]*ParallelResult, targetID string) {
 	result, ok := results[targetID]
 	if !ok {
-		s.WS.SendError("Unknown target: " + targetID)
+		if err := s.WS.SendError("Unknown target: " + targetID); err != nil {
+			logger.Error("Failed to send error").Err(err).Send()
+		}
 		return
 	}
 

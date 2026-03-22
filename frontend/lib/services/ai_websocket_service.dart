@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/ws_message_type.dart';
 import 'logging_service.dart';
@@ -20,6 +21,12 @@ class TargetSpec {
   Map<String, dynamic> toJson() => {'model': model};
 }
 
+String _generateSessionId() {
+  final rng = Random.secure();
+  final bytes = List.generate(16, (_) => rng.nextInt(256));
+  return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+}
+
 /// Service for AI chat communication via WebSocket
 /// Connection stays open for entire chat session.
 class AiWebSocketService {
@@ -31,6 +38,9 @@ class AiWebSocketService {
   WSMessageCallback? _onMessage;
   void Function()? _onConnectionClosed;
   void Function(String)? _onError;
+
+  // Session ID for reconnect — generated once, survives connection drops
+  String sessionId = _generateSessionId();
 
   // Connection state for response timeout
   bool _waitingForResponse = false;
@@ -60,7 +70,7 @@ class AiWebSocketService {
         .replaceFirst('http://', 'ws://')
         .replaceFirst('https://', 'wss://');
     final uri = Uri.parse('$wsUrl/ai');
-    _logger.info('Connecting to WebSocket: $uri');
+    _logger.info('Connecting to WebSocket: $uri (session: $sessionId)');
     _channel = WebSocketChannel.connect(uri);
 
     // Set up message listener once
@@ -131,7 +141,7 @@ class AiWebSocketService {
     }
   }
 
-  /// Send start message (first message of conversation)
+  /// Send start message (first message or reconnect)
   void sendStart({
     required String message,
     required List<TargetSpec> targets,
@@ -146,12 +156,13 @@ class AiWebSocketService {
     }
 
     _logger.info(
-      'Sending start message with ${targets.length} targets, project: $currentProjectId, images: ${images?.length ?? 0}',
+      'Sending start message with ${targets.length} targets, session: $sessionId, images: ${images?.length ?? 0}',
     );
 
     final content = _buildContent(message, images);
     final startMessage = {
       'type': WSMessageType.start.toJson(),
+      'session_id': sessionId,
       'messages': [
         {'role': 'user', 'content': content},
       ],
@@ -238,7 +249,7 @@ class AiWebSocketService {
     _channel!.sink.add(jsonEncode(message));
   }
 
-  /// Close the WebSocket connection
+  /// Close the WebSocket connection and reset session for next conversation
   void close() {
     _logger.info('Closing WebSocket connection');
     _cancelResponseTimeout();
@@ -250,6 +261,7 @@ class AiWebSocketService {
     _onMessage = null;
     _onConnectionClosed = null;
     _onError = null;
+    sessionId = _generateSessionId(); // New session for next conversation
   }
 
   /// Check if connected

@@ -22,8 +22,11 @@ import '../widgets/model_display.dart';
 import '../widgets/model_list_dialog.dart';
 import '../widgets/parallel_response_widget.dart';
 
+/// Items that can appear in the chat history
+sealed class ChatItem {}
+
 /// A conversation turn: user message + selected AI response
-class ConversationTurn {
+class ConversationTurn extends ChatItem {
   final ChatMessage userMessage;
   final ModelResponse? response; // null while waiting, set when finalized
 
@@ -31,6 +34,14 @@ class ConversationTurn {
 
   ConversationTurn withResponse(ModelResponse response) =>
       ConversationTurn(userMessage: userMessage, response: response);
+}
+
+/// A system event shown inline in the chat (e.g. connection lost/restored)
+class SystemEvent extends ChatItem {
+  final String text;
+  final DateTime timestamp;
+
+  SystemEvent(this.text) : timestamp = DateTime.now();
 }
 
 class ChatMessage {
@@ -93,8 +104,8 @@ class AiChatScreen extends ConsumerStatefulWidget {
 }
 
 class _AiChatScreenState extends ConsumerState<AiChatScreen> {
-  // Conversation history (finalized turns)
-  final List<ConversationTurn> _history = [];
+  // Conversation history (turns + system events)
+  final List<ChatItem> _history = [];
 
   // Current turn state (in progress)
   ChatMessage? _currentUserMessage;
@@ -108,7 +119,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   final AiWebSocketService _wsService = AiWebSocketService();
   bool _isProcessing = false;
   bool _hasText = false;
-  bool _conversationStarted = false; // First message sent via sendStart
 
   @override
   void initState() {
@@ -361,17 +371,17 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       final baseUrl = ref.read(apiServiceProvider).baseUrl;
       final includeCompleted = ref.read(includeCompletedInAiProvider);
 
-      // Connect once if not connected
       if (!_wsService.isConnected) {
+        final isReconnect = _history.isNotEmpty || _currentUserMessage != null;
         _wsService.connect(
           baseUrl: baseUrl,
           onMessage: _handleParallelWSMessage,
           onConnectionClosed: () async {
-            // Connection closed (by server or network error)
             setState(() {
               _isProcessing = false;
-              _conversationStarted = false; // Reset for new connection
+              _history.add(SystemEvent('Connection lost'));
             });
+            _scrollToBottom();
             try {
               await ref.read(taskProvider.notifier).syncData();
             } catch (e) {
@@ -385,10 +395,11 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             });
           },
         );
-      }
-
-      // First message uses sendStart, subsequent use sendContinue
-      if (!_conversationStarted) {
+        if (isReconnect) {
+          setState(() {
+            _history.add(SystemEvent('Reconnected'));
+          });
+        }
         _wsService.sendStart(
           message: message,
           targets: targets,
@@ -397,7 +408,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           currentViewName: widget.currentViewName,
           images: images,
         );
-        _conversationStarted = true;
       } else {
         _wsService.sendContinue(message, images: images);
       }
@@ -579,6 +589,26 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     _wsService.confirmTool(targetId, toolCallId, args);
   }
 
+  Widget _buildSystemEvent(SystemEvent event) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.lg,
+        vertical: Spacing.sm,
+      ),
+      child: Center(
+        child: Text(
+          event.text,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTypingIndicator() {
     final colors = Theme.of(context).colorScheme;
 
@@ -596,12 +626,24 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     );
   }
 
+  /// Flat list of history items for rendering (turns expand to 2 items, events to 1)
+  List<Object> get _flatHistoryItems {
+    final items = <Object>[];
+    for (final item in _history) {
+      switch (item) {
+        case ConversationTurn turn:
+          items.add(turn.userMessage);
+          items.add(turn); // response slot
+        case SystemEvent event:
+          items.add(event);
+      }
+    }
+    return items;
+  }
+
   /// Calculate total list item count for history + current turn
   int _getListItemCount() {
-    int count = 0;
-
-    // Each history turn = user message + response (2 items)
-    count += _history.length * 2;
+    int count = _flatHistoryItems.length;
 
     // Current turn user message
     if (_currentUserMessage != null) {
@@ -618,25 +660,23 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     return count;
   }
 
-  /// Build list item at index - renders history turns, then current turn
+  /// Build list item at index - renders history items, then current turn
   Widget _buildListItem(int index, List<dynamic> projects) {
-    // History items: each turn has 2 items (user message at even, response at odd)
-    final historyItemCount = _history.length * 2;
+    final flat = _flatHistoryItems;
 
-    if (index < historyItemCount) {
-      final turnIndex = index ~/ 2;
-      final isUserMessage = index % 2 == 0;
-      final turn = _history[turnIndex];
-
-      if (isUserMessage) {
-        return _buildUserMessage(turn.userMessage);
-      } else {
-        return _buildHistoryResponse(turn.response, projects);
+    if (index < flat.length) {
+      final item = flat[index];
+      if (item is ChatMessage) {
+        return _buildUserMessage(item);
+      } else if (item is ConversationTurn) {
+        return _buildHistoryResponse(item.response, projects);
+      } else if (item is SystemEvent) {
+        return _buildSystemEvent(item);
       }
     }
 
     // Current turn items
-    final currentTurnIndex = index - historyItemCount;
+    final currentTurnIndex = index - flat.length;
 
     // Current user message (index 0 in current turn)
     if (_currentUserMessage != null && currentTurnIndex == 0) {
