@@ -10,6 +10,29 @@ import (
 	"gorm.io/gorm"
 )
 
+// CreateProjectRequest is the request body for creating a project.
+type CreateProjectRequest struct {
+	Name  string  `json:"name" validate:"required"`
+	Color string  `json:"color,omitempty"`
+	Icon  *string `json:"icon,omitempty"`
+	Order int     `json:"order,omitempty"`
+}
+
+// UpdateProjectRequest is the request body for updating a project.
+type UpdateProjectRequest struct {
+	Name  *string `json:"name,omitempty"`
+	Color *string `json:"color,omitempty"`
+	Icon  *string `json:"icon,omitempty"`
+	Order *int    `json:"order,omitempty"`
+}
+
+// @Summary List all projects
+// @ID list_projects
+// @Tags projects
+// @Produce json
+// @Success 200 {array} database.Project
+// @Failure 500 {string} string
+// @Router /projects [get]
 func listProjects(w http.ResponseWriter, r *http.Request) {
 	var projects []database.Project
 	result := database.DB.Preload("Tasks", "deleted_at IS NULL").Where("deleted_at IS NULL").Find(&projects)
@@ -22,6 +45,16 @@ func listProjects(w http.ResponseWriter, r *http.Request) {
 	utils.RespondJSON(w, http.StatusOK, projects)
 }
 
+// @Summary Create a new project
+// @ID create_project
+// @Tags projects
+// @Accept json
+// @Produce json
+// @Param project body CreateProjectRequest true "Project to create"
+// @Success 200 {object} database.Project
+// @Failure 400 {string} string
+// @Failure 500 {string} string
+// @Router /projects [post]
 func createProject(w http.ResponseWriter, r *http.Request) {
 	var p database.Project
 	err := json.NewDecoder(r.Body).Decode(&p)
@@ -47,6 +80,16 @@ func createProject(w http.ResponseWriter, r *http.Request) {
 	utils.RespondJSON(w, http.StatusOK, p)
 }
 
+// @Summary Update a project
+// @ID update_project
+// @Tags projects
+// @Accept json
+// @Param project_id path int true "Project ID"
+// @Param project body UpdateProjectRequest true "Project fields to update"
+// @Success 200
+// @Failure 400 {string} string
+// @Failure 500 {string} string
+// @Router /projects/{project_id} [put]
 func updateProject(w http.ResponseWriter, r *http.Request) {
 	id, ok := utils.ParseProjectID(r, w)
 	if !ok {
@@ -71,6 +114,13 @@ func updateProject(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// @Summary Delete a project
+// @ID delete_project
+// @Tags projects
+// @Param project_id path int true "Project ID"
+// @Success 200
+// @Failure 500 {string} string
+// @Router /projects/{project_id} [delete]
 func deleteProject(w http.ResponseWriter, r *http.Request) {
 	id, ok := utils.ParseProjectID(r, w)
 	if !ok {
@@ -101,6 +151,15 @@ func updateOrderBatch(model any, ids []uint, whereClause string, whereArgs ...an
 	return nil
 }
 
+// @Summary Reorder projects
+// @ID reorder_projects
+// @Tags projects
+// @Accept json
+// @Param project_ids body []uint true "Ordered list of project IDs"
+// @Success 200
+// @Failure 400 {string} string
+// @Failure 500 {string} string
+// @Router /projects-reorder [put]
 func reorderProjects(w http.ResponseWriter, r *http.Request) {
 	var projectIDs []uint
 	err := json.NewDecoder(r.Body).Decode(&projectIDs)
@@ -120,6 +179,16 @@ func reorderProjects(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// @Summary Reorder tasks within a project
+// @ID reorder_project_tasks
+// @Tags projects
+// @Accept json
+// @Param project_id path int true "Project ID"
+// @Param task_ids body []uint true "Ordered list of task IDs"
+// @Success 200
+// @Failure 400 {string} string
+// @Failure 500 {string} string
+// @Router /projects/{project_id}/tasks/reorder [put]
 func reorderTasks(w http.ResponseWriter, r *http.Request) {
 	id, ok := utils.ParseProjectID(r, w)
 	if !ok {

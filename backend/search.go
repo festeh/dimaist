@@ -21,6 +21,15 @@ type FindResponse struct {
 	Count   int            `json:"count"`
 }
 
+// @Summary Search across tasks and projects
+// @ID find_items
+// @Tags search
+// @Produce json
+// @Param q query string true "Search query"
+// @Success 200 {object} FindResponse
+// @Failure 400 {string} string
+// @Failure 500 {string} string
+// @Router /find [get]
 func findItems(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Searching items").Send()
 

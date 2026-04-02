@@ -1,0 +1,3 @@
+replace utils.FlexibleTime string
+replace database.TimeArray []string
+replace pq.StringArray []string

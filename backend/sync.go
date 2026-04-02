@@ -17,6 +17,15 @@ type SyncResponse struct {
 	SyncToken         string             `json:"sync_token"`
 }
 
+// @Summary Sync data with incremental updates
+// @ID sync_data
+// @Tags sync
+// @Produce json
+// @Param sync_token query string false "RFC3339 timestamp for incremental sync"
+// @Success 200 {object} SyncResponse
+// @Failure 400 {string} string
+// @Failure 500 {string} string
+// @Router /sync [get]
 func syncData(w http.ResponseWriter, r *http.Request) {
 	syncToken := r.URL.Query().Get("sync_token")
 

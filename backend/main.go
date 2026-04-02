@@ -8,16 +8,23 @@ import (
 	"dimaist/ai"
 	"dimaist/calendar"
 	"dimaist/database"
+	_ "dimaist/docs"
 	"dimaist/env"
 	"dimaist/logger"
 	"dimaist/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"github.com/joho/godotenv"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 var appEnv *env.Env
 
+// @title Dimaist API
+// @version 1.0
+// @description Task management REST API
+// @host localhost:3000
+// @BasePath /
 func main() {
 	port := flag.String("port", "3000", "Port to run the server on")
 	verbose := flag.Bool("verbose", false, "Enable verbose logging (shows AI request bodies)")
@@ -90,6 +97,7 @@ func main() {
 	r.Get("/ai/models", ai.HandleModels)
 	r.Get("/sync", syncData)
 	r.Get("/find", findItems)
+	r.Get("/swagger/*", httpSwagger.WrapHandler)
 
 	logger.Info("Starting server").Str("port", *port).Send()
 	err = http.ListenAndServe(":"+*port, r)

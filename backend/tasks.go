@@ -12,6 +12,54 @@ import (
 	"gorm.io/gorm"
 )
 
+// CreateTaskRequest is the request body for creating a task.
+type CreateTaskRequest struct {
+	Title         string   `json:"title" validate:"required"`
+	Description   *string  `json:"description,omitempty"`
+	ProjectID     *uint    `json:"project_id,omitempty"`
+	Due           *string  `json:"due,omitempty"`
+	HasTime       bool     `json:"has_time,omitempty"`
+	StartDatetime *string  `json:"start_datetime,omitempty"`
+	EndDatetime   *string  `json:"end_datetime,omitempty"`
+	Labels        []string `json:"labels,omitempty"`
+	Reminders     []string `json:"reminders,omitempty"`
+	Recurrence    string   `json:"recurrence,omitempty"`
+	Order         int      `json:"order,omitempty"`
+}
+
+// UpdateTaskRequest is the request body for updating a task.
+type UpdateTaskRequest struct {
+	Title         *string  `json:"title,omitempty"`
+	Description   *string  `json:"description,omitempty"`
+	ProjectID     *uint    `json:"project_id,omitempty"`
+	Due           *string  `json:"due,omitempty"`
+	HasTime       *bool    `json:"has_time,omitempty"`
+	StartDatetime *string  `json:"start_datetime,omitempty"`
+	EndDatetime   *string  `json:"end_datetime,omitempty"`
+	Labels        []string `json:"labels,omitempty"`
+	Reminders     []string `json:"reminders,omitempty"`
+	Recurrence    *string  `json:"recurrence,omitempty"`
+	Order         *int     `json:"order,omitempty"`
+}
+
+// CreateTaskResponse is the response from creating a task.
+type CreateTaskResponse struct {
+	Task    database.Task `json:"task"`
+	Warning string        `json:"warning,omitempty"`
+}
+
+// UpdateTaskResponse is the response from updating a task.
+type UpdateTaskResponse struct {
+	Warning string `json:"warning,omitempty"`
+}
+
+// @Summary List all tasks
+// @ID list_tasks
+// @Tags tasks
+// @Produce json
+// @Success 200 {array} database.Task
+// @Failure 500 {string} string
+// @Router /tasks [get]
 func listTasks(w http.ResponseWriter, r *http.Request) {
 	var tasks []database.Task
 	result := database.DB.Preload("Project").Where("deleted_at IS NULL").Find(&tasks)
@@ -24,6 +72,15 @@ func listTasks(w http.ResponseWriter, r *http.Request) {
 	utils.RespondJSON(w, http.StatusOK, tasks)
 }
 
+// @Summary Get a task by ID
+// @ID get_task
+// @Tags tasks
+// @Produce json
+// @Param task_id path int true "Task ID"
+// @Success 200 {object} database.Task
+// @Failure 404 {string} string
+// @Failure 500 {string} string
+// @Router /tasks/{task_id} [get]
 func getTask(w http.ResponseWriter, r *http.Request) {
 	id, ok := utils.ParseTaskID(r, w)
 	if !ok {
@@ -45,6 +102,15 @@ func getTask(w http.ResponseWriter, r *http.Request) {
 	utils.RespondJSON(w, http.StatusOK, task)
 }
 
+// @Summary Create a new task
+// @ID create_task
+// @Tags tasks
+// @Accept json
+// @Produce json
+// @Param task body CreateTaskRequest true "Task to create"
+// @Success 200 {object} CreateTaskResponse
+// @Failure 400 {string} string
+// @Router /tasks [post]
 func createTask(w http.ResponseWriter, r *http.Request) {
 	var t database.Task
 	err := json.NewDecoder(r.Body).Decode(&t)
@@ -77,6 +143,17 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 	utils.RespondJSON(w, http.StatusOK, response)
 }
 
+// @Summary Update a task
+// @ID update_task
+// @Tags tasks
+// @Accept json
+// @Produce json
+// @Param task_id path int true "Task ID"
+// @Param task body UpdateTaskRequest true "Task fields to update"
+// @Success 200 {object} UpdateTaskResponse
+// @Failure 400 {string} string
+// @Failure 500 {string} string
+// @Router /tasks/{task_id} [put]
 func updateTask(w http.ResponseWriter, r *http.Request) {
 	id, ok := utils.ParseTaskID(r, w)
 	if !ok {
@@ -124,6 +201,13 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// @Summary Delete a task
+// @ID delete_task
+// @Tags tasks
+// @Param task_id path int true "Task ID"
+// @Success 200
+// @Failure 500 {string} string
+// @Router /tasks/{task_id} [delete]
 func deleteTask(w http.ResponseWriter, r *http.Request) {
 	id, ok := utils.ParseTaskID(r, w)
 	if !ok {
@@ -146,6 +230,14 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// @Summary Mark a task as complete
+// @ID complete_task
+// @Tags tasks
+// @Param task_id path int true "Task ID"
+// @Success 200
+// @Failure 404 {string} string
+// @Failure 500 {string} string
+// @Router /tasks/{task_id}/complete [post]
 func completeTask(w http.ResponseWriter, r *http.Request) {
 	id, ok := utils.ParseTaskID(r, w)
 	if !ok {
