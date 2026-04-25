@@ -1,0 +1,12 @@
+[project]
+name = "dimaist-client"
+version = "0.1.0"
+description = "Dimaist API client — auto-generated from swagger.json"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
