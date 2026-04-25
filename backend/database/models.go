@@ -100,6 +100,14 @@ func CreateTask(task *Task) error {
 		return err
 	}
 
+	// Default to Inbox if no project specified
+	if task.ProjectID == nil {
+		var inbox Project
+		if err := DB.Where("name = ? AND deleted_at IS NULL", "Inbox").First(&inbox).Error; err == nil {
+			task.ProjectID = &inbox.ID
+		}
+	}
+
 	// Set order if not provided
 	if task.Order == 0 {
 		var maxOrder int

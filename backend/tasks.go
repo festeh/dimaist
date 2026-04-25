@@ -4,13 +4,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"dimaist/calendar"
 	"dimaist/database"
 	"dimaist/logger"
 	"dimaist/utils"
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
+
+// parseDueString parses a due string accepting either YYYY-MM-DD (date-only,
+// hasTime=false) or RFC3339 datetime (hasTime=true).
+func parseDueString(s string) (*time.Time, bool, error) {
+	if due, err := time.Parse("2006-01-02", s); err == nil {
+		return &due, false, nil
+	}
+	if due, err := utils.ParseDatetime(s); err == nil {
+		return &due, true, nil
+	}
+	return nil, false, fmt.Errorf("invalid due format, use YYYY-MM-DD or RFC3339 datetime")
+}
 
 // CreateTaskRequest is the request body for creating a task.
 type CreateTaskRequest struct {
@@ -160,30 +174,126 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var t database.Task
-	err := json.NewDecoder(r.Body).Decode(&t)
-	if err != nil {
+	var req UpdateTaskRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logger.Error("Failed to decode task update request").Err(err).Send()
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if err := database.ValidateLabels(t.Labels); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	var existing database.Task
+	if err := database.DB.Where("id = ? AND deleted_at IS NULL", id).First(&existing).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			http.Error(w, "Task not found", http.StatusNotFound)
+			return
+		}
+		logger.Error("Failed to fetch task").Uint("task_id", id).Err(err).Send()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if err := utils.ValidateTaskRecurrence(t.Recurrence, t.DueTime()); err != nil {
+	updates := map[string]any{}
+
+	if req.Title != nil {
+		updates["title"] = *req.Title
+	}
+	if req.Description != nil {
+		updates["description"] = req.Description
+	}
+	if req.ProjectID != nil {
+		updates["project_id"] = req.ProjectID
+	}
+	if req.HasTime != nil {
+		updates["has_time"] = *req.HasTime
+	}
+	if req.Order != nil {
+		updates["order"] = *req.Order
+	}
+	if req.Recurrence != nil {
+		updates["recurrence"] = *req.Recurrence
+	}
+
+	dueForRecurrence := existing.DueTime()
+	if req.Due != nil {
+		if *req.Due == "" {
+			updates["due"] = nil
+			dueForRecurrence = nil
+		} else {
+			due, hasTime, err := parseDueString(*req.Due)
+			if err != nil {
+				utils.RespondValidationError(w, "due", err.Error())
+				return
+			}
+			updates["due"] = utils.NewFlexibleTimePtr(due)
+			if req.HasTime == nil {
+				updates["has_time"] = hasTime
+			}
+			dueForRecurrence = due
+		}
+	}
+
+	if req.StartDatetime != nil {
+		if *req.StartDatetime == "" {
+			updates["start_datetime"] = nil
+		} else {
+			t, err := utils.ParseDatetime(*req.StartDatetime)
+			if err != nil {
+				utils.RespondValidationError(w, "start_datetime", err.Error())
+				return
+			}
+			updates["start_datetime"] = utils.NewFlexibleTime(t)
+		}
+	}
+	if req.EndDatetime != nil {
+		if *req.EndDatetime == "" {
+			updates["end_datetime"] = nil
+		} else {
+			t, err := utils.ParseDatetime(*req.EndDatetime)
+			if err != nil {
+				utils.RespondValidationError(w, "end_datetime", err.Error())
+				return
+			}
+			updates["end_datetime"] = utils.NewFlexibleTime(t)
+		}
+	}
+
+	if req.Labels != nil {
+		if err := database.ValidateLabels(req.Labels); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		updates["labels"] = pq.StringArray(req.Labels)
+	}
+
+	if req.Reminders != nil {
+		reminders := make(database.TimeArray, len(req.Reminders))
+		for i, s := range req.Reminders {
+			t, err := utils.ParseDatetime(s)
+			if err != nil {
+				utils.RespondValidationError(w, "reminders", err.Error())
+				return
+			}
+			reminders[i] = t
+		}
+		updates["reminders"] = reminders
+	}
+
+	recurrence := existing.Recurrence
+	if req.Recurrence != nil {
+		recurrence = *req.Recurrence
+	}
+	if err := utils.ValidateTaskRecurrence(recurrence, dueForRecurrence); err != nil {
 		utils.RespondValidationError(w, "recurrence", err.Error())
 		return
 	}
 
-	t.ID = id
-	result := database.DB.Model(&t).Where("id = ? AND deleted_at IS NULL", id).Select("*").Omit("id", "google_event_id").Updates(t)
-	if result.Error != nil {
-		logger.Error("Failed to update task").Uint("task_id", id).Err(result.Error).Send()
-		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
-		return
+	if len(updates) > 0 {
+		result := database.DB.Model(&database.Task{}).Where("id = ? AND deleted_at IS NULL", id).Updates(updates)
+		if result.Error != nil {
+			logger.Error("Failed to update task").Uint("task_id", id).Err(result.Error).Send()
+			http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	var calendarWarning string
