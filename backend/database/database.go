@@ -92,9 +92,8 @@ func InitDB(databaseURL string) error {
 		return err
 	}
 
-	logger.Info("Database migrations completed successfully").Send()
-
-	// Ensure Inbox project exists
+	// Ensure Inbox project exists (must precede the project_id NOT NULL
+	// migration so any orphan tasks have somewhere to be reparented to).
 	var inboxProject Project
 	result := DB.Where("name = ?", "Inbox").First(&inboxProject)
 	if result.Error != nil {
@@ -117,6 +116,14 @@ func InitDB(databaseURL string) error {
 	} else {
 		logger.Info("Inbox project already exists").Send()
 	}
+
+	// Lock the door: tasks.project_id is NOT NULL going forward.
+	if err := migrateTaskProjectIDNotNull(); err != nil {
+		logger.Error("Failed to enforce tasks.project_id NOT NULL").Err(err).Send()
+		return err
+	}
+
+	logger.Info("Database migrations completed successfully").Send()
 
 	return nil
 }

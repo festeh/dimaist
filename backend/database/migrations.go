@@ -48,6 +48,33 @@ func migrateRevision() error {
 	return nil
 }
 
+// migrateTaskProjectIDNotNull enforces that tasks.project_id is NOT NULL.
+//
+// The backend's CreateTask helper is supposed to default to Inbox when
+// project_id is unset, but bypass paths (direct DB.Create, broken Inbox
+// lookup) have leaked in 32+ orphan rows over time. The DB-level
+// constraint is the only path that catches all writers.
+//
+// Idempotent: SET NOT NULL is a no-op if the column already has it. If
+// any orphan rows still exist, they're reparented to Inbox first (or the
+// migration fails loudly when no Inbox is available — surface the bug).
+func migrateTaskProjectIDNotNull() error {
+	if err := DB.Exec(`
+		UPDATE tasks
+		SET project_id = (
+			SELECT id FROM projects WHERE name = 'Inbox' AND deleted_at IS NULL LIMIT 1
+		)
+		WHERE project_id IS NULL
+	`).Error; err != nil {
+		return err
+	}
+	if err := DB.Exec(`ALTER TABLE tasks ALTER COLUMN project_id SET NOT NULL`).Error; err != nil {
+		return err
+	}
+	logger.Info("tasks.project_id NOT NULL constraint enforced").Send()
+	return nil
+}
+
 // migrateDueFields migrates from separate due_date/due_datetime columns
 // to a unified due + has_time schema. Safe to run multiple times.
 func migrateDueFields() error {
