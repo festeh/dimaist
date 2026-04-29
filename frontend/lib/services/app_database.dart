@@ -396,16 +396,18 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> applySyncResponse(SyncResponse response) async {
     for (var project in response.projects) {
-      await upsertProject(project);
+      if (project.deletedAt != null && project.id != null) {
+        await deleteProject(project.id!);
+      } else {
+        await upsertProject(project);
+      }
     }
     for (var task in response.tasks) {
-      await upsertTask(task);
-    }
-    for (var projectId in response.deletedProjectIds) {
-      await deleteProject(projectId);
-    }
-    for (var taskId in response.deletedTaskIds) {
-      await deleteTask(taskId);
+      if (task.deletedAt != null && task.id != null) {
+        await deleteTask(task.id!);
+      } else {
+        await upsertTask(task);
+      }
     }
   }
 

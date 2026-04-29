@@ -57,6 +57,7 @@ type Task struct {
 	Reminders     TimeArray           `gorm:"type:timestamptz[]" json:"reminders,omitempty"`
 	Recurrence    string              `json:"recurrence,omitempty"`
 	Order         int                 `gorm:"default:0" json:"order"`
+	Revision      int64               `gorm:"not null;default:0;index" json:"revision"`
 	CreatedAt     utils.FlexibleTime  `json:"created_at"`
 	UpdatedAt     utils.FlexibleTime  `json:"updated_at"`
 	DeletedAt     *utils.FlexibleTime `gorm:"index" json:"deleted_at,omitempty"`
@@ -73,12 +74,13 @@ func (t *Task) DueTime() *time.Time {
 }
 
 type Project struct {
-	ID        uint       `gorm:"primaryKey" json:"id"`
-	Name      string     `gorm:"not null" json:"name"`
-	Color     string     `gorm:"default:'gray'" json:"color,omitempty"`
-	Icon      *string    `json:"icon,omitempty"`
-	Order     int        `gorm:"default:0" json:"order"`
-	Tasks     []Task     `gorm:"foreignKey:ProjectID" json:"tasks,omitempty"`
+	ID        uint                `gorm:"primaryKey" json:"id"`
+	Name      string              `gorm:"not null" json:"name"`
+	Color     string              `gorm:"default:'gray'" json:"color,omitempty"`
+	Icon      *string             `json:"icon,omitempty"`
+	Order     int                 `gorm:"default:0" json:"order"`
+	Tasks     []Task              `gorm:"foreignKey:ProjectID" json:"tasks,omitempty"`
+	Revision  int64               `gorm:"not null;default:0;index" json:"revision"`
 	CreatedAt utils.FlexibleTime  `json:"created_at"`
 	UpdatedAt utils.FlexibleTime  `json:"updated_at"`
 	DeletedAt *utils.FlexibleTime `gorm:"index" json:"deleted_at,omitempty"`

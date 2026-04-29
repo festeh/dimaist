@@ -77,6 +77,21 @@ func InitDB(databaseURL string) error {
 		return err
 	}
 
+	// Install revision column, sequence, and trigger powering /sync.
+	// Must run after AutoMigrate so the column exists before the trigger
+	// references it.
+	if err := migrateRevision(); err != nil {
+		logger.Error("Failed to migrate revision").Err(err).Send()
+		return err
+	}
+
+	// Attach advisory-lock callbacks to every write so /sync can read
+	// against a stable revision sequence.
+	if err := RegisterSyncCallbacks(DB); err != nil {
+		logger.Error("Failed to register sync callbacks").Err(err).Send()
+		return err
+	}
+
 	logger.Info("Database migrations completed successfully").Send()
 
 	// Ensure Inbox project exists

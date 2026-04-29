@@ -175,10 +175,20 @@ class TaskNotifier extends AsyncNotifier<TaskViewData> {
 
   Future<void> _syncFromServer() async {
     final prefs = await SharedPreferences.getInstance();
-    final syncToken = prefs.getString('sync_token');
-    final syncResponse = await _api.fetchSyncData(syncToken);
-    await _db.applySyncResponse(syncResponse);
-    await prefs.setString('sync_token', syncResponse.syncToken);
+    String? token = prefs.getString('sync_token');
+    // Tokens used to be RFC3339; now they're integer strings. Anything
+    // that doesn't parse as int is from the old format — drop it and
+    // do a fresh full sync from 0.
+    if (token != null && int.tryParse(token) == null) {
+      token = null;
+    }
+    while (true) {
+      final response = await _api.fetchSyncData(token);
+      await _db.applySyncResponse(response);
+      token = response.syncToken;
+      await prefs.setString('sync_token', token);
+      if (!response.hasMore) break;
+    }
   }
 
   Future<Project?> getDefaultProjectForToday() async {

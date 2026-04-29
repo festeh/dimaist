@@ -22,10 +22,19 @@ class ProjectNotifier extends AsyncNotifier<List<Project>> {
       prefs.remove('sync_token');
     }
 
-    final syncToken = prefs.getString('sync_token');
-    final syncResponse = await _api.fetchSyncData(syncToken);
-    await _db.applySyncResponse(syncResponse);
-    await prefs.setString('sync_token', syncResponse.syncToken);
+    String? token = prefs.getString('sync_token');
+    // Old RFC3339 tokens won't parse as int — treat them as missing so
+    // the new endpoint full-syncs from 0.
+    if (token != null && int.tryParse(token) == null) {
+      token = null;
+    }
+    while (true) {
+      final response = await _api.fetchSyncData(token);
+      await _db.applySyncResponse(response);
+      token = response.syncToken;
+      await prefs.setString('sync_token', token);
+      if (!response.hasMore) break;
+    }
 
     return _db.allProjects;
   }

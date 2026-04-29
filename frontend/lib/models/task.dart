@@ -17,6 +17,10 @@ class Task {
   final String? recurrence;
   final DateTime? createdAt;
 
+  /// Set when the server reports this row as soft-deleted via /sync.
+  /// Not persisted to the local DB — used only by the sync apply step.
+  final DateTime? deletedAt;
+
   Task({
     this.id,
     required this.title,
@@ -32,6 +36,7 @@ class Task {
     List<DateTime>? reminders,
     this.recurrence,
     this.createdAt,
+    this.deletedAt,
   }) : _startDatetime = startDatetime,
        _endDatetime = endDatetime,
        _labels = labels,
@@ -129,6 +134,7 @@ class Task {
             : [],
         recurrence: json['recurrence'],
         createdAt: _parseDate(json['created_at']),
+        deletedAt: _parseDate(json['deleted_at']),
       );
     } catch (e) {
       LoggingService.logger.severe(

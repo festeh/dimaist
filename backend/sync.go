@@ -2,106 +2,67 @@ package main
 
 import (
 	"net/http"
-	"time"
+	"strconv"
 
 	"dimaist/database"
 	"dimaist/logger"
+	"dimaist/sync"
 	"dimaist/utils"
 )
 
+// SyncResponse mirrors sync.Page with the token serialized as a string,
+// since JSON numbers lose precision for large int64 values in some clients.
 type SyncResponse struct {
-	Projects          []database.Project `json:"projects"`
-	Tasks             []database.Task    `json:"tasks"`
-	DeletedProjectIds []uint             `json:"deleted_project_ids"`
-	DeletedTaskIds    []uint             `json:"deleted_task_ids"`
-	SyncToken         string             `json:"sync_token"`
+	Projects  []database.Project `json:"projects"`
+	Tasks     []database.Task    `json:"tasks"`
+	SyncToken string             `json:"sync_token"`
+	HasMore   bool               `json:"has_more"`
 }
 
 // @Summary Sync data with incremental updates
 // @ID sync_data
 // @Tags sync
 // @Produce json
-// @Param sync_token query string false "RFC3339 timestamp for incremental sync"
+// @Param sync_token query string false "Opaque revision cursor; empty or 0 means full sync"
+// @Param limit query int false "Max rows per table (default 1000)"
 // @Success 200 {object} SyncResponse
 // @Failure 400 {string} string
 // @Failure 500 {string} string
 // @Router /sync [get]
 func syncData(w http.ResponseWriter, r *http.Request) {
-	syncToken := r.URL.Query().Get("sync_token")
-
-	var projects []database.Project
-	var tasks []database.Task
-	var deletedProjectIds []uint
-	var deletedTaskIds []uint
-
-	var syncTime time.Time
-	if syncToken != "" {
-		var err error
-		syncTime, err = time.Parse(time.RFC3339, syncToken)
-		if err != nil {
-			logger.Error("Invalid sync token format").Str("sync_token", syncToken).Err(err).Send()
-			http.Error(w, "Invalid sync token format", http.StatusBadRequest)
+	tokenStr := r.URL.Query().Get("sync_token")
+	var token int64
+	if tokenStr != "" {
+		t, err := strconv.ParseInt(tokenStr, 10, 64)
+		if err != nil || t < 0 {
+			logger.Error("Invalid sync token").Str("sync_token", tokenStr).Send()
+			http.Error(w, "Invalid sync_token: must be a non-negative integer", http.StatusBadRequest)
 			return
 		}
+		token = t
 	}
 
-	projectQuery := database.DB.Preload("Tasks", "deleted_at IS NULL").Where("deleted_at IS NULL")
-	if syncToken != "" {
-		projectQuery = projectQuery.Where("updated_at > ?", syncTime)
+	limit := 0
+	if s := r.URL.Query().Get("limit"); s != "" {
+		n, err := strconv.Atoi(s)
+		if err != nil || n <= 0 {
+			http.Error(w, "Invalid limit: must be a positive integer", http.StatusBadRequest)
+			return
+		}
+		limit = n
 	}
 
-	result := projectQuery.Find(&projects)
-	if result.Error != nil {
-		logger.Error("Failed to retrieve projects").Err(result.Error).Send()
-		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+	page, err := sync.Read(r.Context(), token, limit)
+	if err != nil {
+		logger.Error("Sync failed").Err(err).Send()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	taskQuery := database.DB.Preload("Project").Where("deleted_at IS NULL")
-	if syncToken != "" {
-		taskQuery = taskQuery.Where("updated_at > ?", syncTime)
-	}
-
-	result = taskQuery.Find(&tasks)
-	if result.Error != nil {
-		logger.Error("Failed to retrieve tasks").Err(result.Error).Send()
-		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if syncToken != "" {
-		var deletedProjects []database.Project
-		result = database.DB.Select("id").Where("deleted_at > ?", syncTime).Find(&deletedProjects)
-		if result.Error != nil {
-			logger.Error("Failed to retrieve deleted projects").Err(result.Error).Send()
-			http.Error(w, result.Error.Error(), http.StatusInternalServerError)
-			return
-		}
-		for _, p := range deletedProjects {
-			deletedProjectIds = append(deletedProjectIds, p.ID)
-		}
-
-		var deletedTasks []database.Task
-		result = database.DB.Select("id").Where("deleted_at > ?", syncTime).Find(&deletedTasks)
-		if result.Error != nil {
-			logger.Error("Failed to retrieve deleted tasks").Err(result.Error).Send()
-			http.Error(w, result.Error.Error(), http.StatusInternalServerError)
-			return
-		}
-		for _, t := range deletedTasks {
-			deletedTaskIds = append(deletedTaskIds, t.ID)
-		}
-	}
-
-	newSyncToken := time.Now().Format(time.RFC3339)
-
-	response := SyncResponse{
-		Projects:          projects,
-		Tasks:             tasks,
-		DeletedProjectIds: deletedProjectIds,
-		DeletedTaskIds:    deletedTaskIds,
-		SyncToken:         newSyncToken,
-	}
-
-	utils.RespondJSON(w, http.StatusOK, response)
+	utils.RespondJSON(w, http.StatusOK, SyncResponse{
+		Projects:  page.Projects,
+		Tasks:     page.Tasks,
+		SyncToken: strconv.FormatInt(page.SyncToken, 10),
+		HasMore:   page.HasMore,
+	})
 }

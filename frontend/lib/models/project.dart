@@ -5,21 +5,28 @@ class Project {
   final String color;
   final String? icon;
 
+  /// Set when the server reports this row as soft-deleted via /sync.
+  /// Not persisted to the local DB — used only by the sync apply step.
+  final DateTime? deletedAt;
+
   Project({
     this.id,
     required this.name,
     required this.order,
     required this.color,
     this.icon,
+    this.deletedAt,
   });
 
   factory Project.fromJson(Map<String, dynamic> json) {
+    final deletedRaw = json['deleted_at'] as String?;
     return Project(
       id: json['id'],
       name: json['name'],
       order: json['order'],
       color: json['color'] ?? 'grey',
       icon: json['icon'],
+      deletedAt: deletedRaw != null ? DateTime.tryParse(deletedRaw) : null,
     );
   }
 

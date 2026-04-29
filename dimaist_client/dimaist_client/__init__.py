@@ -88,12 +88,14 @@ def reorder_project_tasks(project_id: int, items: list[int]) -> None:
     _check(r)
 
 
-def sync_data(sync_token: str | None = None) -> dict:
+def sync_data(sync_token: str | None = None, limit: int | None = None) -> dict:
     """Sync data with incremental updates."""
     url = _url("/sync")
-    params = {}
+    params: dict = {}
     if sync_token is not None:
         params["sync_token"] = sync_token
+    if limit is not None:
+        params["limit"] = limit
     r = httpx.get(url, params=params)
     _check(r)
     return r.json()
