@@ -64,9 +64,23 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final projectAsyncValue = ref.watch(projectProvider);
+    final isSyncing = ref.watch(syncingProvider);
 
     return projectAsyncValue.when(
-      data: (projects) => AppScaffold(projects: projects),
+      data: (projects) => Stack(
+        children: [
+          AppScaffold(projects: projects),
+          if (isSyncing)
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: LinearProgressIndicator(minHeight: 2),
+              ),
+            ),
+        ],
+      ),
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (error, stack) => Scaffold(

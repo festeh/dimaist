@@ -247,7 +247,9 @@ class TaskNotifier extends AsyncNotifier<TaskViewData> {
     }
   }
 
-  Future<void> _reloadCurrentTasks() async {
+  Future<void> _reloadCurrentTasks() => reloadCurrentTasks();
+
+  Future<void> reloadCurrentTasks() async {
     final currentData = state.value;
     if (currentData == null) return;
 
